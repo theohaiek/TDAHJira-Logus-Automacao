@@ -1,0 +1,36 @@
+# Subida em um servidor com Docker.
+#
+#   docker compose up -d
+#
+# Nenhuma credencial aqui dentro. As senhas do aplicativo são sorteadas na
+# primeira execução e ficam apenas como hash, dentro do volume.
+
+services:
+  tdah-logus:
+    build: .
+    image: tdah-logus:1.0.0
+    container_name: tdah-logus
+    restart: unless-stopped
+
+    # Só o laço local. Quem publica na internet é o proxy reverso à frente,
+    # que também termina o HTTPS — expor a porta direto deixaria o serviço
+    # aberto sem cifra.
+    ports:
+      - "127.0.0.1:4173:4173"
+
+    volumes:
+      - tdah-dados:/data
+
+    environment:
+      # Informa que a conexão chega cifrada, para que o cookie de sessão
+      # receba o atributo Secure. Deixe em "http" se não houver HTTPS.
+      - TRUST_PROXY_PROTO=https
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  tdah-dados:

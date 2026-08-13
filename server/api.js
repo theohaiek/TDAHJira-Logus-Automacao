@@ -403,8 +403,18 @@ async function login(req, res) {
 // O atributo Secure só pode ser ligado quando a conexão é de fato cifrada:
 // marcá-lo em HTTP simples faz o navegador descartar o cookie, e ninguém mais
 // consegue entrar.
+//
+// Atrás de um proxy reverso, o processo enxerga HTTP mesmo quando o navegador
+// falou HTTPS. O cabeçalho enviado pelo proxy resolve — mas só é levado a
+// sério quando a instância declara que existe um proxy à frente, senão
+// qualquer cliente poderia forjá-lo.
 function httpsAtivo(req) {
-  return Boolean(req.socket.encrypted) || req.headers["x-forwarded-proto"] === "https";
+  if (req.socket.encrypted) return true;
+  if (process.env.TRUST_PROXY_PROTO === "https") return true;
+  if (process.env.TRUST_PROXY_PROTO) {
+    return req.headers["x-forwarded-proto"] === "https";
+  }
+  return false;
 }
 
 function logout(req, res) {

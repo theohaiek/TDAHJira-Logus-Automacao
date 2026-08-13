@@ -1,0 +1,14 @@
+# Nada de dado de instância, credencial ou histórico dentro da imagem.
+data/
+.env
+.env.*
+!.env.example
+.git/
+.gitignore
+node_modules/
+tests/
+docs/
+wordpress/
+*.md
+Dockerfile
+compose.yaml
