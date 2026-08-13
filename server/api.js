@@ -3,8 +3,6 @@
 // com as mesmas formas de entrada e saída, para que o mesmo front sirva aos
 // dois modos.
 
-import { createReadStream, existsSync } from "node:fs";
-import { join } from "node:path";
 import { all, one, run, insert, nowIso, today, getSetting, setSetting } from "./db.js";
 import {
   COOKIE,
@@ -46,6 +44,7 @@ import {
   deleteComment,
   listAttachments,
   getAttachment,
+  readAttachment,
   saveAttachment,
   deleteAttachment,
   isInline,
@@ -53,7 +52,6 @@ import {
 } from "./comments.js";
 import { taskTimeline, recentActivity, cursor, changedSince, logEvent } from "./events.js";
 import { readJson, readBody, sendJson, sendError, cookieHeader } from "./http.js";
-import { UPLOAD_DIR } from "./paths.js";
 
 export async function handleApi(req, res, { path, query, user }) {
   const seg = path.split("/").filter(Boolean); // ["api", ...]
@@ -70,20 +68,28 @@ export async function handleApi(req, res, { path, query, user }) {
 
   // --- Estado completo -----------------------------------------------------
   if (head === "state" && method === "GET") {
-    return sendJson(res, 200, snapshot(user));
+    return sendJson(res, 200, await snapshot(user));
   }
 
   // Sincronização incremental: o próprio log de eventos é o cursor.
   if (head === "sync" && method === "GET") {
     const from = Number(query.get("cursor") || 0);
-    const now = cursor();
+    const now = await cursor();
     if (now === from) return sendJson(res, 200, { cursor: now, tasks: [], events: [] });
-    const ids = changedSince(from);
+
+    const ids = await changedSince(from);
+    const vivas = await tasksByIds(ids);
+
+    // O que mudou mas não voltou na consulta foi apagado. Deduzir daqui evita
+    // uma consulta por identificador, que no modo hospedado seria uma ida à
+    // rede para cada tarefa tocada.
+    const presentes = new Set(vivas.map((t) => t.id));
+
     return sendJson(res, 200, {
       cursor: now,
-      tasks: tasksByIds(ids),
-      removed: ids.filter((id) => !one("SELECT id FROM tasks WHERE id = ?", [id])),
-      events: recentActivity(40),
+      tasks: vivas,
+      removed: ids.filter((id) => !presentes.has(id)),
+      events: await recentActivity(40),
     });
   }
 
@@ -94,72 +100,72 @@ export async function handleApi(req, res, { path, query, user }) {
     if (!parts[1]) {
       if (method === "GET")
         return sendJson(res, 200, {
-          tasks: listTasks({ includeArchived: query.get("archived") === "1" }),
+          tasks: await listTasks({ includeArchived: query.get("archived") === "1" }),
         });
       if (method === "POST") {
         const body = await readJson(req);
-        return sendJson(res, 201, { task: createTask(body, user.id) });
+        return sendJson(res, 201, { task: await createTask(body, user.id) });
       }
     }
 
     if (id && parts.length === 2) {
       if (method === "GET") {
-        const task = getTaskFull(id);
+        const task = await getTaskFull(id);
         if (!task) return sendError(res, 404, "Tarefa não encontrada.");
         return sendJson(res, 200, {
           task,
-          comments: listComments(id),
-          attachments: listAttachments(id),
-          timeline: taskTimeline(id),
+          comments: await listComments(id),
+          attachments: await listAttachments(id),
+          timeline: await taskTimeline(id),
         });
       }
       if (method === "PATCH") {
         const body = await readJson(req);
-        if (Array.isArray(body.labels)) setLabels(id, body.labels, user.id);
-        const task = updateTask(id, body, user.id);
+        if (Array.isArray(body.labels)) await setLabels(id, body.labels, user.id);
+        const task = await updateTask(id, body, user.id);
         return sendJson(res, 200, { task });
       }
       if (method === "DELETE") {
         if (user.role !== "admin") return sendError(res, 403, "Apenas administradores apagam tarefas.");
-        deleteTask(id);
+        await deleteTask(id);
         return sendJson(res, 200, { ok: true });
       }
     }
 
     if (id && parts[2] === "move" && method === "POST") {
       const body = await readJson(req);
-      return sendJson(res, 200, { task: moveTask(id, body, user.id) });
+      return sendJson(res, 200, { task: await moveTask(id, body, user.id) });
     }
 
     // --- Passos ------------------------------------------------------------
     if (id && parts[2] === "steps") {
       if (method === "POST") {
         const body = await readJson(req);
-        addStep(id, body.text, user.id);
-        return sendJson(res, 201, { task: getTaskFull(id) });
+        await addStep(id, body.text, user.id);
+        return sendJson(res, 201, { task: await getTaskFull(id) });
       }
       const stepId = Number(parts[3]);
       if (stepId && method === "PATCH") {
         const body = await readJson(req);
-        toggleStep(stepId, !!body.done, user.id);
-        return sendJson(res, 200, { task: getTaskFull(id) });
+        await toggleStep(stepId, !!body.done, user.id);
+        return sendJson(res, 200, { task: await getTaskFull(id) });
       }
       if (stepId && method === "DELETE") {
-        removeStep(stepId, user.id);
-        return sendJson(res, 200, { task: getTaskFull(id) });
+        await removeStep(stepId, user.id);
+        return sendJson(res, 200, { task: await getTaskFull(id) });
       }
     }
 
     // --- Comentários -------------------------------------------------------
     if (id && parts[2] === "comments") {
-      if (method === "GET") return sendJson(res, 200, { comments: listComments(id) });
+      if (method === "GET") return sendJson(res, 200, { comments: await listComments(id) });
       if (method === "POST") {
         const body = await readJson(req);
-        addComment(id, body.body, user.id);
+        await addComment(id, body.body, user.id);
         return sendJson(res, 201, {
-          comments: listComments(id),
-          task: getTaskFull(id),
-          timeline: taskTimeline(id),
+          comments: await listComments(id),
+          task: await getTaskFull(id),
+          timeline: await taskTimeline(id),
         });
       }
     }
@@ -172,7 +178,7 @@ export async function handleApi(req, res, { path, query, user }) {
       const name = decodeURIComponent(String(req.headers["x-file-name"] || "anexo"));
       const commentId = req.headers["x-comment-id"] ? Number(req.headers["x-comment-id"]) : null;
       const buffer = await readBody(req, MAX_UPLOAD + 1024);
-      const att = saveAttachment({
+      const att = await saveAttachment({
         taskId: id,
         commentId,
         buffer,
@@ -180,11 +186,11 @@ export async function handleApi(req, res, { path, query, user }) {
         originalName: name,
         actorId: user.id,
       });
-      return sendJson(res, 201, { attachment: att, task: getTaskFull(id) });
+      return sendJson(res, 201, { attachment: att, task: await getTaskFull(id) });
     }
 
     if (id && parts[2] === "timeline" && method === "GET") {
-      return sendJson(res, 200, { timeline: taskTimeline(id) });
+      return sendJson(res, 200, { timeline: await taskTimeline(id) });
     }
   }
 
@@ -193,86 +199,90 @@ export async function handleApi(req, res, { path, query, user }) {
     const cid = Number(parts[1]);
     if (method === "PATCH") {
       const body = await readJson(req);
-      const c = editComment(cid, body.body, user.id);
-      return sendJson(res, 200, { comments: listComments(c.task_id) });
+      const c = await editComment(cid, body.body, user.id);
+      return sendJson(res, 200, { comments: await listComments(c.task_id) });
     }
     if (method === "DELETE") {
-      const c = one("SELECT task_id FROM comments WHERE id = ?", [cid]);
-      deleteComment(cid, user);
-      return sendJson(res, 200, { comments: c ? listComments(c.task_id) : [] });
+      const c = await one("SELECT task_id FROM comments WHERE id = ?", [cid]);
+      await deleteComment(cid, user);
+      return sendJson(res, 200, { comments: c ? await listComments(c.task_id) : [] });
     }
   }
 
   // --- Arquivo do anexo -----------------------------------------------------
   if (head === "attachments" && parts[1]) {
     const aid = Number(parts[1]);
-    const att = getAttachment(aid);
+    const att = await getAttachment(aid);
     if (!att) return sendError(res, 404, "Anexo não encontrado.");
 
     if (method === "DELETE") {
-      deleteAttachment(aid, user);
+      await deleteAttachment(aid, user);
       return sendJson(res, 200, { ok: true });
     }
     if (method === "GET") {
-      const file = join(UPLOAD_DIR, att.storedName);
-      if (!existsSync(file)) return sendError(res, 404, "Arquivo ausente no disco.");
+      // O conteúdo vem do disco ou do armazenamento remoto, conforme a
+      // instância. Em nenhum dos dois casos quem usa recebe o endereço real:
+      // o arquivo sempre passa por aqui, depois da checagem de sessão.
+      const arquivo = await readAttachment(aid);
+      if (!arquivo) return sendError(res, 404, "Arquivo não encontrado.");
+
       const disposition = isInline(att.mime) ? "inline" : "attachment";
       res.writeHead(200, {
         "Content-Type": att.mime,
-        "Content-Length": att.size,
+        "Content-Length": arquivo.conteudo.length,
         // nosniff impede que o navegador reinterprete o conteúdo como HTML.
         "X-Content-Type-Options": "nosniff",
         "Content-Disposition": `${disposition}; filename*=UTF-8''${encodeURIComponent(att.name)}`,
         "Cache-Control": "private, max-age=86400",
       });
-      return createReadStream(file).pipe(res);
+      return res.end(arquivo.conteudo);
     }
   }
 
   // --- Projetos -------------------------------------------------------------
   if (head === "projects") {
-    if (method === "GET") return sendJson(res, 200, { projects: listProjects() });
+    if (method === "GET") return sendJson(res, 200, { projects: await listProjects() });
     if (method === "POST") {
       const body = await readJson(req);
-      return sendJson(res, 201, { project: createProject(body) });
+      return sendJson(res, 201, { project: await createProject(body) });
     }
     const pid = Number(parts[1]);
     if (pid && method === "PATCH") {
       const body = await readJson(req);
-      return sendJson(res, 200, { project: updateProject(pid, body) });
+      return sendJson(res, 200, { project: await updateProject(pid, body) });
     }
   }
 
   // --- Etiquetas ------------------------------------------------------------
   if (head === "labels") {
-    if (method === "GET") return sendJson(res, 200, { labels: all("SELECT * FROM labels ORDER BY name") });
+    if (method === "GET") return sendJson(res, 200, { labels: await all("SELECT * FROM labels ORDER BY name") });
     if (method === "POST") {
       const body = await readJson(req);
       const name = String(body.name || "").trim().slice(0, 40);
       if (!name) return sendError(res, 400, "A etiqueta precisa de um nome.");
-      const existing = one("SELECT * FROM labels WHERE lower(name) = lower(?)", [name]);
+      const existing = await one("SELECT * FROM labels WHERE lower(name) = lower(?)", [name]);
       if (existing) return sendJson(res, 200, { label: existing });
-      const lid = insert("INSERT INTO labels (name, color) VALUES (?, ?)", [
+      const lid = await insert("INSERT INTO labels (name, color) VALUES (?, ?)", [
         name,
         String(body.color || "#8fa9b5").slice(0, 9),
       ]);
-      return sendJson(res, 201, { label: one("SELECT * FROM labels WHERE id = ?", [lid]) });
+      return sendJson(res, 201, { label: await one("SELECT * FROM labels WHERE id = ?", [lid]) });
     }
     const lid = Number(parts[1]);
     if (lid && method === "DELETE") {
-      run("DELETE FROM labels WHERE id = ?", [lid]);
+      await run("DELETE FROM labels WHERE id = ?", [lid]);
       return sendJson(res, 200, { ok: true });
     }
   }
 
   // --- Pessoas --------------------------------------------------------------
   if (head === "users") {
-    if (method === "GET") return sendJson(res, 200, { users: listUsers().map(publicUser) });
+    if (method === "GET") return sendJson(res, 200, { users: (await listUsers()).map(publicUser) });
     if (method === "POST") {
       if (user.role !== "admin") return sendError(res, 403, "Apenas administradores criam acessos.");
       const body = await readJson(req);
       const senha = generatePassword();
-      const novo = createUser({
+      const novo = await createUser({
         username: body.username,
         displayName: body.name,
         email: body.email || null,
@@ -290,20 +300,20 @@ export async function handleApi(req, res, { path, query, user }) {
   if (head === "me") {
     if (parts[1] === "prefs" && method === "PATCH") {
       const body = await readJson(req);
-      const atual = safeJson(one("SELECT prefs FROM users WHERE id = ?", [user.id])?.prefs);
+      const atual = safeJson((await one("SELECT prefs FROM users WHERE id = ?", [user.id]))?.prefs);
       const merged = { ...atual, ...body };
-      run("UPDATE users SET prefs = ? WHERE id = ?", [JSON.stringify(merged), user.id]);
+      await run("UPDATE users SET prefs = ? WHERE id = ?", [JSON.stringify(merged), user.id]);
       return sendJson(res, 200, { prefs: merged });
     }
     if (parts[1] === "password" && method === "POST") {
       const body = await readJson(req);
-      const full = one("SELECT * FROM users WHERE id = ?", [user.id]);
+      const full = await one("SELECT * FROM users WHERE id = ?", [user.id]);
       if (!verifyPassword(String(body.atual || ""), full.password_hash))
         return sendError(res, 403, "A senha atual não confere.");
       const nova = String(body.nova || "");
       if (nova.length < 8) return sendError(res, 400, "A nova senha precisa de ao menos 8 caracteres.");
-      setPassword(user.id, nova);
-      const s = createSession(user.id, req.headers["user-agent"]);
+      await setPassword(user.id, nova);
+      const s = await createSession(user.id, req.headers["user-agent"]);
       return sendJson(res, 200, { ok: true }, {
         "Set-Cookie": cookieHeader(COOKIE, s.token, { maxAge: 2592000, secure: httpsAtivo(req) }),
       });
@@ -314,25 +324,25 @@ export async function handleApi(req, res, { path, query, user }) {
   if (head === "focus") {
     if (parts[1] === "start" && method === "POST") {
       const body = await readJson(req);
-      run("UPDATE focus_sessions SET ended_at = ?, completed = 0 WHERE user_id = ? AND ended_at IS NULL", [
+      await run("UPDATE focus_sessions SET ended_at = ?, completed = 0 WHERE user_id = ? AND ended_at IS NULL", [
         nowIso(),
         user.id,
       ]);
-      const fid = insert(
+      const fid = await insert(
         "INSERT INTO focus_sessions (task_id, user_id, started_at, planned_min) VALUES (?, ?, ?, ?)",
         [body.taskId ? Number(body.taskId) : null, user.id, nowIso(), Number(body.minutes) || 25]
       );
-      return sendJson(res, 201, { session: one("SELECT * FROM focus_sessions WHERE id = ?", [fid]) });
+      return sendJson(res, 201, { session: await one("SELECT * FROM focus_sessions WHERE id = ?", [fid]) });
     }
     if (parts[1] === "stop" && method === "POST") {
       const body = await readJson(req);
-      const open = one(
+      const open = await one(
         "SELECT * FROM focus_sessions WHERE user_id = ? AND ended_at IS NULL ORDER BY id DESC LIMIT 1",
         [user.id]
       );
       if (open) {
         const secs = Math.max(0, Math.round((Date.now() - new Date(open.started_at).getTime()) / 1000));
-        run("UPDATE focus_sessions SET ended_at = ?, seconds = ?, completed = ? WHERE id = ?", [
+        await run("UPDATE focus_sessions SET ended_at = ?, seconds = ?, completed = ? WHERE id = ?", [
           nowIso(),
           secs,
           body.completed ? 1 : 0,
@@ -343,7 +353,7 @@ export async function handleApi(req, res, { path, query, user }) {
     }
     if (method === "GET") {
       return sendJson(res, 200, {
-        today: all(
+        today: await all(
           `SELECT COALESCE(SUM(seconds), 0) AS s, COUNT(*) AS n
              FROM focus_sessions
             WHERE user_id = ? AND completed = 1 AND substr(started_at, 1, 10) = ?`,
@@ -355,7 +365,7 @@ export async function handleApi(req, res, { path, query, user }) {
 
   // --- Atividade ------------------------------------------------------------
   if (head === "activity" && method === "GET") {
-    return sendJson(res, 200, { activity: recentActivity(Number(query.get("limit")) || 60) });
+    return sendJson(res, 200, { activity: await recentActivity(Number(query.get("limit")) || 60) });
   }
 
   return sendError(res, 404, `Rota desconhecida: ${method} /${path}`);
@@ -375,7 +385,7 @@ async function login(req, res) {
     );
   }
 
-  const u = findByUsername(body.usuario);
+  const u = await findByUsername(body.usuario);
   // A verificação roda mesmo quando o usuário não existe, contra um hash
   // descartável: sem isso, o tempo de resposta denunciaria quais contas existem.
   const senhaConfere = verifyPasswordConstantTime(
@@ -391,7 +401,7 @@ async function login(req, res) {
   }
 
   limparTentativas(chave);
-  const s = createSession(u.id, req.headers["user-agent"]);
+  const s = await createSession(u.id, req.headers["user-agent"]);
   return sendJson(
     res,
     200,
@@ -417,19 +427,19 @@ function httpsAtivo(req) {
   return false;
 }
 
-function logout(req, res) {
+async function logout(req, res) {
   const token = (req.headers.cookie || "").match(/tdah_sess=([^;]+)/)?.[1];
-  destroySession(token ? decodeURIComponent(token) : null);
+  await destroySession(token ? decodeURIComponent(token) : null);
   return sendJson(res, 200, { ok: true }, {
     "Set-Cookie": cookieHeader(COOKIE, "", { maxAge: 0, secure: httpsAtivo(req) }),
   });
 }
 
-function boot(req, res, user) {
+async function boot(req, res, user) {
   return sendJson(res, 200, {
     app: "TDAH Jira — Logus",
     mode: "standalone",
-    version: getSetting("version", "1.0.0"),
+    version: await getSetting("version", "1.0.0"),
     authenticated: !!user,
     user: publicUser(user),
     vocabulary: { statuses: STATUSES, priorities: PRIORITIES, energies: ENERGIES },
@@ -441,22 +451,25 @@ function boot(req, res, user) {
 // Uma chamada só entrega tudo que a interface precisa. Para um time pequeno
 // isso é mais rápido e muito mais simples do que paginar.
 
-function snapshot(user) {
+async function snapshot(user) {
   return {
-    cursor: cursor(),
+    cursor: await cursor(),
     today: today(),
     me: publicUser(user),
-    prefs: safeJson(one("SELECT prefs FROM users WHERE id = ?", [user.id])?.prefs),
-    users: listUsers().map(publicUser),
-    projects: listProjects(),
-    labels: all("SELECT * FROM labels ORDER BY name"),
-    tasks: listTasks(),
-    activity: recentActivity(50),
+    prefs: safeJson((await one("SELECT prefs FROM users WHERE id = ?", [user.id]))?.prefs),
+    users: (await listUsers()).map(publicUser),
+    projects: await listProjects(),
+    labels: await all("SELECT * FROM labels ORDER BY name"),
+    tasks: await listTasks(),
+    activity: await recentActivity(50),
   };
 }
 
-function listProjects() {
-  return all("SELECT * FROM projects WHERE is_archived = 0 ORDER BY position, id").map((p) => ({
+async function listProjects() {
+  const linhas = await all(
+    "SELECT * FROM projects WHERE is_archived = 0 ORDER BY position, id"
+  );
+  return linhas.map((p) => ({
     id: p.id,
     key: p.key,
     name: p.name,
@@ -466,7 +479,7 @@ function listProjects() {
   }));
 }
 
-function createProject(body) {
+async function createProject(body) {
   const name = String(body.name || "").trim();
   if (!name) throw Object.assign(new Error("O projeto precisa de um nome."), { status: 400 });
   const key = String(body.key || name)
@@ -476,10 +489,10 @@ function createProject(body) {
 
   let final = key;
   let n = 2;
-  while (one("SELECT id FROM projects WHERE key = ?", [final])) final = `${key}${n++}`;
+  while (await one("SELECT id FROM projects WHERE key = ?", [final])) final = `${key}${n++}`;
 
   const ts = nowIso();
-  const id = insert(
+  const id = await insert(
     `INSERT INTO projects (key, name, color, description, position, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
     [
@@ -492,13 +505,13 @@ function createProject(body) {
       ts,
     ]
   );
-  return one("SELECT * FROM projects WHERE id = ?", [id]);
+  return await one("SELECT * FROM projects WHERE id = ?", [id]);
 }
 
-function updateProject(id, body) {
-  const p = one("SELECT * FROM projects WHERE id = ?", [id]);
+async function updateProject(id, body) {
+  const p = await one("SELECT * FROM projects WHERE id = ?", [id]);
   if (!p) throw Object.assign(new Error("Projeto não encontrado."), { status: 404 });
-  run(
+  await run(
     "UPDATE projects SET name = ?, color = ?, description = ?, is_archived = ?, updated_at = ? WHERE id = ?",
     [
       String(body.name ?? p.name).slice(0, 120),
@@ -509,7 +522,7 @@ function updateProject(id, body) {
       id,
     ]
   );
-  return one("SELECT * FROM projects WHERE id = ?", [id]);
+  return await one("SELECT * FROM projects WHERE id = ?", [id]);
 }
 
 function safeJson(raw) {

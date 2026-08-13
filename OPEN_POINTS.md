@@ -14,15 +14,20 @@ Foram resolvidas para não travar a entrega. Todas podem ser revertidas.
 
 ### 1.1 Hospedagem
 
-O pedido dizia que a decisão de hospedagem ficaria para depois da V1. Então o
-produto foi feito para funcionar nos dois cenários e a decisão continua aberta:
+Decidido: **Vercel**, por ser ferramenta interna da Logus e não haver
+infraestrutura própria da empresa para usar.
 
-- **Modo autônomo** — testado de ponta a ponta, é o caminho pronto para usar
-  hoje.
-- **Plugin de WordPress** — implementado, mas **não executado** (veja o item 2.1).
+Três modos existem e todos funcionam sobre o mesmo contrato:
 
-**A decidir:** onde isso vai morar. A máquina de uma pessoa ligada durante o
-expediente, uma máquina fixa no escritório, ou o site WordPress da empresa.
+- **Autônomo** — testado de ponta a ponta, roda hoje sem nada além do Node.
+- **Vercel** — banco no Turso, anexos no Vercel Blob. Handler e armazenamento
+  cobertos por teste; o deploy em si depende de contas que só quem publica
+  possui (veja o item 2.4).
+- **Plugin de WordPress** — implementado, mas **não executado** (item 2.1).
+
+**Descartado de propósito:** hospedar na VPS ou no MySQL da clínica. É
+infraestrutura de outra empresa, e misturar os dados criaria uma dependência
+que ninguém quer administrar depois.
 
 ### 1.2 Node em vez de PHP no modo autônomo
 
@@ -83,6 +88,20 @@ endereço público, isso expõe o serviço na internet.
 **Mitigação hoje:** firewall, ou `--host 127.0.0.1` para restringir à própria
 máquina. Não há HTTPS embutido; o cookie de sessão só recebe o atributo `Secure`
 quando a conexão já chega cifrada por um proxy à frente.
+
+### 2.4 O deploy na Vercel ainda não foi executado
+
+O código do modo hospedado tem teste automatizado cobrindo o handler, a
+preparação da instância, o bloqueio por origem, os atributos do cookie e a
+troca de destino dos anexos. O que nenhum teste alcança é o ambiente real:
+comportamento do bundle da função, latência do banco hospedado e o Blob
+respondendo de verdade.
+
+**Antes de confiar:** publicar, entrar, criar uma tarefa, comentar e anexar um
+print. Se o anexo abrir, o caminho inteiro está de pé.
+
+**Ponto de atenção conhecido:** o plano Hobby da Vercel proíbe uso comercial.
+Ferramenta interna de empresa se enquadra.
 
 ### 2.3 Anexos no WordPress dependem do servidor respeitar `.htaccess`
 

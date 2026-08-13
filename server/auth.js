@@ -91,38 +91,38 @@ export function generatePassword() {
   return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
 }
 
-export function createSession(userId, userAgent = "") {
+export async function createSession(userId, userAgent = "") {
   const token = randomBytes(32).toString("hex");
   const expires = new Date(Date.now() + SESSION_DAYS * 86400000).toISOString();
-  run(
+  await run(
     "INSERT INTO sessions (token, user_id, created_at, expires_at, user_agent) VALUES (?, ?, ?, ?, ?)",
     [token, userId, nowIso(), expires, String(userAgent).slice(0, 200)]
   );
   return { token, expires };
 }
 
-export function destroySession(token) {
-  if (token) run("DELETE FROM sessions WHERE token = ?", [token]);
+export async function destroySession(token) {
+  if (token) await run("DELETE FROM sessions WHERE token = ?", [token]);
 }
 
-export function userFromToken(token) {
+export async function userFromToken(token) {
   if (!token) return null;
-  const row = one(
+  const row = await one(
     `SELECT u.* FROM sessions s
        JOIN users u ON u.id = s.user_id
       WHERE s.token = ? AND s.expires_at > ? AND u.is_active = 1`,
     [token, nowIso()]
   );
   if (!row) return null;
-  run("UPDATE users SET last_seen_at = ? WHERE id = ?", [nowIso(), row.id]);
+  await run("UPDATE users SET last_seen_at = ? WHERE id = ?", [nowIso(), row.id]);
   return row;
 }
 
-export function purgeExpiredSessions() {
-  run("DELETE FROM sessions WHERE expires_at <= ?", [nowIso()]);
+export async function purgeExpiredSessions() {
+  await run("DELETE FROM sessions WHERE expires_at <= ?", [nowIso()]);
 }
 
-export function createUser({
+export async function createUser({
   username,
   displayName,
   email = null,
@@ -132,7 +132,7 @@ export function createUser({
 }) {
   const clean = String(username).trim().toLowerCase().replace(/[^a-z0-9._-]/g, "");
   if (!clean) throw new Error("Nome de usuário inválido.");
-  const id = insert(
+  const id = await insert(
     `INSERT INTO users (username, display_name, email, password_hash, color, role,
                         must_change_password, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -150,22 +150,22 @@ export function createUser({
   return one("SELECT * FROM users WHERE id = ?", [id]);
 }
 
-export function setPassword(userId, password) {
-  run(
+export async function setPassword(userId, password) {
+  await run(
     "UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?",
     [hashPassword(password), userId]
   );
   // Trocar a senha derruba as outras sessões daquela pessoa.
-  run("DELETE FROM sessions WHERE user_id = ?", [userId]);
+  await run("DELETE FROM sessions WHERE user_id = ?", [userId]);
 }
 
-export function findByUsername(username) {
+export async function findByUsername(username) {
   return one("SELECT * FROM users WHERE lower(username) = lower(?)", [
     String(username || "").trim(),
   ]);
 }
 
-export function listUsers() {
+export async function listUsers() {
   return all(
     `SELECT id, username, display_name, email, color, role, is_active, prefs, last_seen_at
        FROM users ORDER BY is_active DESC, display_name COLLATE NOCASE`

@@ -27,9 +27,14 @@ const { parseCaptura } = await import("../web/js/capture.js");
 
 let ator;
 
-before(() => {
-  openDb(DB_FILE);
-  ator = createUser({ username: "teste", displayName: "Teste", password: "apenas-para-teste" }).id;
+before(async () => {
+  await openDb(DB_FILE);
+  const u = await createUser({
+    username: "teste",
+    displayName: "Teste",
+    password: "apenas-para-teste",
+  });
+  ator = u.id;
 });
 
 after(() => {
@@ -40,8 +45,8 @@ after(() => {
 
 // --- Ciclo de vida ---------------------------------------------------------
 
-test("criar exige apenas o título", () => {
-  const t = createTask({ title: "Só o título" }, ator);
+test("criar exige apenas o título", async () => {
+  const t = await createTask({ title: "Só o título" }, ator);
   assert.equal(t.title, "Só o título");
   assert.equal(t.status, "inbox");
   assert.equal(t.priority, "normal");
@@ -49,76 +54,76 @@ test("criar exige apenas o título", () => {
   assert.equal(t.dueOn, null);
 });
 
-test("criar sem título é recusado", () => {
-  assert.throws(() => createTask({ title: "   " }, ator), /título/i);
+test("criar sem título é recusado", async () => {
+  await assert.rejects(async () => await createTask({ title: "   " }, ator), /título/i);
 });
 
-test("entrar em fazendo grava o início e puxa para hoje", () => {
-  const t = createTask({ title: "Vai começar" }, ator);
+test("entrar em fazendo grava o início e puxa para hoje", async () => {
+  const t = await createTask({ title: "Vai começar" }, ator);
   assert.equal(t.startedAt, null);
 
-  const depois = updateTask(t.id, { status: "doing" }, ator);
+  const depois = await updateTask(t.id, { status: "doing" }, ator);
   assert.ok(depois.startedAt, "started_at deveria ter sido gravado");
   assert.ok(depois.focusOn, "entrar em fazendo declara que é hoje");
 });
 
-test("o início não é reescrito ao voltar para fazendo", () => {
-  const t = createTask({ title: "Vai e volta" }, ator);
-  const primeiro = updateTask(t.id, { status: "doing" }, ator).startedAt;
-  updateTask(t.id, { status: "todo" }, ator);
-  const segundo = updateTask(t.id, { status: "doing" }, ator).startedAt;
+test("o início não é reescrito ao voltar para fazendo", async () => {
+  const t = await createTask({ title: "Vai e volta" }, ator);
+  const primeiro = (await updateTask(t.id, { status: "doing" }, ator)).startedAt;
+  await updateTask(t.id, { status: "todo" }, ator);
+  const segundo = (await updateTask(t.id, { status: "doing" }, ator)).startedAt;
   assert.equal(segundo, primeiro, "started_at marca a primeira vez, não a última");
 });
 
-test("concluir grava a data e reabrir limpa", () => {
-  const t = createTask({ title: "Termina e reabre" }, ator);
-  const feita = updateTask(t.id, { status: "done" }, ator);
+test("concluir grava a data e reabrir limpa", async () => {
+  const t = await createTask({ title: "Termina e reabre" }, ator);
+  const feita = await updateTask(t.id, { status: "done" }, ator);
   assert.ok(feita.doneAt);
 
-  const reaberta = updateTask(t.id, { status: "todo" }, ator);
+  const reaberta = await updateTask(t.id, { status: "todo" }, ator);
   assert.equal(reaberta.doneAt, null, "reabrir precisa limpar done_at");
 });
 
-test("sair de esperando limpa de quem se esperava e registra o evento", () => {
-  const t = createTask({ title: "Depende de alguém" }, ator);
-  updateTask(t.id, { status: "waiting", waitingFor: "o retorno do fornecedor" }, ator);
+test("sair de esperando limpa de quem se esperava e registra o evento", async () => {
+  const t = await createTask({ title: "Depende de alguém" }, ator);
+  await updateTask(t.id, { status: "waiting", waitingFor: "o retorno do fornecedor" }, ator);
 
-  const solta = updateTask(t.id, { status: "todo" }, ator);
+  const solta = await updateTask(t.id, { status: "todo" }, ator);
   assert.equal(solta.waitingFor, null);
 
-  const trilha = taskTimeline(t.id);
+  const trilha = await taskTimeline(t.id);
   const limpeza = trilha.filter((e) => e.kind === "waiting" && e.to === null);
   assert.equal(limpeza.length, 1, "a limpeza precisa aparecer na trilha");
 });
 
 test("mudar de estado reinicia a contagem de tempo parado", async () => {
-  const t = createTask({ title: "Conta o tempo" }, ator);
-  const antes = getTaskFull(t.id).statusSince;
+  const t = await createTask({ title: "Conta o tempo" }, ator);
+  const antes = (await getTaskFull(t.id)).statusSince;
   await new Promise((r) => setTimeout(r, 12));
-  const depois = updateTask(t.id, { status: "todo" }, ator).statusSince;
+  const depois = (await updateTask(t.id, { status: "todo" }, ator)).statusSince;
   assert.notEqual(depois, antes);
 });
 
-test("valor inválido em campo de escolha é recusado", () => {
-  const t = createTask({ title: "Validação" }, ator);
-  assert.throws(() => updateTask(t.id, { status: "inventado" }, ator), /inválido/i);
-  assert.throws(() => updateTask(t.id, { priority: "P1" }, ator), /inválido/i);
+test("valor inválido em campo de escolha é recusado", async () => {
+  const t = await createTask({ title: "Validação" }, ator);
+  await assert.rejects(async () => await updateTask(t.id, { status: "inventado" }, ator), /inválido/i);
+  await assert.rejects(async () => await updateTask(t.id, { priority: "P1" }, ator), /inválido/i);
 });
 
-test("o tamanho fica dentro da escala", () => {
-  const t = createTask({ title: "Tamanho" }, ator);
-  assert.equal(updateTask(t.id, { size: 999 }, ator).size, 40);
-  assert.equal(updateTask(t.id, { size: 0 }, ator).size, 1);
+test("o tamanho fica dentro da escala", async () => {
+  const t = await createTask({ title: "Tamanho" }, ator);
+  assert.equal((await updateTask(t.id, { size: 999 }, ator)).size, 40);
+  assert.equal((await updateTask(t.id, { size: 0 }, ator)).size, 1);
 });
 
 // --- Trilha ----------------------------------------------------------------
 
-test("toda mudança de campo vira um evento com valor anterior e novo", () => {
-  const t = createTask({ title: "Rastreável" }, ator);
-  updateTask(t.id, { priority: "agora" }, ator);
-  updateTask(t.id, { title: "Rastreável mesmo" }, ator);
+test("toda mudança de campo vira um evento com valor anterior e novo", async () => {
+  const t = await createTask({ title: "Rastreável" }, ator);
+  await updateTask(t.id, { priority: "agora" }, ator);
+  await updateTask(t.id, { title: "Rastreável mesmo" }, ator);
 
-  const trilha = taskTimeline(t.id);
+  const trilha = await taskTimeline(t.id);
   assert.equal(trilha[0].kind, "created");
 
   const prioridade = trilha.find((e) => e.kind === "priority");
@@ -130,76 +135,76 @@ test("toda mudança de campo vira um evento com valor anterior e novo", () => {
   assert.equal(titulo.to, "Rastreável mesmo");
 });
 
-test("gravar o mesmo valor não polui a trilha", () => {
-  const t = createTask({ title: "Sem ruído" }, ator);
-  const antes = taskTimeline(t.id).length;
-  updateTask(t.id, { title: "Sem ruído", priority: "normal" }, ator);
-  assert.equal(taskTimeline(t.id).length, antes, "nada mudou, nada a registrar");
+test("gravar o mesmo valor não polui a trilha", async () => {
+  const t = await createTask({ title: "Sem ruído" }, ator);
+  const antes = (await taskTimeline(t.id)).length;
+  await updateTask(t.id, { title: "Sem ruído", priority: "normal" }, ator);
+  assert.equal((await taskTimeline(t.id)).length, antes, "nada mudou, nada a registrar");
 });
 
 // --- Passos ----------------------------------------------------------------
 
-test("passos entram na ordem e a conclusão é registrada", () => {
-  const t = createTask({ title: "Com passos" }, ator);
-  const p1 = addStep(t.id, "Primeiro", ator);
-  addStep(t.id, "Segundo", ator);
+test("passos entram na ordem e a conclusão é registrada", async () => {
+  const t = await createTask({ title: "Com passos" }, ator);
+  const p1 = await addStep(t.id, "Primeiro", ator);
+  await addStep(t.id, "Segundo", ator);
 
-  const cheia = getTaskFull(t.id);
+  const cheia = await getTaskFull(t.id);
   assert.equal(cheia.steps.length, 2);
   assert.equal(cheia.steps[0].text, "Primeiro");
 
-  toggleStep(p1.id, true, ator);
-  assert.equal(getTaskFull(t.id).steps[0].done, true);
-  assert.ok(taskTimeline(t.id).some((e) => e.kind === "step_done"));
+  await toggleStep(p1.id, true, ator);
+  assert.equal((await getTaskFull(t.id)).steps[0].done, true);
+  assert.ok((await taskTimeline(t.id)).some((e) => e.kind === "step_done"));
 });
 
 // --- Conversa --------------------------------------------------------------
 
-test("comentar registra evento e aparece na contagem do cartão", () => {
-  const t = createTask({ title: "Conversa" }, ator);
-  addComment(t.id, "Primeiro comentário", ator);
+test("comentar registra evento e aparece na contagem do cartão", async () => {
+  const t = await createTask({ title: "Conversa" }, ator);
+  await addComment(t.id, "Primeiro comentário", ator);
 
-  assert.equal(listComments(t.id).length, 1);
-  assert.equal(getTaskFull(t.id).commentCount, 1);
-  assert.ok(taskTimeline(t.id).some((e) => e.kind === "comment"));
+  assert.equal((await listComments(t.id)).length, 1);
+  assert.equal((await getTaskFull(t.id)).commentCount, 1);
+  assert.ok((await taskTimeline(t.id)).some((e) => e.kind === "comment"));
 });
 
-test("comentário vazio é recusado", () => {
-  const t = createTask({ title: "Vazio" }, ator);
-  assert.throws(() => addComment(t.id, "   ", ator), /vazio/i);
+test("comentário vazio é recusado", async () => {
+  const t = await createTask({ title: "Vazio" }, ator);
+  await assert.rejects(async () => await addComment(t.id, "   ", ator), /vazio/i);
 });
 
 // --- Chave legível ---------------------------------------------------------
 
-test("cada tarefa do projeto recebe um número próprio e sequencial", () => {
+test("cada tarefa do projeto recebe um número próprio e sequencial", async () => {
   const ts = new Date().toISOString();
-  insert(
+  await insert(
     `INSERT INTO projects (key, name, color, description, position, created_at, updated_at)
      VALUES ('TST', 'Teste', '#a2e4f0', '', 0, ?, ?)`,
     [ts, ts]
   );
-  const projeto = one("SELECT id FROM projects WHERE key = 'TST'");
+  const projeto = await one("SELECT id FROM projects WHERE key = 'TST'");
 
-  const a = createTask({ title: "Primeira", projectId: projeto.id }, ator);
-  const b = createTask({ title: "Segunda", projectId: projeto.id }, ator);
+  const a = await createTask({ title: "Primeira", projectId: projeto.id }, ator);
+  const b = await createTask({ title: "Segunda", projectId: projeto.id }, ator);
 
   assert.equal(a.key, "TST-1");
   assert.equal(b.key, "TST-2");
 });
 
-test("tarefa sem projeto ainda tem um identificador", () => {
-  const t = createTask({ title: "Solta" }, ator);
+test("tarefa sem projeto ainda tem um identificador", async () => {
+  const t = await createTask({ title: "Solta" }, ator);
   assert.match(t.key, /^#\d+$/);
 });
 
 // --- Ordenação -------------------------------------------------------------
 
-test("mover entre dois cartões coloca a tarefa no meio", () => {
-  const a = createTask({ title: "A", status: "todo", position: 1000 }, ator);
-  const b = createTask({ title: "B", status: "todo", position: 2000 }, ator);
-  const c = createTask({ title: "C", status: "todo", position: 3000 }, ator);
+test("mover entre dois cartões coloca a tarefa no meio", async () => {
+  const a = await createTask({ title: "A", status: "todo", position: 1000 }, ator);
+  const b = await createTask({ title: "B", status: "todo", position: 2000 }, ator);
+  const c = await createTask({ title: "C", status: "todo", position: 3000 }, ator);
 
-  const movida = moveTask(c.id, { status: "todo", afterId: a.id, beforeId: b.id }, ator);
+  const movida = await moveTask(c.id, { status: "todo", afterId: a.id, beforeId: b.id }, ator);
   assert.ok(movida.position > a.position && movida.position < b.position);
 });
 
@@ -211,7 +216,7 @@ const contexto = {
   labels: [{ id: 3, name: "cliente" }],
 };
 
-test("a captura entende a frase inteira", () => {
+test("a captura entende a frase inteira", async () => {
   const r = parseCaptura("Ligar para o fornecedor #COM @bruno !agora ~2 +cliente", contexto);
   assert.equal(r.title, "Ligar para o fornecedor");
   assert.equal(r.dados.projectId, 2);
@@ -221,30 +226,30 @@ test("a captura entende a frase inteira", () => {
   assert.deepEqual(r.dados.labels, [3]);
 });
 
-test("o projeto também é reconhecido pelo começo do nome", () => {
+test("o projeto também é reconhecido pelo começo do nome", async () => {
   assert.equal(parseCaptura("Revisar #automa", contexto).dados.projectId, 1);
 });
 
-test("uma frase comum vira só o título", () => {
+test("uma frase comum vira só o título", async () => {
   const r = parseCaptura("Comprar café para o escritório", contexto);
   assert.equal(r.title, "Comprar café para o escritório");
   assert.deepEqual(r.dados, {});
 });
 
-test("data em linguagem comum vira prazo", () => {
+test("data em linguagem comum vira prazo", async () => {
   assert.ok(parseCaptura("Enviar proposta amanhã", contexto).dados.dueOn);
   const hoje = parseCaptura("Terminar hoje", contexto).dados;
   assert.ok(hoje.dueOn);
   assert.equal(hoje.dueOn, hoje.focusOn, "hoje também puxa para o foco do dia");
 });
 
-test("palavra que apenas começa como data não é confundida", () => {
+test("palavra que apenas começa como data não é confundida", async () => {
   const r = parseCaptura("Comprar amanhecedor novo", contexto);
   assert.equal(r.dados.dueOn, undefined);
   assert.equal(r.title, "Comprar amanhecedor novo");
 });
 
-test("marcação de pessoa inexistente fica no título", () => {
+test("marcação de pessoa inexistente fica no título", async () => {
   const r = parseCaptura("Falar com @fulano", contexto);
   assert.equal(r.dados.assigneeId, undefined);
   assert.ok(r.title.includes("@fulano"));

@@ -5,12 +5,10 @@
 // contexto, e pouco o bastante para não virar um editor de documentos.
 
 import { randomBytes } from "node:crypto";
-import { writeFileSync, unlinkSync, mkdirSync, existsSync } from "node:fs";
-import { join } from "node:path";
 import { all, one, run, insert, nowIso } from "./db.js";
 import { logEvent } from "./events.js";
 import { touch, badRequest, notFound } from "./tasks.js";
-import { UPLOAD_DIR } from "./paths.js";
+import { guardar, ler, remover } from "./storage.js";
 
 export const MAX_UPLOAD = 12 * 1024 * 1024; // 12 MB: um print cabe com folga.
 
@@ -32,8 +30,8 @@ const INLINE = new Set(["image/png", "image/jpeg", "image/gif", "image/webp", "i
 
 // --- Comentários -----------------------------------------------------------
 
-export function listComments(taskId) {
-  const rows = all(
+export async function listComments(taskId) {
+  const rows = await all(
     `SELECT c.*, u.display_name AS author_name, u.color AS author_color, u.username
        FROM comments c
        LEFT JOIN users u ON u.id = c.author_id
@@ -41,7 +39,8 @@ export function listComments(taskId) {
       ORDER BY c.created_at, c.id`,
     [taskId]
   );
-  const files = listAttachments(taskId);
+  const files = await listAttachments(taskId);
+
   return rows.map((c) => ({
     id: c.id,
     taskId: c.task_id,
@@ -57,23 +56,25 @@ export function listComments(taskId) {
   }));
 }
 
-export function addComment(taskId, body, actorId) {
+export async function addComment(taskId, body, actorId) {
   const text = String(body || "").trim();
   if (!text) throw badRequest("O comentário está vazio.");
   if (text.length > 20000) throw badRequest("Comentário longo demais.");
-  if (!one("SELECT id FROM tasks WHERE id = ?", [taskId])) throw notFound("Tarefa não encontrada.");
 
-  const id = insert(
+  const existe = await one("SELECT id FROM tasks WHERE id = ?", [taskId]);
+  if (!existe) throw notFound("Tarefa não encontrada.");
+
+  const id = await insert(
     "INSERT INTO comments (task_id, author_id, body, created_at) VALUES (?, ?, ?, ?)",
     [taskId, actorId, text, nowIso()]
   );
-  logEvent({ taskId, actorId, kind: "comment", to: text.slice(0, 160) });
-  touch(taskId);
+  await logEvent({ taskId, actorId, kind: "comment", to: text.slice(0, 160) });
+  await touch(taskId);
   return one("SELECT * FROM comments WHERE id = ?", [id]);
 }
 
-export function editComment(commentId, body, actorId) {
-  const c = one("SELECT * FROM comments WHERE id = ?", [commentId]);
+export async function editComment(commentId, body, actorId) {
+  const c = await one("SELECT * FROM comments WHERE id = ?", [commentId]);
   if (!c) throw notFound("Comentário não encontrado.");
   if (c.author_id !== actorId) {
     const e = new Error("Só quem escreveu pode editar o comentário.");
@@ -82,49 +83,62 @@ export function editComment(commentId, body, actorId) {
   }
   const text = String(body || "").trim();
   if (!text) throw badRequest("O comentário está vazio.");
-  run("UPDATE comments SET body = ?, updated_at = ?, edited = 1 WHERE id = ?", [
+
+  await run("UPDATE comments SET body = ?, updated_at = ?, edited = 1 WHERE id = ?", [
     text,
     nowIso(),
     commentId,
   ]);
-  touch(c.task_id);
+  await touch(c.task_id);
   return one("SELECT * FROM comments WHERE id = ?", [commentId]);
 }
 
-export function deleteComment(commentId, actor) {
-  const c = one("SELECT * FROM comments WHERE id = ?", [commentId]);
+export async function deleteComment(commentId, actor) {
+  const c = await one("SELECT * FROM comments WHERE id = ?", [commentId]);
   if (!c) return;
   if (c.author_id !== actor.id && actor.role !== "admin") {
     const e = new Error("Só quem escreveu pode apagar o comentário.");
     e.status = 403;
     throw e;
   }
-  for (const f of all("SELECT * FROM attachments WHERE comment_id = ?", [commentId])) {
-    removeFile(f.stored_name);
-  }
-  run("DELETE FROM comments WHERE id = ?", [commentId]);
-  touch(c.task_id);
+
+  const anexos = await all("SELECT * FROM attachments WHERE comment_id = ?", [commentId]);
+  for (const f of anexos) await remover(f.stored_name);
+
+  await run("DELETE FROM attachments WHERE comment_id = ?", [commentId]);
+  await run("DELETE FROM comments WHERE id = ?", [commentId]);
+  await touch(c.task_id);
 }
 
 // --- Anexos ----------------------------------------------------------------
 
-export function listAttachments(taskId) {
-  return all(
+export async function listAttachments(taskId) {
+  const linhas = await all(
     `SELECT a.*, u.display_name AS uploader_name
        FROM attachments a
        LEFT JOIN users u ON u.id = a.uploader_id
       WHERE a.task_id = ?
       ORDER BY a.id`,
     [taskId]
-  ).map(shapeAttachment);
+  );
+  return linhas.map(shapeAttachment);
 }
 
-export function getAttachment(id) {
-  const row = one("SELECT * FROM attachments WHERE id = ?", [id]);
+// Versão pública: nunca inclui a referência do arquivo no armazenamento.
+export async function getAttachment(id) {
+  const a = await getAttachmentInterno(id);
+  if (!a) return null;
+  const { storedName, ...publico } = a;
+  return publico;
+}
+
+// Uso interno: entregar e remover o arquivo precisam da referência.
+export async function getAttachmentInterno(id) {
+  const row = await one("SELECT * FROM attachments WHERE id = ?", [id]);
   return row ? { ...shapeAttachment(row), storedName: row.stored_name } : null;
 }
 
-export function saveAttachment({
+export async function saveAttachment({
   taskId,
   commentId = null,
   buffer,
@@ -136,18 +150,19 @@ export function saveAttachment({
   if (!buffer || !buffer.length) throw badRequest("Arquivo vazio.");
   if (buffer.length > MAX_UPLOAD)
     throw badRequest(`Arquivo acima do limite de ${Math.round(MAX_UPLOAD / 1048576)} MB.`);
-  if (!one("SELECT id FROM tasks WHERE id = ?", [taskId])) throw notFound("Tarefa não encontrada.");
 
-  // O nome no disco é sorteado: o que a pessoa enviou é apenas um rótulo, e
-  // nunca chega perto do sistema de arquivos.
-  const stored = `${Date.now().toString(36)}-${randomBytes(9).toString("hex")}${ALLOWED.get(mime)}`;
-  mkdirSync(UPLOAD_DIR, { recursive: true });
-  writeFileSync(join(UPLOAD_DIR, stored), buffer);
+  const existe = await one("SELECT id FROM tasks WHERE id = ?", [taskId]);
+  if (!existe) throw notFound("Tarefa não encontrada.");
+
+  // O nome no armazenamento é sorteado: o que a pessoa enviou é apenas um
+  // rótulo, e nunca chega perto do sistema de arquivos.
+  const nome = `${Date.now().toString(36)}-${randomBytes(9).toString("hex")}${ALLOWED.get(mime)}`;
+  const referencia = await guardar(nome, buffer, mime);
 
   const dim = mime.startsWith("image/") ? imageSize(buffer, mime) : null;
   const label = safeLabel(originalName) || `anexo${ALLOWED.get(mime)}`;
 
-  const id = insert(
+  const id = await insert(
     `INSERT INTO attachments (task_id, comment_id, uploader_id, original_name, stored_name,
                               mime, size_bytes, width, height, created_at)
      VALUES (?,?,?,?,?,?,?,?,?,?)`,
@@ -156,7 +171,7 @@ export function saveAttachment({
       commentId,
       actorId,
       label,
-      stored,
+      referencia,
       mime,
       buffer.length,
       dim?.width ?? null,
@@ -164,33 +179,33 @@ export function saveAttachment({
       nowIso(),
     ]
   );
-  logEvent({ taskId, actorId, kind: "attachment", to: label });
-  touch(taskId);
+  await logEvent({ taskId, actorId, kind: "attachment", to: label });
+  await touch(taskId);
   return getAttachment(id);
 }
 
-export function deleteAttachment(id, actor) {
-  const a = one("SELECT * FROM attachments WHERE id = ?", [id]);
+export async function readAttachment(id) {
+  const a = await getAttachmentInterno(id);
+  if (!a) return null;
+  const conteudo = await ler(a.storedName);
+  return conteudo ? { meta: a, conteudo } : null;
+}
+
+export async function deleteAttachment(id, actor) {
+  const a = await one("SELECT * FROM attachments WHERE id = ?", [id]);
   if (!a) return;
   if (a.uploader_id !== actor.id && actor.role !== "admin") {
     const e = new Error("Só quem enviou pode remover o anexo.");
     e.status = 403;
     throw e;
   }
-  removeFile(a.stored_name);
-  run("DELETE FROM attachments WHERE id = ?", [id]);
-  touch(a.task_id);
+  await remover(a.stored_name);
+  await run("DELETE FROM attachments WHERE id = ?", [id]);
+  await touch(a.task_id);
 }
 
 export function isInline(mime) {
   return INLINE.has(mime);
-}
-
-function removeFile(stored) {
-  try {
-    const p = join(UPLOAD_DIR, stored);
-    if (existsSync(p)) unlinkSync(p);
-  } catch {}
 }
 
 function shapeAttachment(a) {
@@ -213,7 +228,7 @@ function shapeAttachment(a) {
 
 // Rótulo higienizado: sem caminho, sem caractere de controle, sem os
 // caracteres que o Windows recusa em nome de arquivo. Acentos permanecem.
-const PROIBIDOS = new Set(['<', '>', ':', '"', '|', '?', '*']);
+const PROIBIDOS = new Set(["<", ">", ":", '"', "|", "?", "*"]);
 
 function safeLabel(name) {
   const bruto = String(name || "").replace(/[\\/]/g, "_");

@@ -75,8 +75,9 @@ O endereço aparece no terminal, incluindo o IP da rede local — é assim que a
 outras pessoas do time entram, cada uma do seu computador, sem nada exposto na
 internet.
 
-Também funciona como **plugin de WordPress**: basta clonar o repositório dentro
-de `wp-content/plugins/` e ativar. Os dois modos compartilham o mesmo front-end e
+Também roda **hospedado na Vercel** (com Turso para o banco e Vercel Blob para
+os anexos) e como **plugin de WordPress** (basta clonar dentro de
+`wp-content/plugins/` e ativar). Os três modos compartilham o mesmo front-end e
 o mesmo contrato de API. Os detalhes de cada caminho estão em
 [docs/INSTALL.md](docs/INSTALL.md).
 
@@ -111,10 +112,13 @@ o mesmo contrato de API. Os detalhes de cada caminho estão em
 
 ## Estado atual
 
-V1 completa e funcional no modo autônomo, testada de ponta a ponta. O modo
-plugin de WordPress está implementado sobre o mesmo contrato, mas ainda não foi
-executado num WordPress real — isso está registrado com todas as letras em
-[OPEN_POINTS.md](OPEN_POINTS.md).
+V1 completa e funcional, com 31 testes automatizados passando.
+
+O modo autônomo foi exercitado de ponta a ponta. O modo hospedado tem o
+handler e o armazenamento cobertos por teste, mas o deploy em si depende de
+contas que só quem publica possui. O plugin de WordPress está implementado
+sobre o mesmo contrato e ainda não foi executado num WordPress real. Tudo isso
+está registrado com todas as letras em [OPEN_POINTS.md](OPEN_POINTS.md).
 
 ## Licença
 

@@ -1,15 +1,75 @@
 # Instalação
 
-Há dois caminhos. Os dois servem a mesma interface e falam o mesmo contrato de
+Há três caminhos. Todos servem a mesma interface e falam o mesmo contrato de
 API — o que muda é quem responde e onde os dados ficam.
 
-| | Modo autônomo | Plugin de WordPress |
-|---|---|---|
-| Exige | Node.js 22.5+ | WordPress 6.0+, PHP 7.4+ |
-| Banco | SQLite (um arquivo em `data/`) | O MySQL do próprio site |
-| Login | Contas criadas pelo próprio aplicativo | As contas que já existem no WordPress |
-| Anexos | `data/uploads/` | `wp-content/uploads/tdah-logus/`, fechada por `.htaccess` |
-| Melhor para | Uso interno, na rede local, sem exposição | Quem já tem um site WordPress e quer tudo no mesmo lugar |
+| | Autônomo | Vercel | Plugin de WordPress |
+|---|---|---|---|
+| Exige | Node.js 22.5+ | conta Vercel + Turso | WordPress 6.0+, PHP 7.4+ |
+| Banco | SQLite em `data/` | Turso (SQLite hospedado) | O MySQL do próprio site |
+| Anexos | `data/uploads/` | Vercel Blob | `wp-content/uploads/tdah-logus/` |
+| Login | contas do próprio aplicativo | idem | as contas que já existem no WordPress |
+| Acesso | rede local | de qualquer lugar | de qualquer lugar |
+| Melhor para | uso interno sem exposição | time distribuído, sem servidor para manter | quem já tem um site WordPress |
+
+---
+
+## Vercel
+
+O modo hospedado. Não há servidor para manter nem máquina para deixar ligada.
+
+### 1. Criar o banco no Turso
+
+Turso é SQLite hospedado — o mesmo dialeto que o aplicativo já usa, o que
+mantém o modo autônomo e o hospedado rodando exatamente o mesmo código.
+
+1. Crie uma conta em turso.tech e um banco novo.
+2. Guarde a URL do banco e gere um token de acesso.
+
+O plano gratuito cobre folgadamente um time pequeno.
+
+### 2. Criar o armazenamento dos anexos
+
+No painel da Vercel, em **Storage**, crie um **Blob**. A variável
+`BLOB_READ_WRITE_TOKEN` é adicionada ao projeto automaticamente.
+
+Sem isso, o aplicativo funciona, mas qualquer anexo enviado desaparece — em
+ambiente sem servidor não existe disco que sobreviva à requisição.
+
+### 3. Publicar
+
+Importe o repositório na Vercel. Não há nada a configurar em build: o projeto
+não tem etapa de compilação nem dependências.
+
+Em **Settings → Environment Variables**, adicione:
+
+| Variável | Conteúdo |
+|---|---|
+| `TURSO_DATABASE_URL` | a URL do banco |
+| `TURSO_AUTH_TOKEN` | o token gerado no passo 1 |
+| `ADMIN_USERNAME` | opcional; o padrão é `admin` |
+| `ADMIN_INITIAL_PASSWORD` | opcional; se não definir, é sorteada e aparece no log |
+
+> As chaves vivem **apenas** no painel da Vercel. Nunca em arquivo, nunca no
+> repositório, nunca em mensagem.
+
+### 4. Primeiro acesso
+
+A primeira requisição cria as tabelas e a conta de administração. Se você não
+definiu `ADMIN_INITIAL_PASSWORD`, a senha sorteada aparece uma única vez no log
+da função, em **Deployments → Functions**.
+
+Entre, troque a senha em **Ajustes** e crie as contas do time.
+
+### Observações
+
+- **O plano Hobby da Vercel proíbe uso comercial.** Uma ferramenta interna de
+  empresa se enquadra; para uso legítimo, o plano Pro é o indicado.
+- **Não há transação no modo hospedado.** Cada consulta é uma requisição
+  independente, e manter uma transação aberta entre elas não sobrevive a uma
+  função que pode ser encerrada a qualquer momento. A consequência prática é
+  estreita: uma criação de tarefa interrompida no meio pode consumir um número
+  de projeto sem criar a tarefa. É um buraco na sequência, não perda de dado.
 
 ---
 

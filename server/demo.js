@@ -10,7 +10,7 @@ import { createUser, generatePassword } from "./auth.js";
 import { createTask, updateTask, addStep } from "./tasks.js";
 import { addComment } from "./comments.js";
 
-export function seedDemo() {
+export async function seedDemo() {
   const credentials = [];
 
   // --- Pessoas -------------------------------------------------------------
@@ -25,13 +25,13 @@ export function seedDemo() {
 
   const ids = {};
   for (const p of pessoas) {
-    const existente = one("SELECT * FROM users WHERE username = ?", [p.username]);
+    const existente = await one("SELECT * FROM users WHERE username = ?", [p.username]);
     if (existente) {
       ids[p.username] = existente.id;
       continue;
     }
     const senha = generatePassword();
-    const u = createUser({
+    const u = await createUser({
       username: p.username,
       displayName: p.name,
       password: senha,
@@ -50,13 +50,13 @@ export function seedDemo() {
   ];
   const proj = {};
   for (const [i, p] of projetos.entries()) {
-    const existente = one("SELECT * FROM projects WHERE key = ?", [p.key]);
+    const existente = await one("SELECT * FROM projects WHERE key = ?", [p.key]);
     if (existente) {
       proj[p.key] = existente.id;
       continue;
     }
     const ts = nowIso();
-    proj[p.key] = insert(
+    proj[p.key] = await insert(
       `INSERT INTO projects (key, name, color, description, position, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [p.key, p.name, p.color, "", i, ts, ts]
@@ -70,12 +70,12 @@ export function seedDemo() {
     ["rápido", "#7fc8a9"],
     ["precisa de resposta", "#e3b877"],
   ]) {
-    if (!one("SELECT id FROM labels WHERE name = ?", [nome])) {
-      insert("INSERT INTO labels (name, color) VALUES (?, ?)", [nome, cor]);
+    if (!await one("SELECT id FROM labels WHERE name = ?", [nome])) {
+      await insert("INSERT INTO labels (name, color) VALUES (?, ?)", [nome, cor]);
     }
   }
 
-  if (one("SELECT COUNT(*) AS n FROM tasks").n > 0) {
+  if ((await one("SELECT COUNT(*) AS n FROM tasks")).n > 0) {
     return { tasks: 0, projects: Object.keys(proj).length, credentials };
   }
 
@@ -158,7 +158,7 @@ export function seedDemo() {
   let n = 0;
   for (const m of modelo) {
     const status = m.s === "quando_der_status" ? "todo" : m.s;
-    const t = createTask(
+    const t = await createTask(
       {
         projectId: m.p ? proj[m.p] : null,
         title: m.t,
@@ -176,34 +176,34 @@ export function seedDemo() {
     n++;
 
     if (m.waiting) {
-      updateTask(t.id, { status: "waiting", waitingFor: m.waiting }, ids.ana);
+      await updateTask(t.id, { status: "waiting", waitingFor: m.waiting }, ids.ana);
     }
     for (const [texto, feito] of m.steps || []) {
-      const s = addStep(t.id, texto, ids.ana);
+      const s = await addStep(t.id, texto, ids.ana);
       if (feito) {
-        run("UPDATE steps SET is_done = 1, done_at = ? WHERE id = ?", [nowIso(), s.id]);
+        await run("UPDATE steps SET is_done = 1, done_at = ? WHERE id = ?", [nowIso(), s.id]);
       }
     }
   }
 
   // Uma conversa de exemplo, para que a aba de comentários não abra vazia.
-  const alvo = one("SELECT id FROM tasks WHERE title LIKE 'Revisar o fluxo%'");
+  const alvo = await one("SELECT id FROM tasks WHERE title LIKE 'Revisar o fluxo%'");
   if (alvo) {
-    addComment(
+    await addComment(
       alvo.id,
       "Consegui reproduzir: acontece quando o valor passa de 10 mil e o aprovador está de férias. O gatilho de escalonamento dispara junto com o normal.",
       ids.ana
     );
-    addComment(
+    await addComment(
       alvo.id,
       "Faz sentido. Acho que é a condição do segundo gatilho que está sem o filtro de status. Olho isso amanhã de manhã.",
       ids.bruno
     );
   }
 
-  const espera = one("SELECT id FROM tasks WHERE status = 'waiting' LIMIT 1");
+  const espera = await one("SELECT id FROM tasks WHERE status = 'waiting' LIMIT 1");
   if (espera) {
-    addComment(
+    await addComment(
       espera.id,
       "Quando a tabela nova estiver pronta, me manda aqui que eu respondo no mesmo dia.",
       ids.ana
