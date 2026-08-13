@@ -1,16 +1,15 @@
 # Instalação
 
-Há três caminhos. Todos servem a mesma interface e falam o mesmo contrato de
+Há dois caminhos. Os dois servem a mesma interface e falam o mesmo contrato de
 API — o que muda é quem responde e onde os dados ficam.
 
-| | Autônomo | Vercel | Plugin de WordPress |
-|---|---|---|---|
-| Exige | Node.js 22.5+ | conta Vercel + Turso | WordPress 6.0+, PHP 7.4+ |
-| Banco | SQLite em `data/` | Turso (SQLite hospedado) | O MySQL do próprio site |
-| Anexos | `data/uploads/` | Vercel Blob | `wp-content/uploads/tdah-logus/` |
-| Login | contas do próprio aplicativo | idem | as contas que já existem no WordPress |
-| Acesso | rede local | de qualquer lugar | de qualquer lugar |
-| Melhor para | uso interno sem exposição | time distribuído, sem servidor para manter | quem já tem um site WordPress |
+| | Autônomo | Vercel |
+|---|---|---|
+| Exige | Node.js 22.5+ | conta Vercel + Turso |
+| Banco | SQLite em `data/` | Turso (SQLite hospedado) |
+| Anexos | `data/uploads/` | Vercel Blob |
+| Acesso | rede local | de qualquer lugar |
+| Melhor para | uso interno sem exposição, ou desenvolvimento | o time trabalhando de onde estiver |
 
 ---
 
@@ -194,58 +193,6 @@ parado — o banco e os anexos vão juntos.
 
 ---
 
-## Plugin de WordPress
-
-### 1. Instalar
-
-Clone o repositório dentro da pasta de plugins:
-
-```bash
-cd wp-content/plugins
-git clone https://github.com/<usuario>/TDAHJira-Logus-Automacao.git tdah-logus
-```
-
-O repositório inteiro **é** o plugin: o arquivo com o cabeçalho está na raiz.
-Não há passo de empacotamento.
-
-Como alternativa, baixe o ZIP do GitHub e envie por **Plugins → Adicionar novo →
-Enviar plugin**.
-
-### 2. Ativar
-
-Em **Plugins**, ative *TDAH Jira — Logus*. A ativação cria as tabelas (prefixo
-`wp_tdah_`) e a pasta de anexos protegida.
-
-### 3. Usar
-
-Aparece **TDAH Jira** no menu lateral do painel.
-
-Quem pode entrar: qualquer pessoa com conta no WordPress e permissão de leitura.
-Quem tem `manage_options` é tratado como administrador — pode apagar tarefas e
-comentários de outras pessoas.
-
-Não é preciso criar senha nova: o login é o do próprio WordPress.
-
-### Cópia de segurança
-
-As tabelas entram no backup normal do banco do site. Os anexos ficam em
-`wp-content/uploads/tdah-logus/`.
-
-### Se algo não funcionar
-
-**A tela abre em branco.** Verifique no console do navegador se os arquivos de
-`web/js/` carregaram. O plugin serve módulos ES nativos; algum plugin de
-otimização que concatena ou adia scripts pode quebrá-los. Exclua `tdah-logus` da
-otimização.
-
-**As imagens dos anexos não aparecem.** Elas passam pela REST autenticada por
-nonce. Se o site tem cache agressivo de página no painel, desative-o para
-`/wp-admin/admin.php?page=tdah-logus`.
-
-**As tabelas não foram criadas.** Desative e reative o plugin. A criação também
-é verificada a cada carregamento, comparando a versão gravada.
-
----
 
 ## Segurança em qualquer um dos modos
 

@@ -1,7 +1,9 @@
 // Rotas da API. Este arquivo é a definição prática do contrato descrito em
-// docs/API.md — o plugin de WordPress implementa exatamente as mesmas rotas,
-// com as mesmas formas de entrada e saída, para que o mesmo front sirva aos
-// dois modos.
+// docs/API.md.
+//
+// Nada aqui sabe onde o aplicativo está rodando: o driver de banco e o de
+// arquivo já resolveram isso antes. A mesma requisição produz a mesma resposta
+// num servidor próprio ou numa função hospedada.
 
 import { all, one, run, insert, nowIso, today, getSetting, setSetting } from "./db.js";
 import {

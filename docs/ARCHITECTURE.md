@@ -1,63 +1,66 @@
 # Arquitetura
 
-## A restrição que definiu tudo
+## O formato
 
-O pedido trazia dois requisitos de distribuição que puxavam para lados opostos:
-
-1. rodar como **plugin de WordPress** — o que obriga PHP;
-2. ou, se isso não desse certo, ser **conectável por três pessoas, cada uma no
-   seu computador**, sem exposição na internet.
-
-Fazer os dois com um backend só não é possível: um plugin de WordPress precisa
-ser PHP, e exigir uma instalação de PHP na máquina de cada pessoa para o modo
-autônomo seria trocar um problema por outro.
-
-A saída foi separar o produto em três camadas e deixar apenas a mais fina
-duplicada:
+Três camadas, e apenas uma delas muda conforme onde o aplicativo roda:
 
 ```
-                    web/  — interface, ES modules nativos, sem build
-                     │
-                     │  fala um contrato só (docs/API.md)
-        ┌────────────┴────────────┐
-        │                         │
-   server/  (Node)          tdah-logus.php (PHP)
-   SQLite embutido          wordpress/includes/
-   zero dependências        $wpdb, MySQL
+              web/  — interface, ES modules nativos, sem build
+               │
+               │  fala um contrato só (docs/API.md)
+               │
+            server/ — regras de negócio, agnósticas de onde rodam
+               │
+        ┌──────┴──────┐
+        │             │
+   SQLite local    Turso (SQLite hospedado)
+   disco local     Vercel Blob
 ```
 
-A interface é **o mesmo arquivo** nos dois modos. Ela não sabe quem está do
-outro lado: recebe a base da API e um eventual nonce em `window.TDAH_BOOT` e
-segue trabalhando.
+A interface é o mesmo arquivo nos dois modos. Ela não sabe quem está do outro
+lado: recebe a base da API e segue trabalhando.
 
-O que é duplicado é somente a implementação do contrato — cerca de mil linhas de
-cada lado, com a mesma forma de entrada e de saída. É duplicação real e tem
-custo de manutenção; foi o preço aceito para atender aos dois requisitos sem
-inventar uma camada de abstração que ninguém entenderia depois.
+As regras de negócio também são as mesmas. O que troca é o **driver** — quem
+fala com o banco e quem guarda os arquivos —, escolhido em tempo de execução
+pela configuração do ambiente.
+
+## Os dois modos
+
+| | Autônomo | Hospedado |
+|---|---|---|
+| Ativado por | ausência de configuração | `TURSO_DATABASE_URL` presente |
+| Banco | `node:sqlite`, arquivo em `data/` | Turso, por HTTP |
+| Anexos | `data/uploads/` | Vercel Blob |
+| Entrada | `server/index.js` (servidor HTTP) | `api/index.js` (função) |
+| Transação | real | ver a ressalva adiante |
+
+O modo autônomo não é um brinquedo de desenvolvimento: é um caminho de
+produção completo, e é o que permite que os testes exercitem o núcleo de
+verdade em vez de simular um banco.
+
+## Por que Turso e não Postgres
+
+Turso **é** SQLite. O dialeto do [`core/schema.sql`](../core/schema.sql)
+continua valendo sem tradução, as mesmas consultas rodam nos dois modos, e não
+existe um segundo esquema para manter em sincronia.
+
+Um Postgres exigiria um dialeto paralelo — `SERIAL` em vez de `AUTOINCREMENT`,
+outro tratamento de data — e cada divergência entre os dois seria uma classe de
+defeito que só aparece em produção.
 
 ## Por que não há etapa de compilação
 
 Nenhum `npm install`, nenhum empacotador, nenhum passo de build. O que está no
-repositório é exatamente o que o navegador executa.
+repositório é exatamente o que o navegador executa e o que o servidor roda.
 
-Isso não é purismo. É o que permite que o repositório inteiro funcione como
-plugin de WordPress ao ser clonado dentro de `wp-content/plugins/`, sem processo
-de empacotamento. E é o que faz o modo autônomo ser `node server/index.js` e mais
-nada.
+Isso torna o deploy trivial (não há o que configurar), elimina a categoria
+inteira de problema de dependência quebrada, e mantém o código legível por
+quem for mexer nele daqui a um ano.
 
-A interface usa módulos ES nativos, suportados por qualquer navegador atual. O
-custo é abrir mão de TypeScript e de bibliotecas de componentes; para uma
-aplicação deste tamanho, o custo compensa.
+O custo é abrir mão de TypeScript e de bibliotecas de componentes. Para uma
+aplicação deste tamanho, compensa.
 
 ## O banco
-
-`node:sqlite` vem embutido no Node desde a versão 22.5 — SQLite sem instalar
-nada. É o que torna o modo autônomo verdadeiramente sem dependências.
-
-O esquema está em [`core/schema.sql`](../core/schema.sql), no dialeto do SQLite,
-e é traduzido para MySQL em
-[`wordpress/includes/class-schema.php`](../wordpress/includes/class-schema.php).
-Os dois descrevem o mesmo desenho; ao mudar um, mude o outro.
 
 ### O princípio que governa o esquema
 
@@ -68,9 +71,8 @@ cada coisa e desde quando" é a tabela `events`, que só recebe inserção — n
 edição, nunca remoção.
 
 É daí que vem a rastreabilidade sem cerimônia: a história se escreve sozinha a
-cada mudança, sem pedir nada a mais de quem usa. Não existe campo de
-apontamento, nem formulário de justificativa, nem transição que exija
-preenchimento.
+cada mudança. Não existe campo de apontamento, nem formulário de justificativa,
+nem transição que exija preenchimento.
 
 Três campos de tempo sustentam quase toda a interface:
 
@@ -82,32 +84,43 @@ Três campos de tempo sustentam quase toda a interface:
 
 Todos gravados automaticamente na transição de estado.
 
+### A ressalva das transações
+
+No modo autônomo, `tx()` é a transação real do SQLite.
+
+No modo hospedado, cada consulta é uma requisição HTTP independente. Manter uma
+transação aberta entre elas exigiria segurar uma sessão, o que não sobrevive a
+uma função que pode ser encerrada a qualquer momento. Ali, `tx()` apenas
+executa.
+
+A consequência é estreita e foi aceita conscientemente: uma criação de tarefa
+interrompida no meio pode consumir um número de projeto sem criar a tarefa —
+um buraco na sequência (`LOG-7` existe, `LOG-8` não, `LOG-9` existe), não uma
+perda de dado. O log de eventos continua íntegro.
+
 ## Sincronização entre as pessoas
 
-O log de eventos também funciona como cursor de sincronização. O cliente guarda
-o maior `id` de evento que já viu e pergunta periodicamente o que mudou desde
-então:
+O log de eventos também funciona como cursor. O cliente guarda o maior `id` que
+já viu e pergunta periodicamente o que mudou desde então:
 
 ```
 GET /api/sync?cursor=412
 → { cursor: 419, tasks: [...], removed: [...], events: [...] }
 ```
 
-Para três pessoas numa rede local, uma verificação a cada seis segundos é
-indistinguível de tempo real e não exige conexão persistente nem um servidor que
-saiba manter estado. Quando a aba está em segundo plano a sondagem para, e ela
-é retomada assim que a aba volta ao primeiro plano.
+Para três pessoas, uma verificação a cada seis segundos é indistinguível de
+tempo real e não exige conexão persistente nem um servidor com estado. Quando a
+aba vai para segundo plano a sondagem para, e é retomada ao voltar.
 
 ## Estado no cliente
 
-A base é pequena o suficiente para caber inteira na memória do navegador. Uma
-chamada a `GET /api/state` traz tudo: tarefas, projetos, pessoas, etiquetas e
-atividade recente.
+A base cabe inteira na memória do navegador. Uma chamada a `GET /api/state`
+traz tudo: tarefas, projetos, pessoas, etiquetas e atividade recente.
 
-Isso significa que filtrar, ordenar, buscar e trocar de visão não geram nenhuma
-ida ao servidor — a interface responde no mesmo quadro em que se clica. Essa
-resposta imediata é requisito de produto, não detalhe técnico: atraso percebido
-é onde a atenção se perde.
+Filtrar, ordenar, buscar e trocar de visão não geram nenhuma ida ao servidor —
+a interface responde no mesmo quadro em que se clica. Essa resposta imediata é
+requisito de produto, não detalhe técnico: atraso percebido é onde a atenção se
+perde.
 
 As escritas são aplicadas na tela antes da confirmação do servidor e revertidas
 se a chamada falhar (`store.js`, função `patch`).
@@ -116,28 +129,36 @@ se a chamada falhar (`store.js`, função `patch`).
 
 | Risco | Tratamento |
 |---|---|
-| Injeção de SQL | Toda consulta usa parâmetro vinculado; no WordPress, `$wpdb->prepare` e os métodos `insert`/`update`/`delete` |
+| Injeção de SQL | Toda consulta usa parâmetro vinculado, nos dois drivers |
 | XSS | A interface nunca usa `innerHTML` com dado de quem usa. Todo texto entra por `textContent` ou atributo (`web/js/dom.js`) |
-| CSRF | Cookie `SameSite=Lax` mais verificação de origem nos métodos de escrita; no WordPress, nonce da REST |
-| Upload perigoso | Lista fechada de tipos aceitos, sem SVG (que carrega script); nome no disco é sorteado; `X-Content-Type-Options: nosniff` na entrega |
-| Travessia de caminho | O nome enviado é apenas rótulo e nunca toca o sistema de arquivos; a entrega usa `basename` |
-| Senha | `scrypt` com sal por usuário e comparação em tempo constante (`server/auth.js`) |
-| Anexo exposto | A pasta de uploads fica fora do controle de versão e, no WordPress, protegida por `.htaccess`; os arquivos saem apenas por rota autenticada |
+| CSRF | Cookie `SameSite=Lax` mais verificação de origem nos métodos de escrita |
+| Upload perigoso | Lista fechada de tipos, sem SVG (que carrega script); nome sorteado; `nosniff` na entrega |
+| Anexo exposto | A referência do arquivo nunca sai na resposta da API; a leitura passa sempre pela rota autenticada |
+| Senha | `scrypt` com sal por usuário e comparação em tempo constante |
+| Força bruta | Oito tentativas por origem e usuário numa janela de quinze minutos |
+| Enumeração de contas | A verificação roda contra um hash descartável quando o usuário não existe, para o tempo de resposta não denunciar |
+| Segredo no repositório | Nenhum. As chaves vivem só no ambiente, e `.env.example` traz apenas os nomes |
 
 ## Estrutura de diretórios
 
 ```
-tdah-logus.php          ponto de entrada do plugin de WordPress
 package.json            sem dependências; só declara os comandos
+vercel.json             configuração do modo hospedado
+Dockerfile              imagem para um servidor próprio
+compose.yaml
 
 core/
-  schema.sql            o esquema, no dialeto do SQLite
+  schema.sql            o esquema, em dialeto SQLite
 
-server/                 servidor autônomo em Node
-  index.js              inicialização, preparação da instância, servidor HTTP
-  api.js                as rotas
-  db.js                 conexão e utilidades
-  auth.js               senha e sessão
+api/
+  index.js              entrada do modo hospedado (função)
+
+server/
+  index.js              entrada do modo autônomo (servidor HTTP)
+  api.js                as rotas — o contrato em código
+  db.js                 driver de banco: local ou hospedado
+  storage.js            driver de arquivo: disco ou nuvem
+  auth.js               senha, sessão e freio de tentativas
   tasks.js              regras de tarefa
   comments.js           conversa e anexos
   events.js             a trilha
@@ -145,7 +166,7 @@ server/                 servidor autônomo em Node
   demo.js               dados de exemplo
   paths.js              caminhos
 
-web/                    interface, idêntica nos dois modos
+web/                    interface
   index.html
   css/                  tokens.css (identidade), base.css, app.css
   js/
@@ -153,6 +174,7 @@ web/                    interface, idêntica nos dois modos
     store.js            estado e sincronização
     api.js              cliente
     dom.js              construção de DOM sem biblioteca
+    dialog.js           diálogos próprios, no lugar dos do navegador
     capture.js          o interpretador da captura rápida
     taskcard.js         o cartão de tarefa
     ticket.js           o ticket, com conversa e trilha
@@ -160,9 +182,6 @@ web/                    interface, idêntica nos dois modos
     palette.js          paleta de comandos
     views/              hoje, quadro, planilha, fluxo
 
-wordpress/
-  includes/             a implementação PHP do mesmo contrato
-  assets/admin.css      ajustes para conviver com o painel
-
-data/                   banco e anexos (fora do controle de versão)
+tests/                  31 testes, sem dependência externa
+data/                   banco e anexos no modo autônomo (fora do versionamento)
 ```

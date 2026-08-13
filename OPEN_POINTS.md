@@ -17,32 +17,26 @@ Foram resolvidas para não travar a entrega. Todas podem ser revertidas.
 Decidido: **Vercel**, por ser ferramenta interna da Logus e não haver
 infraestrutura própria da empresa para usar.
 
-Três modos existem e todos funcionam sobre o mesmo contrato:
+Dois modos existem, e ambos funcionam sobre o mesmo contrato:
 
 - **Autônomo** — testado de ponta a ponta, roda hoje sem nada além do Node.
+  Serve para desenvolvimento e para uso interno na rede local.
 - **Vercel** — banco no Turso, anexos no Vercel Blob. Handler e armazenamento
   cobertos por teste; o deploy em si depende de contas que só quem publica
-  possui (veja o item 2.4).
-- **Plugin de WordPress** — implementado, mas **não executado** (item 2.1).
+  possui (veja o item 2.2).
 
 **Descartado de propósito:** hospedar na VPS ou no MySQL da clínica. É
 infraestrutura de outra empresa, e misturar os dados criaria uma dependência
 que ninguém quer administrar depois.
 
-### 1.2 Node em vez de PHP no modo autônomo
+### 1.2 Node, e apenas Node
 
-O pedido pedia compatibilidade com plugin de WordPress — que exige PHP. Mas não
-há PHP instalado nas máquinas do time, e exigir essa instalação de cada pessoa
-seria trocar um problema por outro.
+O pedido original citava compatibilidade com plugin de WordPress. Isso foi
+implementado e depois removido a pedido: o produto é ferramenta interna da
+Logus e não há motivo para carregar um segundo backend em PHP, com o dobro de
+superfície para manter e testar.
 
-Um servidor em PHP também não poderia ser testado aqui, e entregar uma V1 não
-executada contraria o objetivo de entregar algo funcionando.
-
-**Decisão:** o servidor autônomo é Node (que já estava instalado, roda sem
-dependências e usa SQLite embutido); o plugin de WordPress é PHP e implementa o
-mesmo contrato. O front-end é o mesmo arquivo nos dois.
-
-**Custo assumido:** duas implementações do contrato para manter em paralelo.
+O histórico do repositório preserva a implementação, caso um dia faça sentido.
 
 ### 1.3 Nomes reais fora do repositório
 
@@ -59,28 +53,7 @@ que precisa acompanhar são os endereços de clone no README e no INSTALL.
 
 ## 2. Riscos conhecidos
 
-### 2.1 O plugin de WordPress nunca foi executado
-
-**Este é o ponto mais importante do documento.**
-
-O código PHP existe, implementa o mesmo contrato, foi revisado linha a linha e
-passou por verificação estática. Mas não há PHP nesta máquina, então ele nunca
-rodou.
-
-O que já foi conferido sem execução: sintaxe e balanceamento, uso de
-`$wpdb->prepare` em toda consulta com parâmetro, formato do DDL exigido pelo
-`dbDelta`, `permission_callback` em todas as rotas, e paridade de contrato com o
-lado Node.
-
-O que só a execução vai revelar: comportamento real do `dbDelta` na criação das
-tabelas, conversão de fuso entre `wp_date` e `gmdate`, entrega do arquivo de
-anexo por `readfile` dentro de uma rota REST, e conflito com outros plugins.
-
-**Antes de confiar nele:** instalar num WordPress de teste, ativar, criar uma
-tarefa, comentar, anexar um print e conferir a trilha. Uma hora de trabalho
-resolve.
-
-### 2.2 O modo autônomo escuta em todas as interfaces
+### 2.1 O modo autônomo escuta em todas as interfaces
 
 É o que permite que as outras pessoas entrem pela rede local. Se a máquina tiver
 endereço público, isso expõe o serviço na internet.
@@ -89,7 +62,7 @@ endereço público, isso expõe o serviço na internet.
 máquina. Não há HTTPS embutido; o cookie de sessão só recebe o atributo `Secure`
 quando a conexão já chega cifrada por um proxy à frente.
 
-### 2.4 O deploy na Vercel ainda não foi executado
+### 2.2 O deploy na Vercel ainda não foi executado
 
 O código do modo hospedado tem teste automatizado cobrindo o handler, a
 preparação da instância, o bloqueio por origem, os atributos do cookie e a
@@ -103,16 +76,6 @@ print. Se o anexo abrir, o caminho inteiro está de pé.
 **Ponto de atenção conhecido:** o plano Hobby da Vercel proíbe uso comercial.
 Ferramenta interna de empresa se enquadra.
 
-### 2.3 Anexos no WordPress dependem do servidor respeitar `.htaccess`
-
-A pasta de anexos é protegida por `.htaccess`, que o Nginx e o IIS ignoram. O
-nome do arquivo em disco é sorteado e nunca sai na resposta da API, então
-adivinhar o endereço é impraticável — mas em servidor sem Apache a pasta não
-tem uma segunda barreira.
-
-**A fazer se o site não for Apache:** guardar os anexos fora de
-`wp-content/uploads`, ou adicionar a regra equivalente na configuração do
-servidor.
 
 ---
 
@@ -195,13 +158,15 @@ Em ordem aproximada de valor por esforço.
 
 ## 6. Dívidas técnicas
 
-- **Duplicação do contrato.** Regra nova precisa ser escrita duas vezes, em
-  `server/tasks.js` e em `wordpress/includes/class-tasks.php`. Os testes cobrem
-  só o lado Node.
 - **`node:sqlite` é experimental.** Funciona bem, mas a interface pode mudar
-  entre versões do Node. O aviso é suprimido em `server/index.js`.
+  entre versões do Node. O aviso é suprimido em `server/index.js`. Vale só para
+  o modo autônomo; o hospedado fala com o Turso por HTTP e não usa o módulo.
 - **Sem migrações de banco.** O esquema é criado com `CREATE TABLE IF NOT
-  EXISTS`. Alterar uma coluna existente vai exigir escrever a migração à mão.
+  EXISTS`. Acrescentar tabela ou coluna nova funciona sozinho; alterar uma
+  coluna existente vai exigir escrever a migração à mão.
+- **O driver do Turso é caseiro.** São duas chamadas HTTP escritas à mão em
+  `server/db.js`, em vez da biblioteca oficial. A troca foi deliberada — manter
+  zero dependências —, mas se a API do serviço mudar, é ali que quebra.
 - **Uma pessoa só edita por vez, sem aviso.** Se duas pessoas abrirem a mesma
   tarefa, a última gravação vence — em silêncio. Para três pessoas isso é raro,
   mas a trilha registra as duas mudanças e permite descobrir o que houve.
@@ -213,8 +178,7 @@ Em ordem aproximada de valor por esforço.
 ## 7. Perguntas para o time
 
 1. Onde o aplicativo vai rodar? (item 1.1)
-2. Vale a hora de trabalho para validar o plugin de WordPress, ou o modo
-   autônomo já resolve? (item 2.1)
+2. Depois do primeiro deploy: o Blob está guardando os prints de verdade?
 3. Cinco estados estão bons, ou "Entrada" e "A fazer" viraram a mesma coisa na
    prática?
 4. O limite de três tarefas simultâneas é realista para o ritmo de vocês?

@@ -1,8 +1,8 @@
 // Cliente da API.
 //
-// A base é relativa ao documento, e não absoluta: é isso que faz o mesmo
-// front funcionar servido pelo Node em /, e pelo WordPress em
-// /wp-json/tdah-logus/v1/ dentro de um site que mora em subpasta.
+// A base é relativa ao documento, e não absoluta: assim a interface funciona
+// igual servida da raiz por um servidor próprio ou por uma função hospedada,
+// sem precisar saber onde está.
 
 const BOOT = globalThis.TDAH_BOOT || {};
 const BASE = (BOOT.apiBase || "api/").replace(/\/?$/, "/");
@@ -20,8 +20,6 @@ async function request(method, path, { body, headers = {}, raw } = {}) {
     credentials: "same-origin",
     headers: { ...headers },
   };
-
-  if (BOOT.nonce) opts.headers["X-WP-Nonce"] = BOOT.nonce;
 
   if (raw) {
     opts.body = raw;
@@ -82,13 +80,9 @@ export const api = {
   deleteAttachment: (id) => request("DELETE", `attachments/${id}`),
 
   // Endereço direto do arquivo, usado em <img src> e no link de download.
-  // Uma tag de imagem não manda cabeçalho nenhum, então no WordPress o
-  // nonce precisa viajar na própria URL — sem isso a REST não reconhece o
-  // cookie de sessão e toda imagem de anexo quebraria.
-  attachmentUrl: (id) =>
-    BOOT.nonce
-      ? `${BASE}attachments/${id}?_wpnonce=${encodeURIComponent(BOOT.nonce)}`
-      : `${BASE}attachments/${id}`,
+  // A autenticação vai pelo cookie de sessão, que o navegador envia sozinho
+  // também nas requisições de imagem.
+  attachmentUrl: (id) => `${BASE}attachments/${id}`,
 
   timeline: (id) => request("GET", `tasks/${id}/timeline`),
 
@@ -110,4 +104,3 @@ export const api = {
   focusToday: () => request("GET", "focus"),
 };
 
-export const bootInfo = BOOT;

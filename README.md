@@ -75,11 +75,9 @@ O endereço aparece no terminal, incluindo o IP da rede local — é assim que a
 outras pessoas do time entram, cada uma do seu computador, sem nada exposto na
 internet.
 
-Também roda **hospedado na Vercel** (com Turso para o banco e Vercel Blob para
-os anexos) e como **plugin de WordPress** (basta clonar dentro de
-`wp-content/plugins/` e ativar). Os três modos compartilham o mesmo front-end e
-o mesmo contrato de API. Os detalhes de cada caminho estão em
-[docs/INSTALL.md](docs/INSTALL.md).
+Para o time trabalhar de qualquer lugar, o mesmo código roda **hospedado na
+Vercel**, com Turso para o banco e Vercel Blob para os anexos. O passo a passo
+está em [docs/INSTALL.md](docs/INSTALL.md).
 
 ---
 
@@ -114,11 +112,10 @@ o mesmo contrato de API. Os detalhes de cada caminho estão em
 
 V1 completa e funcional, com 31 testes automatizados passando.
 
-O modo autônomo foi exercitado de ponta a ponta. O modo hospedado tem o
-handler e o armazenamento cobertos por teste, mas o deploy em si depende de
-contas que só quem publica possui. O plugin de WordPress está implementado
-sobre o mesmo contrato e ainda não foi executado num WordPress real. Tudo isso
-está registrado com todas as letras em [OPEN_POINTS.md](OPEN_POINTS.md).
+O modo autônomo foi exercitado de ponta a ponta, no navegador. O modo
+hospedado tem o handler, a preparação da instância e o armazenamento cobertos
+por teste; o deploy em si depende de contas que só quem publica possui. Está
+registrado em [OPEN_POINTS.md](OPEN_POINTS.md).
 
 ## Licença
 

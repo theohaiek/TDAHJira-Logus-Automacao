@@ -350,24 +350,32 @@ O objetivo é responder "onde está cada coisa" em uma tela, sem relatório e se
 
 ## 9. Viabilidade de distribuição
 
-**Veredito.** Os dois modos são viáveis e devem coexistir, mas resolvem problemas diferentes e não têm o mesmo custo. O **plugin de WordPress** é o caminho de menor custo operacional: autenticação, gestão de usuários, sessão, upload e banco já existem, e a SPA vive atrás de `admin_menu` com uma capacidade própria. O **standalone PHP + SQLite** cumpre o requisito de "um processo, um arquivo de banco, nenhuma dependência", mas apenas em rede local — a documentação oficial do PHP diz explicitamente que o servidor embutido não deve ser usado em rede pública, e o WAL do SQLite não funciona sobre sistema de arquivos de rede. Recomendação: plugin como modo primário de distribuição; standalone como modo de avaliação e de uso interno em LAN, com esse limite dito com todas as letras na documentação do produto.
+A pesquisa avaliou dois caminhos: **plugin de WordPress** (PHP sobre o banco do
+site) e **aplicação autônoma** (um processo, um arquivo de banco, nenhuma
+dependência). O veredito da época recomendava os dois coexistindo, com o plugin
+como modo primário — por reaproveitar autenticação, usuários, sessão e upload
+que já existem prontos.
 
-**Arquitetura recomendada — núcleo compartilhado, dois invólucros finos.** Núcleo em PHP 8.1 ou superior (piso seguro: a própria documentação do WordPress recomenda 8.3+ e classifica 7.4 como EOL e inseguro), com namespace próprio, publicando interfaces e nenhuma dependência de ambiente: `TicketRepositoryInterface`, `EventRepositoryInterface`, `AttachmentStorageInterface`, `AuthAdapterInterface`, `ClockInterface`. Cada modo implementa seus adaptadores. O precedente real desse padrão dentro do ecossistema é o Action Scheduler, que mantém uma classe abstrata de store com implementações concretas trocáveis e roda em escala de produção; o Groundhogg prova que um app de negócio inteiro sobre tabelas próprias dentro do WordPress é maduro; e o WooCommerce Admin prova que uma SPA completa embutida via `admin_menu` é padrão oficial.
+**A recomendação foi seguida e depois revertida.** O plugin chegou a ser
+implementado por inteiro e foi removido: o produto é ferramenta interna e não há
+razão para carregar um segundo backend, com o dobro de superfície para manter,
+testar e conservar em paridade. A implementação segue no histórico do
+repositório, caso um dia volte a fazer sentido.
 
-| Preocupação | Modo plugin WordPress | Modo standalone |
-|---|---|---|
-| Rotas/API | `register_rest_route` em `rest_api_init`, namespace `logus/v1`, `permission_callback` obrigatório em toda rota | Roteador PHP simples chamando os mesmos casos de uso do núcleo |
-| Autenticação | Cookie de sessão do wp-admin + nonce `wp_rest` no header, injetado no carregamento da página | Sessão própria com token de vida útil equivalente, emitida pelo adaptador de auth |
-| Autorização | `current_user_can` no callback da rota, **nunca** confiando no menu escondido | Mesma verificação (`podeEditar(ticket, usuario)`) reimplementada no adaptador, chamada pelo mesmo caso de uso |
-| Schema/migração | `dbDelta` com formatação rígida (sem linha em branco, sem `IF NOT EXISTS`, sem `COMMENT`, espaçamento exato) | SQL padrão, `IF NOT EXISTS` permitido |
-| Nome de tabela | Resolvido em runtime via `$wpdb->prefix` | Arquivo `.db` dedicado, sem prefixo |
-| Anexos | `wp_handle_upload` com `test_form => false` e allowlist explícita de MIME de imagem | Pasta fora do document root, servida por script que reaplica a checagem de sessão |
-| Datas | Sempre UTC ISO-8601 na coluna; conversão só na apresentação (`current_time('timestamp')` está desaconselhado desde o WP 5.3) | Idem, UTC sempre |
-| Front-end | `wp_enqueue_script_module` (WP 6.5+) ou filtro `script_loader_tag` como alternativa; import maps, sem etapa de build | Mesmos módulos ES servidos direto do sistema de arquivos |
-| CORS | Nada a configurar enquanto a SPA roda no mesmo domínio — a API do WordPress não valida `Origin`, e a proteção contra CSRF é o nonce | Nada a configurar em LAN |
-| Concorrência | Responsabilidade do MySQL do hospedeiro | `PRAGMA journal_mode=WAL` e `PRAGMA busy_timeout` aplicados na construção da conexão PDO, dentro do adaptador |
+O que a pesquisa acertou e continua valendo no que foi construído:
 
-**Riscos reconhecidos.** (1) Não foi encontrado precedente público de um plugin de WordPress que também se distribua como app PHP autônomo a partir do mesmo código — a dualidade é decisão de arquitetura pouco testada no ecossistema, o que justifica investir em uma suíte de testes de contrato rodando contra os dois adaptadores. (2) O `dbDelta` falha em silêncio quando a formatação não é exata, então o schema não pode ser um arquivo `.sql` copiado entre os dois modos. (3) Sem `busy_timeout`, dois dos três usuários salvando ao mesmo tempo produzem "database is locked". (4) O SQLite tem JSON nativo com sintaxe compatível, mas não tem índice equivalente às colunas geradas do MySQL — nenhuma consulta do núcleo pode filtrar ou ordenar por dentro do JSON. (5) Import maps não funcionam em Safari anterior à 16.4. (6) Não construir um tradutor genérico de SQL entre dialetos: existe um plugin candidato ao núcleo do WordPress que faz isso, e reimplementá-lo para meia dúzia de tabelas seria desproporcional — duas implementações de repositório escritas à mão são mais simples de auditar.
+| Achado | Como aparece hoje |
+|---|---|
+| Um núcleo agnóstico, com adaptadores finos nas pontas | O núcleo não sabe onde roda; trocam-se apenas o driver de banco e o de arquivo |
+| Testes de contrato contra os adaptadores | 31 testes, cobrindo as regras e o caminho hospedado |
+| Datas sempre em UTC, conversão só na apresentação | É a regra do esquema e do contrato |
+| Permissão verificada no servidor, nunca no menu escondido | Toda rota confere a sessão antes de responder |
+| Módulos ES sem etapa de compilação | O que está no repositório é o que o navegador executa |
+| SQLite como padrão, com caminho de crescimento preservado | Foi essa escolha que permitiu ir para o Turso sem reescrever consulta nenhuma |
+| Tempo de espera na conexão, contra "banco travado" | Aplicado na abertura da conexão local |
+
+A ressalva de que o servidor embutido não deve ser exposto na internet continua
+valendo — e é justamente por isso que o modo hospedado existe.
 
 ## 10. Referências
 
@@ -389,4 +397,4 @@ O objetivo é responder "onde está cada coisa" em uma tela, sem relatório e se
 
 **Rastreabilidade:** docs.github.com/en/rest/issues/timeline · support.atlassian.com/jira-software-cloud (control chart e diagrama de fluxo cumulativo) · martinfowler.com/eaaDev/EventSourcing.html · help.asana.com (dependências de tarefa) · businessmap.io/kanban-resources · basecamp.com/shapeup/3.4-chapter-12
 
-**Viabilidade técnica:** developer.wordpress.org (custom endpoints, nonces, autenticação da REST API, `dbDelta`, boas práticas de plugin, `add_menu_page`, `wp_enqueue_script`, `wp_handle_upload`, `current_time`, FAQ da REST API) · wordpress.org/about/requirements · wordpress.org/plugins/sqlite-database-integration · php.net/manual (servidor embutido, `PDO::setAttribute`) · sqlite.org/wal.html e sqlite.org/json1.html · caniuse.com/import-maps · github.com/woocommerce/action-scheduler · github.com/groundhoggwp/groundhogg
+**Viabilidade técnica:** php.net/manual (servidor embutido, `PDO::setAttribute`) · sqlite.org/wal.html e sqlite.org/json1.html · caniuse.com/import-maps · developer.mozilla.org (módulos ES, import maps)

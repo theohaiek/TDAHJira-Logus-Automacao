@@ -1,27 +1,21 @@
 # Contrato da API
 
-Este é o documento normativo. As duas implementações — `server/api.js` (Node) e
-`wordpress/includes/class-rest.php` (WordPress) — devem responder exatamente o
-mesmo. Se divergirem, é defeito de uma delas, não uma variação aceitável.
+Este é o documento normativo do contrato entre a interface e o servidor,
+implementado em `server/api.js`. A resposta é idêntica no modo autônomo e no
+hospedado — o que muda por baixo é apenas o driver de banco e o de arquivo.
 
 ## Endereço base
 
-| Modo | Base |
-|---|---|
-| Autônomo | `/api/` |
-| WordPress | `/wp-json/tdah-logus/v1/` |
-
-A interface recebe a base pronta em `window.TDAH_BOOT.apiBase` e nunca monta URL
-absoluta.
+Todas as rotas ficam sob `/api/`. A interface monta o endereço de forma
+relativa ao documento e nunca usa URL absoluta.
 
 ## Autenticação
 
-**Autônomo.** Cookie de sessão `tdah_sess`, `HttpOnly` e `SameSite=Lax`, obtido
-em `POST /session`. Métodos de escrita conferem a origem da requisição.
+Cookie de sessão `tdah_sess`, `HttpOnly` e `SameSite=Lax`, obtido em
+`POST /session`. Os métodos de escrita conferem a origem da requisição.
 
-**WordPress.** O cookie de login do próprio WordPress, acompanhado do nonce em
-`X-WP-Nonce`. Para o endereço de download de anexo, que é usado em `<img src>` e
-não pode enviar cabeçalho, o nonce vai em `?_wpnonce=`.
+O download de anexo usa o mesmo cookie: o navegador o envia sozinho, inclusive
+em `<img src>`.
 
 Sem sessão válida, qualquer rota responde `401` com `{ "error": "..." }`.
 
@@ -45,8 +39,8 @@ Erro sempre no mesmo formato, em qualquer situação:
 | Método | Rota | Retorno |
 |---|---|---|
 | `GET` | `/boot` | Identificação da instância e se há sessão. Única rota que responde sem autenticação |
-| `POST` | `/session` | `{usuario, senha}` → cria sessão. **Só no modo autônomo** |
-| `DELETE` | `/session` | Encerra a sessão. **Só no modo autônomo** |
+| `POST` | `/session` | `{usuario, senha}` → cria sessão |
+| `DELETE` | `/session` | Encerra a sessão |
 
 ### Estado
 
@@ -190,9 +184,9 @@ SVG é recusado de propósito: carrega script.
 | `GET` `POST` | `/labels` |
 | `DELETE` | `/labels/{id}` |
 | `GET` | `/users` |
-| `POST` | `/users` — só administrador; devolve `senhaInicial` uma vez. **Só no modo autônomo** |
+| `POST` | `/users` — só administrador; devolve `senhaInicial` uma vez |
 | `PATCH` | `/me/prefs` |
-| `POST` | `/me/password` — **só no modo autônomo** |
+| `POST` | `/me/password` |
 
 ### Foco
 
@@ -204,14 +198,9 @@ SVG é recusado de propósito: carrega script.
 
 ---
 
-## Diferenças conhecidas entre os modos
+## Regras que valem em qualquer modo
 
-São diferenças legítimas, decorrentes de quem cuida da autenticação:
-
-| Rota | Autônomo | WordPress |
-|---|---|---|
-| `POST` `DELETE /session` | Existe | Não existe — quem autentica é o WordPress |
-| `POST /users` | Cria conta e devolve senha inicial | Não existe — as contas são as do WordPress |
-| `POST /me/password` | Existe | Não existe — a senha é a do WordPress |
-
-A interface detecta o modo por `boot.mode` e esconde o que não se aplica.
+O driver de banco e o de arquivo mudam conforme o ambiente, mas nada disso
+vaza para o contrato: a mesma requisição produz a mesma resposta nos dois. A
+única diferença observável está descrita em [ARCHITECTURE.md](ARCHITECTURE.md),
+na seção sobre transações.

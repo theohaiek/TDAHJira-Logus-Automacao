@@ -8,7 +8,6 @@ data/
 node_modules/
 tests/
 docs/
-wordpress/
 *.md
 Dockerfile
 compose.yaml

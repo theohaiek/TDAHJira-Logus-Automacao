@@ -1,7 +1,7 @@
 // Montagem da aplicação: entrada, navegação, atalhos e o laço de desenho.
 
 import { h, mount, $, initials } from "./dom.js";
-import { api, bootInfo } from "./api.js";
+import { api } from "./api.js";
 import {
   state,
   carregar,
@@ -67,26 +67,6 @@ function telaLogin() {
   $("#app").hidden = true;
   const tela = $("#login");
   tela.hidden = false;
-
-  // Rodando como plugin, quem autentica é o WordPress e não existe
-  // formulário próprio: chegar aqui significa que a sessão do painel caiu.
-  if (bootInfo.mode === "wordpress" || !$("#login-form")) {
-    mount(
-      tela,
-      h(
-        "div",
-        { class: "empty", style: { minHeight: "60vh" } },
-        h("strong", { text: "Sessão do WordPress expirada." }),
-        h("span", { text: "Atualize a página ou entre de novo no painel." }),
-        h("button", {
-          class: "btn btn--primary",
-          text: "Atualizar",
-          onClick: () => location.reload(),
-        })
-      )
-    );
-    return;
-  }
 
   $("#login-form").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -409,21 +389,17 @@ function ligarBotoes() {
 }
 
 async function menuUsuario() {
-  // No plugin, senha e sessão são assunto do WordPress: oferecer isso aqui
-  // levaria a pessoa a um caminho que não existe.
-  const noWordPress = bootInfo.mode === "wordpress";
-
   const opcoes = [
-    !noWordPress && { rotulo: "Trocar a senha", acao: trocarSenha },
+    { rotulo: "Trocar a senha", acao: trocarSenha },
     { rotulo: "Quantas tarefas em andamento eu aguento", acao: ajustarWip },
-    !noWordPress && {
+    {
       rotulo: "Sair",
       acao: async () => {
         await api.logout();
         location.reload();
       },
     },
-  ].filter(Boolean);
+  ];
 
   mount(
     $("#palette-results"),
