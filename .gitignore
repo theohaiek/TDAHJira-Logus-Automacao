@@ -1,0 +1,34 @@
+# Dados da instância: banco, anexos e qualquer coisa que pertença a quem usa.
+# Nada daqui vai para o repositório.
+/data/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# Configuração local, que é onde credencial costuma acabar aparecendo.
+.env
+.env.*
+!.env.example
+config.local.*
+
+# Dependências (o projeto não tem nenhuma, mas o diretório aparece se alguém
+# instalar alguma coisa para experimentar).
+node_modules/
+vendor/
+
+# Sistema operacional e editores
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*~
+.vscode/
+.idea/
+
+# Sobras
+*.log
+npm-debug.log*
+/tmp/
+*.zip

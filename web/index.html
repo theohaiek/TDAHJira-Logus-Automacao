@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>TDAH Jira — Logus</title>
+    <meta name="description" content="Gerenciador de tarefas visual: a simplicidade de uma planilha com a rastreabilidade de um issue tracker." />
+    <meta name="color-scheme" content="dark light" />
+    <link rel="icon" href="img/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="css/tokens.css" />
+    <link rel="stylesheet" href="css/base.css" />
+    <link rel="stylesheet" href="css/app.css" />
+  </head>
+  <body>
+    <!-- Tela de entrada -->
+    <div id="login" class="login" hidden>
+      <form class="login__card" id="login-form" autocomplete="on">
+        <div class="login__brand">
+          <span class="mark" aria-hidden="true"></span>
+          <span class="wordmark">Logus</span>
+        </div>
+        <p class="login__tag">Soluções em Automação</p>
+        <label class="field">
+          <span class="field__label">Usuário</span>
+          <input name="usuario" id="login-user" autocomplete="username" required autofocus />
+        </label>
+        <label class="field">
+          <span class="field__label">Senha</span>
+          <input name="senha" id="login-pass" type="password" autocomplete="current-password" required />
+        </label>
+        <p class="login__error" id="login-error" role="alert" hidden></p>
+        <button class="btn btn--primary btn--block" type="submit">Entrar</button>
+      </form>
+    </div>
+
+    <!-- Aplicação -->
+    <div id="app" class="app" hidden>
+      <aside class="rail" id="rail">
+        <a class="rail__brand" href="#/hoje" title="TDAH Jira — Logus">
+          <span class="mark" aria-hidden="true"></span>
+          <span class="rail__brandtext">
+            <strong>Logus</strong>
+            <small>Soluções em Automação</small>
+          </span>
+        </a>
+
+        <nav class="rail__nav" id="nav" aria-label="Seções"></nav>
+
+        <div class="rail__projects">
+          <div class="rail__heading">
+            <span>Projetos</span>
+            <button class="icon-btn icon-btn--tiny" id="new-project" title="Novo projeto" aria-label="Novo projeto">+</button>
+          </div>
+          <div id="project-list"></div>
+        </div>
+
+        <div class="rail__foot">
+          <button class="rail__user" id="user-btn">
+            <span class="avatar" id="user-avatar"></span>
+            <span class="rail__username" id="user-name"></span>
+          </button>
+        </div>
+      </aside>
+
+      <div class="main">
+        <header class="topbar">
+          <button class="icon-btn topbar__menu" id="rail-toggle" aria-label="Menu">☰</button>
+          <div class="capture">
+            <input
+              id="capture"
+              class="capture__input"
+              placeholder="O que precisa ser feito?  (n)"
+              autocomplete="off"
+              spellcheck="false"
+              aria-label="Captura rápida de tarefa"
+            />
+            <div class="capture__hint" id="capture-hint" hidden></div>
+          </div>
+          <div class="topbar__actions">
+            <button class="icon-btn" id="cmd-btn" title="Buscar e comandos (Ctrl+K)" aria-label="Comandos">⌕</button>
+            <button class="icon-btn" id="theme-btn" title="Alternar tema" aria-label="Alternar tema">◐</button>
+            <button class="icon-btn" id="calm-btn" title="Modo calmo" aria-label="Modo calmo">◇</button>
+          </div>
+        </header>
+
+        <main class="view" id="view" tabindex="-1"></main>
+      </div>
+    </div>
+
+    <!-- Painel do ticket -->
+    <div class="drawer" id="drawer" hidden>
+      <div class="drawer__scrim" data-close></div>
+      <section class="drawer__panel" role="dialog" aria-modal="true" aria-label="Detalhes da tarefa">
+        <div id="drawer-body"></div>
+      </section>
+    </div>
+
+    <!-- Modo foco -->
+    <div class="focus" id="focus" hidden></div>
+
+    <!-- Paleta de comandos -->
+    <div class="palette" id="palette" hidden>
+      <div class="palette__scrim" data-close></div>
+      <div class="palette__box" role="dialog" aria-modal="true" aria-label="Comandos">
+        <input id="palette-input" class="palette__input" placeholder="Buscar tarefa ou comando…" autocomplete="off" />
+        <div id="palette-results" class="palette__results"></div>
+      </div>
+    </div>
+
+    <div class="toasts" id="toasts" aria-live="polite"></div>
+    <div class="celebrate" id="celebrate" aria-hidden="true"></div>
+
+    <script type="module" src="js/app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-label="Logus">
+  <!-- Cantoneira superior estendida e haste em L: o gesto da assinatura Logus -->
+  <rect x="6" y="8" width="52" height="4.5" fill="currentColor" />
+  <rect x="6" y="8" width="13" height="48" fill="currentColor" />
+  <rect x="6" y="43.5" width="34" height="12.5" fill="currentColor" />
+</svg>

@@ -1,0 +1,238 @@
+/* ==========================================================================
+   Tokens visuais — identidade Logus Soluções em Automação
+   Cores extraídas diretamente dos arquivos de marca em /assets/brand.
+   Nenhum valor aqui é arbitrário: todos derivam da logo.
+   ========================================================================== */
+
+:root {
+  /* --- Cores primárias da marca ------------------------------------------ */
+  --logus-navy: #081468;   /* azul institucional da assinatura sobre branco   */
+  --logus-ice: #a2e4f0;    /* ciano gelo do "L" e do símbolo                  */
+  --logus-mist: #b4d2d8;   /* cinza-gelo do lettering sobre fundo escuro      */
+  --logus-deep: #033552;   /* topo do gradiente do fundo da marca             */
+  --logus-abyss: #020515;  /* base do gradiente do fundo da marca             */
+
+  /* --- Tipografia --------------------------------------------------------- */
+  /* Display acompanha a logo: geométrica, caixa alta, tracking largo.
+     Corpo NÃO é geométrica: legibilidade vence estética no texto corrido,
+     e leitura confortável é requisito de acessibilidade aqui. */
+  --font-display: "Century Gothic", "Questrial", "Jost", "Futura",
+    "Trebuchet MS", system-ui, sans-serif;
+  --font-ui: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "Cascadia Code", "Consolas", ui-monospace, "SF Mono", monospace;
+
+  --text-xs: 0.6875rem;   /* 11px — apenas metadados                          */
+  --text-sm: 0.8125rem;   /* 13px                                             */
+  --text-base: 0.9375rem; /* 15px — corpo. Maior que o padrão de propósito.   */
+  --text-lg: 1.0625rem;   /* 17px                                             */
+  --text-xl: 1.375rem;    /* 22px                                             */
+  --text-2xl: 1.875rem;   /* 30px                                             */
+  --text-3xl: 2.5rem;     /* 40px — modo foco                                 */
+
+  --tracking-brand: 0.18em; /* o tracking largo da assinatura Logus           */
+  --tracking-wide: 0.06em;
+  --leading-tight: 1.25;
+  --leading-normal: 1.55;
+
+  /* --- Ritmo espacial (escala de 4) --------------------------------------- */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-10: 40px;
+  --sp-12: 48px;
+  --sp-16: 64px;
+
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+
+  /* --- Movimento ---------------------------------------------------------- */
+  /* Rápido de propósito: atraso percebido quebra o fio de quem tem TDAH. */
+  --ease: cubic-bezier(0.2, 0, 0.2, 1);
+  --dur-fast: 90ms;
+  --dur: 150ms;
+  --dur-slow: 260ms;
+
+  --z-sticky: 10;
+  --z-drawer: 40;
+  --z-modal: 50;
+  --z-toast: 60;
+  --z-palette: 70;
+}
+
+/* ==========================================================================
+   Tema escuro — o padrão, porque é a cara da marca
+   ========================================================================== */
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --surface-0: #020610;  /* fundo da janela                                   */
+  --surface-1: #05121f;  /* colunas, barras                                   */
+  --surface-2: #081b2d;  /* cartões                                           */
+  --surface-3: #0c2438;  /* hover                                             */
+  --surface-4: #123047;  /* selecionado                                       */
+  --surface-sunken: #010409;
+
+  --border: #14304a;
+  --border-soft: #0d2135;
+  --border-strong: #1d4467;
+
+  --text-1: #e8f4f8;
+  --text-2: #b4d2d8;
+  --text-3: #7a98a6;
+  /* Abaixo do contraste mínimo de leitura, de propósito: serve só para
+     traço e ponto decorativo. Qualquer texto que precise ser lido usa
+     --text-3 ou acima. */
+  --text-faint: #61808f;
+
+  --accent: #a2e4f0;
+  --accent-hover: #c4eff8;
+  --accent-strong: #6fcfe4;
+  --accent-dim: rgba(162, 228, 240, 0.13);
+  --accent-line: rgba(162, 228, 240, 0.32);
+  --on-accent: #02202b;
+
+  --brand-mark: var(--logus-ice);
+
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-2: 0 4px 16px rgba(0, 0, 0, 0.5);
+  --shadow-3: 0 18px 48px rgba(0, 0, 0, 0.62);
+
+  --app-backdrop: radial-gradient(
+      ellipse 120% 90% at 12% -10%,
+      #0a2d47 0%,
+      transparent 62%
+    ),
+    linear-gradient(146deg, #041c2e 0%, var(--surface-0) 48%, #010409 100%);
+
+  --scrim: rgba(1, 5, 12, 0.72);
+}
+
+/* ==========================================================================
+   Tema claro — a assinatura navy sobre branco
+   Existe porque sensibilidade a contraste varia muito entre pessoas.
+   ========================================================================== */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --surface-0: #f2f6f9;
+  --surface-1: #ffffff;
+  --surface-2: #ffffff;
+  --surface-3: #eef4f8;
+  --surface-4: #e2eef4;
+  --surface-sunken: #e8eef3;
+
+  --border: #cfdde6;
+  --border-soft: #e3ebf1;
+  --border-strong: #a9c1d0;
+
+  --text-1: #08131f;
+  --text-2: #3d5566;
+  --text-3: #62798a;
+  --text-faint: #90a5b3;
+
+  --accent: #0d5f7d;
+  --accent-hover: #0a4d66;
+  --accent-strong: #083c50;
+  --accent-dim: rgba(13, 95, 125, 0.1);
+  --accent-line: rgba(13, 95, 125, 0.3);
+  --on-accent: #ffffff;
+
+  --brand-mark: var(--logus-navy);
+
+  --shadow-1: 0 1px 2px rgba(8, 20, 104, 0.08);
+  --shadow-2: 0 4px 14px rgba(8, 20, 104, 0.1);
+  --shadow-3: 0 18px 44px rgba(8, 20, 104, 0.16);
+
+  --app-backdrop: linear-gradient(160deg, #ffffff 0%, #eef4f8 60%, #e6eef4 100%);
+
+  --scrim: rgba(8, 19, 31, 0.42);
+}
+
+/* ==========================================================================
+   Estados de uma tarefa
+   Dessaturados de propósito. Um painel que grita em vermelho e verde vira
+   ruído e some com a hierarquia — o destaque é reservado para o que exige
+   ação agora.
+   ========================================================================== */
+:root {
+  --st-inbox: #8fa9b5;
+  --st-inbox-bg: rgba(143, 169, 181, 0.14);
+
+  --st-todo: #6b9fc9;
+  --st-todo-bg: rgba(107, 159, 201, 0.14);
+
+  --st-doing: #a2e4f0;
+  --st-doing-bg: rgba(162, 228, 240, 0.16);
+
+  --st-waiting: #e3b877;
+  --st-waiting-bg: rgba(227, 184, 119, 0.15);
+
+  --st-done: #7fc8a9;
+  --st-done-bg: rgba(127, 200, 169, 0.14);
+
+  /* Atenção real. Usado com parcimônia: se tudo é urgente, nada é. */
+  --alert: #e88b7d;
+  --alert-bg: rgba(232, 139, 125, 0.14);
+
+  /* Custo de energia da tarefa */
+  --energy-leve: #7fc8a9;
+  --energy-media: #e3b877;
+  --energy-pesada: #d98fa8;
+}
+
+:root[data-theme="light"] {
+  --st-inbox: #5c7480;
+  --st-inbox-bg: rgba(92, 116, 128, 0.12);
+  --st-todo: #2f6f9e;
+  --st-todo-bg: rgba(47, 111, 158, 0.12);
+  --st-doing: #0d5f7d;
+  --st-doing-bg: rgba(13, 95, 125, 0.14);
+  --st-waiting: #a1701f;
+  --st-waiting-bg: rgba(161, 112, 31, 0.13);
+  --st-done: #2e7d5b;
+  --st-done-bg: rgba(46, 125, 91, 0.12);
+  --alert: #b8412e;
+  --alert-bg: rgba(184, 65, 46, 0.11);
+  --energy-leve: #2e7d5b;
+  --energy-media: #a1701f;
+  --energy-pesada: #a34667;
+}
+
+/* ==========================================================================
+   Preferências de acessibilidade
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0ms;
+    --dur: 0ms;
+    --dur-slow: 0ms;
+  }
+}
+
+/* Modo calmo: remove o gradiente de fundo, achata os realces e tira a
+   saturação das cores. Para os dias em que qualquer estímulo a mais
+   atrapalha. Redução de estímulo é acessibilidade barata com retorno real
+   em sobrecarga sensorial. */
+:root[data-calm="1"] {
+  --app-backdrop: var(--surface-0);
+  --shadow-2: var(--shadow-1);
+  --shadow-3: var(--shadow-1);
+}
+
+:root[data-calm="1"] body {
+  filter: saturate(0.45);
+}
+
+/* No modo calmo nada pisca nem desliza. */
+:root[data-calm="1"] * {
+  animation-duration: 0.01ms !important;
+  transition-duration: 0.01ms !important;
+}
