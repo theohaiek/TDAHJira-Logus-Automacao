@@ -19,11 +19,10 @@ infraestrutura própria da empresa para usar.
 
 Dois modos existem, e ambos funcionam sobre o mesmo contrato:
 
-- **Autônomo** — testado de ponta a ponta, roda hoje sem nada além do Node.
-  Serve para desenvolvimento e para uso interno na rede local.
-- **Vercel** — banco no Turso, anexos no Vercel Blob. Handler e armazenamento
-  cobertos por teste; o deploy em si depende de contas que só quem publica
-  possui (veja o item 2.2).
+- **Autônomo** — roda sem nada além do Node. Serve para desenvolvimento e para
+  uso interno na rede local.
+- **Vercel** — publicado e em uso, com banco no Turso e anexos no Vercel Blob
+  privado. É o modo de trabalho do time.
 
 **Descartado de propósito:** hospedar na VPS ou no MySQL da clínica. É
 infraestrutura de outra empresa, e misturar os dados criaria uma dependência
@@ -162,7 +161,7 @@ Em ordem aproximada de valor por esforço.
   EXISTS`. Acrescentar tabela ou coluna nova funciona sozinho; alterar uma
   coluna existente vai exigir escrever a migração à mão.
 - **Uma dependência entrou no projeto.** O repositório de arquivos privado só
-  aceita escrita pela biblioteca oficial, então  é instalada no
+  aceita escrita pela biblioteca oficial, então `@vercel/blob` é instalada no
   modo hospedado. O modo local segue sem dependência alguma: o import só
   acontece quando existe configuração de nuvem.
 - **O driver do Turso é caseiro.** São duas chamadas HTTP escritas à mão em
@@ -178,8 +177,8 @@ Em ordem aproximada de valor por esforço.
 
 ## 7. Perguntas para o time
 
-1. Onde o aplicativo vai rodar? (item 1.1)
-2. Depois do primeiro deploy: o Blob está guardando os prints de verdade?
+1. Migrar para o plano Pro da Vercel, ou seguir no Hobby? (item 2.2)
+2. Trocar a senha inicial do admin e criar as contas de vocês três.
 3. Cinco estados estão bons, ou "Entrada" e "A fazer" viraram a mesma coisa na
    prática?
 4. O limite de três tarefas simultâneas é realista para o ritmo de vocês?
