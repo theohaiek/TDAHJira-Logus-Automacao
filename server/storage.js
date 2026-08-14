@@ -54,6 +54,10 @@ export async function guardar(nome, conteudo, mime) {
 }
 
 // Devolve o conteúdo do arquivo, ou null quando ele não existe mais.
+//
+// O armazenamento é criado como privado de propósito: um anexo de trabalho
+// não pode ficar acessível a quem descobrir a URL. A consequência é que a
+// leitura precisa ser autenticada — o endereço sozinho não abre nada.
 export async function ler(referencia) {
   if (!referencia) return null;
 
@@ -62,8 +66,14 @@ export async function ler(referencia) {
     return existsSync(caminho) ? readFileSync(caminho) : null;
   }
 
-  const resposta = await fetch(referencia);
-  if (!resposta.ok) return null;
+  const resposta = await fetch(referencia, {
+    headers: TOKEN() ? { Authorization: `Bearer ${TOKEN()}` } : {},
+  });
+
+  if (!resposta.ok) {
+    console.error("[blob] leitura falhou", resposta.status);
+    return null;
+  }
   return Buffer.from(await resposta.arrayBuffer());
 }
 
