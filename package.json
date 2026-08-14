@@ -14,5 +14,7 @@
     "demo": "node server/index.js --demo",
     "test": "node --test \"tests/*.test.js\""
   },
-  "dependencies": {}
+  "dependencies": {
+    "@vercel/blob": "^2.3.0"
+  }
 }
