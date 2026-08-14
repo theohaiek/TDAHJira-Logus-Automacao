@@ -146,13 +146,19 @@ function criarTurso() {
     async exec(sql) {
       // Um lote de DDL vem separado por ponto e vírgula; a API executa uma
       // instrução por pedido.
+      //
+      // Os comentários precisam sair ANTES da divisão. Descartar o pedaço
+      // inteiro só porque ele começa com "--" levaria junto a instrução que
+      // vem logo abaixo do comentário — e o esquema deste projeto é comentado
+      // linha a linha, então isso apagaria quase todas as tabelas.
       const instrucoes = sql
+        .replace(/^[ \t]*--.*$/gm, "")
         .split(";")
         .map((s) => s.trim())
-        .filter((s) => s && !s.startsWith("--") && !/^PRAGMA/i.test(s));
+        .filter((s) => s && !/^PRAGMA/i.test(s));
 
-      // O serviço já cuida de journal e bloqueio, então PRAGMA local não se
-      // aplica e é descartado acima.
+      // O serviço já cuida de journal e bloqueio, então PRAGMA não se aplica
+      // e é descartado acima.
       for (const lote of pedacos(instrucoes, 20)) {
         await pipeline(lote.map((stmt) => ({ type: "execute", stmt: { sql: stmt } })));
       }
