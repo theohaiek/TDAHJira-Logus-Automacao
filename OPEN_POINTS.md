@@ -62,19 +62,16 @@ endereço público, isso expõe o serviço na internet.
 máquina. Não há HTTPS embutido; o cookie de sessão só recebe o atributo `Secure`
 quando a conexão já chega cifrada por um proxy à frente.
 
-### 2.2 O deploy na Vercel ainda não foi executado
+### 2.2 O plano Hobby restringe uso comercial
 
-O código do modo hospedado tem teste automatizado cobrindo o handler, a
-preparação da instância, o bloqueio por origem, os atributos do cookie e a
-troca de destino dos anexos. O que nenhum teste alcança é o ambiente real:
-comportamento do bundle da função, latência do banco hospedado e o Blob
-respondendo de verdade.
+O deploy foi executado e validado de ponta a ponta: banco hospedado, criação
+de tarefa, comentário, anexo enviado e devolvido byte a byte idêntico, e
+recusa de acesso sem sessão.
 
-**Antes de confiar:** publicar, entrar, criar uma tarefa, comentar e anexar um
-print. Se o anexo abrir, o caminho inteiro está de pé.
-
-**Ponto de atenção conhecido:** o plano Hobby da Vercel proíbe uso comercial.
-Ferramenta interna de empresa se enquadra.
+O que fica em aberto é contratual, não técnico: o plano Hobby da Vercel
+restringe uso comercial, e uma ferramenta interna de empresa se enquadra. A
+decisão de assumir esse risco foi consciente; migrar para Pro é um clique e
+não exige novo deploy.
 
 
 ---
@@ -164,6 +161,10 @@ Em ordem aproximada de valor por esforço.
 - **Sem migrações de banco.** O esquema é criado com `CREATE TABLE IF NOT
   EXISTS`. Acrescentar tabela ou coluna nova funciona sozinho; alterar uma
   coluna existente vai exigir escrever a migração à mão.
+- **Uma dependência entrou no projeto.** O repositório de arquivos privado só
+  aceita escrita pela biblioteca oficial, então  é instalada no
+  modo hospedado. O modo local segue sem dependência alguma: o import só
+  acontece quando existe configuração de nuvem.
 - **O driver do Turso é caseiro.** São duas chamadas HTTP escritas à mão em
   `server/db.js`, em vez da biblioteca oficial. A troca foi deliberada — manter
   zero dependências —, mas se a API do serviço mudar, é ali que quebra.

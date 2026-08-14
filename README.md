@@ -110,12 +110,12 @@ está em [docs/INSTALL.md](docs/INSTALL.md).
 
 ## Estado atual
 
-V1 completa e funcional, com 31 testes automatizados passando.
+V1 completa, publicada e em uso, com 31 testes automatizados passando.
 
-O modo autônomo foi exercitado de ponta a ponta, no navegador. O modo
-hospedado tem o handler, a preparação da instância e o armazenamento cobertos
-por teste; o deploy em si depende de contas que só quem publica possui. Está
-registrado em [OPEN_POINTS.md](OPEN_POINTS.md).
+Os dois modos foram exercitados de ponta a ponta: o autônomo no navegador, e
+o hospedado em produção — criar tarefa, comentar, anexar um print, recuperá-lo
+byte a byte e confirmar que sem sessão o anexo devolve 401. O que continua em
+aberto está em [OPEN_POINTS.md](OPEN_POINTS.md).
 
 ## Licença
 
