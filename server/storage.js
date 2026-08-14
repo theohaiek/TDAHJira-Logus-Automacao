@@ -39,6 +39,10 @@ export async function guardar(nome, conteudo, mime) {
       // Sem sufixo aleatório: o nome já é sorteado por quem chama, e um
       // segundo sorteio impediria de apagar o arquivo depois pelo nome.
       "x-add-random-suffix": "0",
+      // O armazenamento é privado, e a escrita precisa dizer isso de forma
+      // explícita — o padrão da API é público, e um repositório configurado
+      // como privado recusa a gravação em vez de silenciosamente abri-la.
+      "x-access": "private",
     },
     body: conteudo,
   });
