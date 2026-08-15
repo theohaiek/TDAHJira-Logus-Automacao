@@ -283,7 +283,12 @@ export async function handleApi(req, res, { path, query, user }) {
     if (method === "POST") {
       if (user.role !== "admin") return sendError(res, 403, "Apenas administradores criam acessos.");
       const body = await readJson(req);
-      const senha = generatePassword();
+
+      // A senha pode vir escolhida ou ser sorteada. Um time de três pessoas
+      // costuma preferir combinar a senha na hora a repassar uma sequência
+      // aleatória por mensagem.
+      const senha = body.senha ? String(body.senha) : generatePassword();
+
       const novo = await createUser({
         username: body.username,
         displayName: body.name,
@@ -312,8 +317,11 @@ export async function handleApi(req, res, { path, query, user }) {
       const full = await one("SELECT * FROM users WHERE id = ?", [user.id]);
       if (!verifyPassword(String(body.atual || ""), full.password_hash))
         return sendError(res, 403, "A senha atual não confere.");
+      // Sem exigência de tamanho ou formato: a instância é interna, de um time
+      // pequeno, e regra de senha complicada aqui só produziria senha anotada
+      // em papel. O que protege é o freio de tentativas no login.
       const nova = String(body.nova || "");
-      if (nova.length < 8) return sendError(res, 400, "A nova senha precisa de ao menos 8 caracteres.");
+      if (!nova) return sendError(res, 400, "A nova senha não pode ficar vazia.");
       await setPassword(user.id, nova);
       const s = await createSession(user.id, req.headers["user-agent"]);
       return sendJson(res, 200, { ok: true }, {

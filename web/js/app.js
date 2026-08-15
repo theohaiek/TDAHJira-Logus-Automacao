@@ -392,6 +392,7 @@ async function menuUsuario() {
   const opcoes = [
     { rotulo: "Trocar a senha", acao: trocarSenha },
     { rotulo: "Quantas tarefas em andamento eu aguento", acao: ajustarWip },
+    state.me?.role === "admin" && { rotulo: "Criar acesso para alguém", acao: criarPessoa },
     {
       rotulo: "Sair",
       acao: async () => {
@@ -399,7 +400,7 @@ async function menuUsuario() {
         location.reload();
       },
     },
-  ];
+  ].filter(Boolean);
 
   mount(
     $("#palette-results"),
@@ -443,6 +444,38 @@ async function trocarSenha() {
   try {
     await api.changePassword(r.atual, r.nova);
     toast("Senha trocada.");
+  } catch (err) {
+    erro(err.message);
+  }
+}
+
+// Criar acesso para outra pessoa. Só administrador enxerga esta opção.
+async function criarPessoa() {
+  const r = await pedir({
+    titulo: "Criar acesso",
+    descricao:
+      "Deixe a senha em branco para o aplicativo sortear uma. Ela aparece uma única vez, logo depois de criar.",
+    confirmar: "Criar",
+    campos: [
+      { chave: "nome", rotulo: "Nome", dica: "Como aparece nos cartões" },
+      { chave: "username", rotulo: "Usuário", dica: "para entrar" },
+      { chave: "senha", rotulo: "Senha", tipo: "password", dica: "opcional" },
+    ],
+  });
+  if (!r?.nome?.trim() || !r?.username?.trim()) return;
+
+  try {
+    const resposta = await api.createUser({
+      name: r.nome.trim(),
+      username: r.username.trim(),
+      senha: r.senha || undefined,
+    });
+
+    state.users.push(resposta.user);
+    emit();
+
+    // A senha só existe em texto neste instante. Depois disso, só o hash.
+    toast(`${resposta.user.name} criada — senha: ${resposta.senhaInicial}`, { ms: 30000 });
   } catch (err) {
     erro(err.message);
   }
