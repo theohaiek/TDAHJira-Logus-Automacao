@@ -105,6 +105,7 @@ está em [docs/INSTALL.md](docs/INSTALL.md).
 | [docs/INSTALL.md](docs/INSTALL.md) | Instalação nos dois modos |
 | [docs/BRAND.md](docs/BRAND.md) | A identidade visual e de onde vem cada cor |
 | [OPEN_POINTS.md](OPEN_POINTS.md) | O que ficou em aberto depois da V1 |
+| [HANDOFF.md](HANDOFF.md) | Para retomar o projeto: decisões tomadas, armadilhas conhecidas e o que fazer a seguir |
 
 ---
 
