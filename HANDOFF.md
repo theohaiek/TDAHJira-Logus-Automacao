@@ -171,6 +171,26 @@ dynamically imported module"*.
 **Solução:** liberar o domínio no antivírus, ou usar domínio próprio — endereço
 recém-criado sem reputação é o gatilho.
 
+### 4.9 Coluna nova não chega ao banco que já existe
+
+O esquema usa `CREATE TABLE IF NOT EXISTS`, então adicionar uma coluna em
+`core/schema.sql` só vale para banco novo. Em produção a tabela já existe, a
+coluna nunca aparece, e o primeiro `INSERT` que a cita falha.
+
+A saída está em `server/db.js`: a lista `MIGRACOES` guarda um `ALTER TABLE`
+por coluna, e cada um só roda se `pragma_table_info` disser que a coluna
+falta. É idempotente e funciona igual no SQLite local e no Turso. Toda coluna
+nova entra nos dois lugares: no esquema, para banco novo, e na lista, para os
+que já existem.
+
+### 4.10 Aba em segundo plano não redesenha
+
+`desenhar()` agrupa mudanças com `requestAnimationFrame`, e o navegador
+suspende esse relógio em aba oculta. Numa automação de navegador com a aba em
+segundo plano, o `state` muda, a API confirma, e a tela fica parada; parece
+bug de redesenho e não é. Para validar nessa condição, meça pelo `state` ou
+pela API, ou traga a aba para a frente antes de olhar o DOM.
+
 ---
 
 ## 5. Decisões tomadas e o motivo
@@ -188,6 +208,7 @@ já foi pesado.
 | **Prioridade é campo, não posição na fila** | Ordem manual pura exige arrastar tudo para expressar urgência | O quadro ficar grande demais |
 | **Sem exigência de senha forte** | Instância interna de time pequeno; regra complicada só produz senha em papel. O que protege é o freio de 8 tentativas por 15 min | A instância passar a ter acesso externo |
 | **Cronômetro entrou na V1** | Modo foco sem relógio perde a função de conter cegueira temporal | Nunca |
+| **Quadros laterais são um campo, não uma tabela** | Validade longa, oportunidades e metas são a mesma tarefa com `kind` diferente: uma fonte, várias lentes, e mover entre eles é trocar um campo que fica na trilha. Foi a exceção consciente à regra de não adicionar campo: este tira coisas da fila do dia em vez de pedir mais uma decisão por tarefa | Os quadros precisarem de campos que a tarefa não tem |
 
 ---
 
@@ -265,7 +286,8 @@ Os nomes em `.env.example` estão sempre vazios — mantenha assim.
 ## 8. O que fazer a seguir
 
 Em ordem de valor por esforço. A lista longa, com origem de cada ideia, está em
-`OPEN_POINTS.md` seção 4.
+`OPEN_POINTS.md` seção 4. As pendências deixadas ao fim da última sessão
+estão na seção 8 do mesmo arquivo.
 
 1. **Usar por duas semanas antes de mudar qualquer coisa.** As perguntas abertas
    (cinco estados são demais? limite de três é realista?) só se respondem com
@@ -291,7 +313,10 @@ campo no formulário.
 
 - V1 completa, publicada e validada em produção de ponta a ponta: criar tarefa,
   comentar, anexar print, recuperá-lo byte a byte, e recusar acesso sem sessão.
-- 31 testes automatizados passando.
+- Tela inicial com os três quadros laterais (validade longa, oportunidades,
+  metas longas) fora do fluxo do dia; campo `kind` com migração idempotente
+  para bancos que já existiam.
+- 35 testes automatizados passando.
 - Três contas criadas: uma de administração e duas do time.
 - Banco limpo, com um projeto e nenhuma tarefa — pronto para uso real.
 - Nenhuma credencial, assinatura ou autoria no repositório.

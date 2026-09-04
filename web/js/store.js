@@ -22,7 +22,7 @@ export const state = {
   activity: [],
   view: "hoje",
   filtroProjeto: null,
-  sheet: { busca: "", status: "", pessoa: "", rapido: null, ordem: "position", desc: false },
+  sheet: { busca: "", status: "", pessoa: "", kind: "task", rapido: null, ordem: "position", desc: false },
 };
 
 export function subscribe(fn) {
@@ -161,9 +161,25 @@ export async function criar(dados) {
 // --- Consultas de produto --------------------------------------------------
 // A regra de negócio das visões mora aqui, não espalhada pelas telas.
 
-export function visiveis() {
+// O fluxo principal é o das tarefas comuns. Os outros tipos ficam fora da
+// fila do dia, do quadro e do fluxo — passar "*" traz todos.
+export function visiveis(kind = "task") {
   const f = state.filtroProjeto;
-  return state.tasks.filter((t) => !t.archived && (!f || t.projectId === f));
+  return state.tasks.filter(
+    (t) =>
+      !t.archived &&
+      (!f || t.projectId === f) &&
+      (kind === "*" || (t.kind || "task") === kind)
+  );
+}
+
+// Itens de um quadro lateral, abertos primeiro, na ordem manual.
+export function doQuadro(kind) {
+  return visiveis(kind).sort((a, b) => {
+    const fa = a.status === "done" ? 1 : 0;
+    const fb = b.status === "done" ? 1 : 0;
+    return fa - fb || a.position - b.position;
+  });
 }
 
 export function minhas() {

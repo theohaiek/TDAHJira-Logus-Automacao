@@ -13,6 +13,7 @@ import {
   STATUS_ORDER,
   STATUS_COLOR,
   PRIORITY_LABEL,
+  KIND_LABEL,
   ENERGY_LABEL,
   prazoTexto,
   desde,
@@ -270,6 +271,12 @@ function propriedades(t, responsavel) {
         [["", "Sem projeto"], ...state.projects.map((p) => [String(p.id), p.name])],
         (v) => salvar({ projectId: v ? Number(v) : null })
       )
+    ),
+
+    // Mover entre o fluxo do dia e os quadros laterais é só trocar o tipo.
+    linha(
+      "Tipo",
+      select(t.kind || "task", Object.entries(KIND_LABEL), (v) => salvar({ kind: v }))
     ),
 
     linha(
@@ -869,6 +876,7 @@ const NARRA = {
   status: (e) => `moveu de ${STATUS_LABEL[e.from] || "—"} para ${STATUS_LABEL[e.to] || e.to}`,
   assignee: (e) => (e.to ? `passou para ${usuario(e.to)?.name || "outra pessoa"}` : "tirou o responsável"),
   priority: (e) => `prioridade: ${PRIORITY_LABEL[e.to] || e.to}`,
+  kind: (e) => `moveu para ${KIND_LABEL[e.to] || e.to}`,
   energy: (e) => `energia: ${ENERGY_LABEL[e.to] || e.to || "—"}`,
   size: (e) => (e.to ? `estimou em ${blocos(Number(e.to))}` : "tirou a estimativa"),
   title: (e) => `renomeou para "${e.to}"`,

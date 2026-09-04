@@ -7,7 +7,7 @@
 // A escolha de abrir aqui, e não no quadro, é deliberada. Um quadro mostra
 // tudo o que existe; e ver tudo o que existe é justamente o que trava.
 
-import { h, frag } from "../dom.js";
+import { h } from "../dom.js";
 import {
   state,
   agora,
@@ -18,10 +18,22 @@ import {
   emAndamento,
   limiteWip,
   visiveis,
+  doQuadro,
   patch,
 } from "../store.js";
 import { taskCard, listaTarefas } from "../taskcard.js";
-import { saudacao, plural, minutosDeBlocos, diasParado, agingTexto } from "../format.js";
+import {
+  saudacao,
+  plural,
+  minutosDeBlocos,
+  diasParado,
+  agingTexto,
+  KIND_LABEL,
+  KIND_BOARDS,
+  KIND_BOARD_TITLE,
+  KIND_HINT,
+} from "../format.js";
+import { criarDoTexto } from "../quickadd.js";
 import { abrirFoco } from "../focus.js";
 import { abrirTicket } from "../ticket.js";
 import { erro, toast } from "../toast.js";
@@ -33,67 +45,168 @@ export function viewHoje() {
   const wip = limiteWip();
   const feitas = feitasHoje();
 
-  return frag(
-    heroi(principal, emCurso, wip),
+  // Duas colunas: o fluxo do dia ocupa a maior parte; os três quadros de
+  // horizonte longo ficam ao lado, menores. A proporção é deliberada — o
+  // que precisa de atenção agora não pode disputar espaço com o que pode
+  // esperar meses.
+  return h(
+    "div",
+    { class: "today" },
 
-    proximas.length > 1
-      ? seção(
-          "Depois desta",
-          proximas.slice(1).length,
-          listaTarefas(proximas.slice(1), { mostrarPasso: false })
-        )
-      : null,
+    h(
+      "div",
+      { class: "today__main" },
+      heroi(principal, emCurso, wip),
 
-    (() => {
-      const doDia = hojeLista().filter((t) => !proximas.some((p) => p.id === t.id));
-      return doDia.length
-        ? seção("Puxadas para hoje", doDia.length, listaTarefas(doDia))
-        : null;
-    })(),
+      proximas.length > 1
+        ? seção(
+            "Depois desta",
+            proximas.slice(1).length,
+            listaTarefas(proximas.slice(1), { mostrarPasso: false })
+          )
+        : null,
 
-    (() => {
-      const esp = esperando();
-      if (!esp.length) return null;
-      return seção(
-        "Esperando outra pessoa",
-        esp.length,
-        h(
-          "div",
-          null,
-          h("p", {
-            class: "tiny muted",
-            style: { marginBottom: "8px" },
-            text: "Não está com você. Aparece aqui para não sumir da memória.",
-          }),
-          listaTarefas(esp, { mostrarPasso: false })
-        )
-      );
-    })(),
+      (() => {
+        const doDia = hojeLista().filter((t) => !proximas.some((p) => p.id === t.id));
+        return doDia.length
+          ? seção("Puxadas para hoje", doDia.length, listaTarefas(doDia))
+          : null;
+      })(),
 
-    (() => {
-      const inbox = entrada();
-      if (!inbox.length) return null;
-      return seção(
-        "Entrada",
-        inbox.length,
-        h(
-          "div",
-          null,
-          h("p", {
-            class: "tiny muted",
-            style: { marginBottom: "8px" },
-            text: "Capturado e ainda não organizado. Decida em um clique: fazer, esperar ou descartar.",
-          }),
+      (() => {
+        const esp = esperando();
+        if (!esp.length) return null;
+        return seção(
+          "Esperando outra pessoa",
+          esp.length,
           h(
             "div",
             null,
-            inbox.map((t) => cartaoTriagem(t))
+            h("p", {
+              class: "tiny muted",
+              style: { marginBottom: "8px" },
+              text: "Não está com você. Aparece aqui para não sumir da memória.",
+            }),
+            listaTarefas(esp, { mostrarPasso: false })
           )
-        )
-      );
-    })(),
+        );
+      })(),
 
-    feitas.length ? seção(`Concluídas hoje`, feitas.length, listaTarefas(feitas)) : null
+      (() => {
+        const inbox = entrada();
+        if (!inbox.length) return null;
+        return seção(
+          "Entrada",
+          inbox.length,
+          h(
+            "div",
+            null,
+            h("p", {
+              class: "tiny muted",
+              style: { marginBottom: "8px" },
+              text: "Capturado e ainda não organizado. Decida em um clique: fazer, esperar ou descartar.",
+            }),
+            h(
+              "div",
+              null,
+              inbox.map((t) => cartaoTriagem(t))
+            )
+          )
+        );
+      })(),
+
+      feitas.length ? seção(`Concluídas hoje`, feitas.length, listaTarefas(feitas)) : null
+    ),
+
+    h(
+      "aside",
+      { class: "today__side", "aria-label": "Horizontes mais longos" },
+      KIND_BOARDS.map((k) => quadroLateral(k))
+    )
+  );
+}
+
+// --- Os quadros laterais ---------------------------------------------------
+// Validade longa, Oportunidades e Metas longas. São listas curtas, de leitura
+// rápida: título, um clique para abrir, um clique para concluir. Nada de
+// prazo, energia ou responsável aqui — isso é para o que se faz hoje, e o
+// ponto destes quadros é justamente não ser hoje.
+
+const TETO_DO_QUADRO = 5;
+
+function quadroLateral(kind) {
+  const itens = doQuadro(kind);
+  const abertos = itens.filter((t) => t.status !== "done");
+  const mostrados = abertos.slice(0, TETO_DO_QUADRO);
+  const escondidos = abertos.length - mostrados.length;
+
+  const entrada = h("input", {
+    type: "text",
+    class: "mini-board__add",
+    placeholder: "+ adicionar…",
+    "aria-label": `Adicionar em ${KIND_LABEL[kind]}`,
+    onKeydown: async (e) => {
+      if (e.key !== "Enter") return;
+      const texto = e.target.value.trim();
+      if (!texto) return;
+      e.target.value = "";
+      // Nasce já no quadro e fora da entrada: não é algo a triar, é algo a
+      // guardar.
+      await criarDoTexto(texto, { kind, status: "todo" });
+    },
+  });
+
+  return h(
+    "section",
+    { class: `mini-board mini-board--${kind}` },
+    h(
+      "div",
+      { class: "mini-board__head" },
+      h("h2", { class: "mini-board__title", text: KIND_BOARD_TITLE[kind] }),
+      h("span", { class: "section__count", text: String(abertos.length) })
+    ),
+    h("p", { class: "mini-board__hint", text: KIND_HINT[kind] }),
+
+    mostrados.length
+      ? h(
+          "ul",
+          { class: "mini-board__list" },
+          mostrados.map((t) => itemDoQuadro(t))
+        )
+      : h("p", { class: "mini-board__empty", text: "Nada aqui ainda." }),
+
+    escondidos > 0
+      ? h("button", {
+          class: "mini-board__more",
+          text: `+${escondidos} · ver na planilha`,
+          onClick: () => {
+            state.sheet.kind = kind;
+            location.hash = "#/planilha";
+          },
+        })
+      : null,
+
+    entrada
+  );
+}
+
+function itemDoQuadro(t) {
+  return h(
+    "li",
+    { class: "mini-item" },
+    h("button", {
+      class: "mini-item__check",
+      text: "✓",
+      title: "Concluir",
+      "aria-label": `Concluir ${t.title}`,
+      onClick: () => patch(t.id, { status: "done" }).catch((e) => erro(e.message)),
+    }),
+    h("button", {
+      class: "mini-item__title",
+      text: t.title,
+      title: t.title,
+      onClick: () => abrirTicket(t.id),
+    })
   );
 }
 

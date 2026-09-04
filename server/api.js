@@ -38,6 +38,7 @@ import {
   STATUSES,
   PRIORITIES,
   ENERGIES,
+  KINDS,
 } from "./tasks.js";
 import {
   listComments,
@@ -452,7 +453,7 @@ async function boot(req, res, user) {
     version: await getSetting("version", "1.0.0"),
     authenticated: !!user,
     user: publicUser(user),
-    vocabulary: { statuses: STATUSES, priorities: PRIORITIES, energies: ENERGIES },
+    vocabulary: { statuses: STATUSES, priorities: PRIORITIES, energies: ENERGIES, kinds: KINDS },
     limits: { maxUpload: MAX_UPLOAD },
   });
 }

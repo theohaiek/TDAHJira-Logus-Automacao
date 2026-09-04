@@ -183,3 +183,26 @@ Em ordem aproximada de valor por esforço.
    prática?
 4. O limite de três tarefas simultâneas é realista para o ritmo de vocês?
 5. Alguma notificação é desejada, ou o silêncio é justamente o ponto? (item 5)
+
+---
+
+## 8. Pendências registradas em 3 de setembro de 2026
+
+Deixadas ao encerrar a sessão que entregou os quadros laterais da tela inicial.
+
+1. **Validar a migração em produção.** O primeiro pedido depois do deploy roda
+   `ALTER TABLE tasks ADD COLUMN kind` no Turso. Conferir que `/api/boot`
+   devolve `vocabulary.kinds` e que criar um item com `^meta` o coloca no
+   quadro certo.
+2. **Testar o "+ adicionar…" dos quadros com a aba visível.** Foi validado só
+   pelo estado e pela API: a aba usada na automação estava em segundo plano, e
+   o redesenho depende de `requestAnimationFrame`, que o navegador suspende
+   nesse caso (HANDOFF 4.10).
+3. **O filtro de tipo da planilha persiste.** "Ver na planilha" a partir de um
+   quadro deixa a planilha filtrada naquele tipo até alguém limpar. Decidir se
+   a planilha deve voltar a "Tarefa" ao trocar de tela.
+4. **Tela estreita não foi vista.** Abaixo de 900px os quadros descem para
+   baixo do fluxo do dia; falta olhar num celular.
+5. **Acesso da equipe.** O aplicativo responde e os três logins funcionam. O
+   único bloqueio conhecido é o antivírus da máquina do administrador, que
+   substitui os arquivos do domínio (HANDOFF 4.8). Domínio próprio resolve.

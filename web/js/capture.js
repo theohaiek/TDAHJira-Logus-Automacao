@@ -30,6 +30,12 @@ const PRIORIDADES = {
   quandoder: "quando_der",
 };
 
+const TIPOS = {
+  longa: "longa", longo: "longa", validade: "longa",
+  oportunidade: "oportunidade", oport: "oportunidade", op: "oportunidade",
+  meta: "meta", metas: "meta", objetivo: "meta",
+};
+
 const ENERGIAS = { leve: "leve", media: "media", média: "media", pesada: "pesada", pesado: "pesada" };
 
 export function parseCaptura(texto, { projects = [], users = [], labels = [] } = {}) {
@@ -66,6 +72,15 @@ export function parseCaptura(texto, { projects = [], users = [], labels = [] } =
     if (!u) return false;
     dados.assigneeId = u.id;
     tokens.push({ tipo: "responsável", texto: u.name, cor: u.color });
+    return true;
+  });
+
+  // Tipo: ^longa, ^oportunidade, ^meta — cria direto no quadro certo
+  consome(/\s\^([\p{L}]+)/giu, (bruto) => {
+    const k = TIPOS[norm(bruto)];
+    if (!k) return false;
+    dados.kind = k;
+    tokens.push({ tipo: "quadro", texto: k === "longa" ? "validade longa" : k });
     return true;
   });
 
@@ -135,9 +150,11 @@ export function parseCaptura(texto, { projects = [], users = [], labels = [] } =
 
   // Dia da semana: sempre o próximo que vier
   consome(
-    /\s(?:na\s+|)(domingo|segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|dom|seg|ter|qua|qui|sex|s[áa]b)(?!\p{L})/giu,
+    /\s(?:na\s+|)(domingo|segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|dom\.|seg|ter\.|qua|qui|sex|s[áa]b)(?!\p{L})/giu,
     (palavra) => {
-      const alvo = DIAS[norm(palavra)];
+      // "ter" e "dom" são palavras comuns ("Ter um cliente", "Dom Pedro");
+      // como abreviação de dia, só valem com ponto.
+      const alvo = DIAS[norm(palavra).replace(".", "")];
       if (alvo === undefined) return false;
       const d = zerar(new Date());
       let delta = (alvo - d.getDay() + 7) % 7;
@@ -165,6 +182,7 @@ export function dicas(texto, ctx) {
     { tipo: "dica", texto: "!agora" },
     { tipo: "dica", texto: "*leve" },
     { tipo: "dica", texto: "~2 blocos" },
+    { tipo: "dica", texto: "^meta" },
     { tipo: "dica", texto: "amanhã" },
   ];
 }

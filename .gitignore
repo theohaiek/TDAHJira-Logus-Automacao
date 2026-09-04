@@ -32,3 +32,4 @@ desktop.ini
 npm-debug.log*
 /tmp/
 *.zip
+data-preview/

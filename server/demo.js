@@ -153,6 +153,15 @@ export async function seedDemo() {
       p: "AUT", t: "Padronizar os nomes dos arquivos de projeto",
       s: "inbox", pr: "quando_der",
     },
+
+    // --- Quadros laterais: horizonte mais longo ---------------------------
+    { k: "longa", p: "INT", t: "Renovar o domínio e o certificado do site", s: "todo", pr: "normal" },
+    { k: "longa", p: "AUT", t: "Migrar os projetos antigos para a versão nova do CLP", s: "todo", pr: "quando_der" },
+    { k: "oportunidade", p: "COM", t: "Plano mensal de manutenção preventiva", s: "todo", pr: "normal",
+      d: "Três clientes já perguntaram. Vale desenhar uma proposta padrão." },
+    { k: "oportunidade", p: "COM", t: "Parceria com o integrador de painéis da região", s: "todo", pr: "quando_der" },
+    { k: "meta", p: null, t: "Dobrar a carteira de contratos recorrentes até o fim do ano", s: "todo", pr: "normal" },
+    { k: "meta", p: null, t: "Documentação de instalação boa o bastante para um novato executar sozinho", s: "todo", pr: "normal" },
   ];
 
   let n = 0;
@@ -164,6 +173,7 @@ export async function seedDemo() {
         title: m.t,
         description: m.d || "",
         status,
+        kind: m.k || "task",
         priority: m.pr,
         energy: m.e || null,
         size: m.sz || null,

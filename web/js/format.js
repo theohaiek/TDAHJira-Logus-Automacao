@@ -23,6 +23,30 @@ export const STATUS_COLOR = {
   done: "var(--st-done)",
 };
 
+// "task" é o fluxo do dia. Os outros três são horizontes mais longos e vivem
+// em quadros próprios na tela inicial, na ordem abaixo.
+export const KIND_LABEL = {
+  task: "Tarefa",
+  longa: "Validade longa",
+  oportunidade: "Oportunidade",
+  meta: "Meta longa",
+};
+
+export const KIND_BOARDS = ["longa", "oportunidade", "meta"];
+
+// Título de cada quadro lateral, já no plural certo.
+export const KIND_BOARD_TITLE = {
+  longa: "Validade longa",
+  oportunidade: "Oportunidades",
+  meta: "Metas longas",
+};
+
+export const KIND_HINT = {
+  longa: "Não vence e não tem pressa. Fica aqui para não se perder.",
+  oportunidade: "Ainda não é tarefa — é algo que pode valer a pena.",
+  meta: "Para onde isso tudo está indo.",
+};
+
 export const PRIORITY_LABEL = {
   agora: "Agora",
   normal: "Normal",

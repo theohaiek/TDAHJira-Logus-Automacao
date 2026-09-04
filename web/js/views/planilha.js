@@ -14,6 +14,7 @@ import {
   STATUS_ORDER,
   STATUS_COLOR,
   PRIORITY_LABEL,
+  KIND_LABEL,
   ENERGY_LABEL,
   prazoTexto,
   prazoEstado,
@@ -40,7 +41,8 @@ const COLUNAS = [
 export function viewPlanilha() {
   const f = state.sheet;
 
-  const linhas = filtrar(visiveis(), f).sort(ordenador(f));
+  const base = visiveis(f.kind || "task");
+  const linhas = filtrar(base, f).sort(ordenador(f));
 
   return frag(
     h(
@@ -68,6 +70,14 @@ export function viewPlanilha() {
         [["", "Todos os estados"], ...STATUS_ORDER.map((s) => [s, STATUS_LABEL[s]])],
         (v) => {
           state.sheet.status = v;
+          emit();
+        }
+      ),
+      seletor(
+        f.kind || "task",
+        [...Object.entries(KIND_LABEL), ["*", "Todos os tipos"]],
+        (v) => {
+          state.sheet.kind = v;
           emit();
         }
       ),
@@ -108,14 +118,14 @@ export function viewPlanilha() {
             class: "btn btn--sm btn--ghost",
             text: "limpar",
             onClick: () => {
-              state.sheet = { busca: "", status: "", pessoa: "", rapido: null, ordem: f.ordem, desc: f.desc };
+              state.sheet = { busca: "", status: "", pessoa: "", kind: f.kind, rapido: null, ordem: f.ordem, desc: f.desc };
               emit();
             },
           })
         : null,
 
       h("span", { class: "spacer" }),
-      h("span", { class: "tiny muted", text: `${linhas.length} de ${visiveis().length}` }),
+      h("span", { class: "tiny muted", text: `${linhas.length} de ${base.length}` }),
       h("button", {
         class: "btn btn--sm btn--ghost",
         text: "Exportar",

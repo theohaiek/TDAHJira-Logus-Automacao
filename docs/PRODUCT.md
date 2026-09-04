@@ -139,6 +139,37 @@ quadro responde "onde está isso" em meio segundo, e a métrica que a mudança
 protegeria não é calculada na V1. A alternativa está registrada em
 [OPEN_POINTS.md](../OPEN_POINTS.md).
 
+## Os três quadros laterais
+
+A tela inicial tem uma coluna larga, que responde "o que eu faço agora", e
+uma coluna estreita à direita com três quadros pequenos, nesta ordem:
+
+| Quadro | O que guarda |
+|---|---|
+| **Validade longa** | O que não vence e não tem pressa, mas não pode se perder |
+| **Oportunidades** | O que ainda não é tarefa: algo que pode valer a pena |
+| **Metas longas** | Para onde tudo isso está indo |
+
+Eles existem porque essas três coisas costumam acabar no mesmo lugar errado:
+ou viram tarefa na fila do dia, onde envelhecem e pesam, ou ficam só na
+cabeça, onde somem. Um quadro pequeno e sempre visível resolve os dois
+problemas sem competir com o trabalho do dia.
+
+Três regras mantêm os quadros no lugar deles:
+
+1. **Ficam fora do fluxo.** Um item de quadro não entra em "o que faço agora",
+   não aparece no quadro de colunas nem na planilha sem filtro. Ele só vira
+   trabalho quando alguém troca o tipo dele para tarefa.
+2. **São menores de propósito.** Cada quadro mostra no máximo cinco itens; o
+   resto fica atrás de um "ver na planilha". Quadro lateral que cresce vira um
+   segundo backlog, e é isso que se quer evitar.
+3. **Uma fonte, várias lentes.** Item de quadro é a mesma tarefa, com o campo
+   tipo diferente. Mover uma oportunidade para o fluxo do dia é trocar o tipo,
+   e a troca fica na trilha como qualquer outra mudança.
+
+Na captura rápida, `^longa`, `^oport` e `^meta` mandam o item direto para o
+quadro certo. No ticket, o tipo é a primeira linha dos detalhes.
+
 ---
 
 ## O que foi deliberadamente deixado de fora

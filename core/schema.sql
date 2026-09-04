@@ -67,6 +67,10 @@ CREATE TABLE IF NOT EXISTS tasks (
 
   status        TEXT    NOT NULL DEFAULT 'inbox',
                 -- inbox | todo | doing | waiting | done
+  kind          TEXT    NOT NULL DEFAULT 'task',
+                -- task | longa | oportunidade | meta
+                -- "task" é o fluxo principal. Os outros três moram em quadros
+                -- laterais da tela inicial e ficam fora da fila do dia.
   priority      TEXT    NOT NULL DEFAULT 'normal',
                 -- agora | normal | quando_der  (três níveis, com nome humano)
   energy        TEXT,   -- leve | media | pesada — custo, não duração

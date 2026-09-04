@@ -96,6 +96,7 @@ barato.
   "title": "Revisar o fluxo de aprovação",
   "description": "",
   "status": "doing",
+  "kind": "task",
   "priority": "agora",
   "energy": "media",
   "size": 3,
@@ -125,9 +126,17 @@ barato.
 | Campo | Valores |
 |---|---|
 | `status` | `inbox` · `todo` · `doing` · `waiting` · `done` |
+| `kind` | `task` · `longa` · `oportunidade` · `meta` |
 | `priority` | `agora` · `normal` · `quando_der` |
 | `energy` | `leve` · `media` · `pesada` · `null` |
 | `size` | 1 a 40 blocos de 25 minutos, ou `null` |
+
+`kind` separa o fluxo do dia dos três quadros laterais da tela inicial.
+`task` é o padrão e o único tipo que entra em "o que faço agora", no quadro
+e na planilha sem filtro. `longa` (validade longa), `oportunidade` e `meta`
+ficam nos quadros laterais e só entram no fluxo quando alguém troca o tipo
+por `PATCH`. A troca gera um evento de tipo `kind` na trilha, com `from` e
+`to`. Valor fora da lista é recusado com `400`.
 
 ### Regras da transição de estado
 

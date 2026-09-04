@@ -9,11 +9,16 @@ export const STATUSES = ["inbox", "todo", "doing", "waiting", "done"];
 export const PRIORITIES = ["agora", "normal", "quando_der"];
 export const ENERGIES = ["leve", "media", "pesada"];
 
+// "task" é o trabalho do dia a dia. Os outros três são horizontes mais longos
+// e ficam fora da fila principal — aparecem em quadros próprios, menores.
+export const KINDS = ["task", "longa", "oportunidade", "meta"];
+
 // Campos que a API aceita alterar, e como cada um se chama no banco.
 const FIELDS = {
   title: { col: "title", type: "text" },
   description: { col: "description", type: "text" },
   status: { col: "status", type: "enum", values: STATUSES },
+  kind: { col: "kind", type: "enum", values: KINDS },
   priority: { col: "priority", type: "enum", values: PRIORITIES },
   energy: { col: "energy", type: "enum", values: ENERGIES, nullable: true },
   size: { col: "size", type: "int", nullable: true, min: 1, max: 40 },
@@ -31,6 +36,7 @@ const EVENT_FOR = {
   title: "title",
   description: "description",
   status: "status",
+  kind: "kind",
   priority: "priority",
   energy: "energy",
   size: "size",
@@ -131,6 +137,7 @@ function shape(r) {
     title: r.title,
     description: r.description || "",
     status: r.status,
+    kind: r.kind || "task",
     priority: r.priority,
     energy: r.energy,
     size: r.size,
@@ -184,18 +191,19 @@ export async function createTask(input, actorId) {
     const ts = nowIso();
     const status = STATUSES.includes(input.status) ? input.status : "inbox";
     const id = await insert(
-      `INSERT INTO tasks (project_id, number, title, description, status, priority,
+      `INSERT INTO tasks (project_id, number, title, description, status, kind, priority,
                           energy, size, assignee_id, reporter_id, parent_id,
                           due_on, focus_on, waiting_for, position,
                           created_at, updated_at, status_since, touched_at,
                           started_at, done_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [
         projectId,
         number,
         title,
         String(input.description || ""),
         status,
+        KINDS.includes(input.kind) ? input.kind : "task",
         PRIORITIES.includes(input.priority) ? input.priority : "normal",
         ENERGIES.includes(input.energy) ? input.energy : null,
         input.size ? Math.max(1, Math.min(40, Number(input.size))) : null,

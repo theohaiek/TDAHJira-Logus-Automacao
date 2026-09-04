@@ -191,6 +191,33 @@ function* pedacos(lista, tamanho) {
 async function aplicarEsquema() {
   const sql = readFileSync(join(ROOT, "core", "schema.sql"), "utf8");
   await driver.exec(sql);
+  await aplicarMigracoes();
+}
+
+// Colunas acrescentadas depois da primeira versão.
+//
+// CREATE TABLE IF NOT EXISTS não altera tabela que já existe, então um banco
+// criado antes não ganha a coluna nova por conta própria. Cada entrada aqui é
+// aplicada uma vez, e a checagem prévia a torna segura de repetir.
+const MIGRACOES = [
+  { tabela: "tasks", coluna: "kind", ddl: "ALTER TABLE tasks ADD COLUMN kind TEXT NOT NULL DEFAULT 'task'" },
+];
+
+async function aplicarMigracoes() {
+  for (const m of MIGRACOES) {
+    if (await temColuna(m.tabela, m.coluna)) continue;
+    await driver.executa(m.ddl, []);
+  }
+}
+
+async function temColuna(tabela, coluna) {
+  // pragma_table_info é função de tabela do próprio SQLite e funciona nos dois
+  // drivers — diferente de PRAGMA solto, que a API HTTP não executa.
+  const linhas = await driver.consulta(
+    "SELECT name FROM pragma_table_info(?) WHERE name = ?",
+    [tabela, coluna]
+  );
+  return linhas.length > 0;
 }
 
 export function getDb() {

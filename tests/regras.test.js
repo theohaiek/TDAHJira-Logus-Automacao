@@ -249,8 +249,45 @@ test("palavra que apenas começa como data não é confundida", async () => {
   assert.equal(r.title, "Comprar amanhecedor novo");
 });
 
+test("'ter' e 'dom' soltos são palavras, não dias da semana", () => {
+  const r = parseCaptura("Ter um cliente fora do estado", contexto);
+  assert.equal(r.dados.dueOn, undefined);
+  assert.equal(r.title, "Ter um cliente fora do estado");
+  assert.ok(parseCaptura("Ligar ter.", contexto).dados.dueOn, "com ponto, é terça");
+  assert.ok(parseCaptura("Ligar terça", contexto).dados.dueOn, "por extenso, é terça");
+  assert.ok(parseCaptura("Ligar sex", contexto).dados.dueOn, "as outras abreviações seguem valendo");
+});
+
 test("marcação de pessoa inexistente fica no título", async () => {
   const r = parseCaptura("Falar com @fulano", contexto);
   assert.equal(r.dados.assigneeId, undefined);
   assert.ok(r.title.includes("@fulano"));
+});
+
+// --- Tipo: fluxo do dia versus quadros laterais ------------------------------
+
+test("tarefa nasce como 'task' quando o tipo não é informado", async () => {
+  const t = await createTask({ title: "Sem tipo" }, ator);
+  assert.equal(t.kind, "task");
+});
+
+test("tipo é gravado, validado, e a troca vira evento na trilha", async () => {
+  const t = await createTask({ title: "Vira meta", kind: "meta" }, ator);
+  assert.equal(t.kind, "meta");
+
+  const movida = await updateTask(t.id, { kind: "oportunidade" }, ator);
+  assert.equal(movida.kind, "oportunidade");
+
+  const ev = (await taskTimeline(t.id)).find((e) => e.kind === "kind");
+  assert.equal(ev.from, "meta");
+  assert.equal(ev.to, "oportunidade");
+
+  await assert.rejects(async () => await updateTask(t.id, { kind: "inventado" }, ator), /inválido/i);
+});
+
+test("a captura entende o prefixo ^ para o tipo", () => {
+  assert.equal(parseCaptura("Dobrar a carteira ^meta", contexto).dados.kind, "meta");
+  assert.equal(parseCaptura("Renovar domínio ^longa", contexto).dados.kind, "longa");
+  assert.equal(parseCaptura("Parceria regional ^oport", contexto).dados.kind, "oportunidade");
+  assert.equal(parseCaptura("Título comum", contexto).dados.kind, undefined);
 });
