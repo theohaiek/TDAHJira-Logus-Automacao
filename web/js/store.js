@@ -248,7 +248,9 @@ export function entrada() {
 }
 
 export function feitasHoje() {
-  return state.tasks.filter(
+  // Passa por visiveis() como todas as outras: sem isso uma meta concluída
+  // aparece no fim do dia como se fosse trabalho da fila.
+  return visiveis().filter(
     (t) => t.status === "done" && t.doneAt && t.doneAt.slice(0, 10) === state.hoje
   );
 }

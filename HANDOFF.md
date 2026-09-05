@@ -183,6 +183,16 @@ falta. É idempotente e funciona igual no SQLite local e no Turso. Toda coluna
 nova entra nos dois lugares: no esquema, para banco novo, e na lista, para os
 que já existem.
 
+### 4.11 O campo em foco represa o redesenho da tela inteira
+
+`app.js` adia o redesenho do `#view` enquanto houver `input`, `textarea` ou
+campo editável em foco, e aplica o que ficou represado no `focusout`. É o mesmo
+acordo que `ticket.js` já fazia no painel (4.4), estendido à tela porque a
+sincronização de 6s apagava o que estava sendo digitado na planilha e nos
+quadros laterais. **Se mexer no ciclo de desenho, preserve isso.**
+
+---
+
 ### 4.10 Aba em segundo plano não redesenha
 
 `desenhar()` agrupa mudanças com `requestAnimationFrame`, e o navegador
@@ -316,7 +326,10 @@ campo no formulário.
 - Tela inicial com os três quadros laterais (validade longa, oportunidades,
   metas longas) fora do fluxo do dia; campo `kind` com migração idempotente
   para bancos que já existiam.
-- 35 testes automatizados passando.
+- 36 testes automatizados passando.
+- Auditoria completa em 5 de setembro de 2026: cinco defeitos corrigidos, sete
+  confirmados e abertos, três levantados e refutados. Tudo em `OPEN_POINTS.md`
+  seção 9.
 - Três contas criadas: uma de administração e duas do time.
 - Banco limpo, com um projeto e nenhuma tarefa — pronto para uso real.
 - Nenhuma credencial, assinatura ou autoria no repositório.

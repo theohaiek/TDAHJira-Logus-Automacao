@@ -75,7 +75,9 @@ function atualizar() {
   const termo = $("#palette-input").value.trim().toLowerCase();
   selecionado = 0;
 
-  const tarefas = visiveis()
+  // "*" porque a busca é a saída para quando não se lembra onde a coisa está:
+  // ela precisa alcançar também os quadros laterais.
+  const tarefas = visiveis("*")
     .filter((t) => {
       if (!termo) return t.status === "doing" || t.focusOn === state.hoje;
       return `${t.key} ${t.title}`.toLowerCase().includes(termo);

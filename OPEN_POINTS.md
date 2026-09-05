@@ -206,3 +206,63 @@ Deixadas ao encerrar a sessão que entregou os quadros laterais da tela inicial.
 5. **Acesso da equipe.** O aplicativo responde e os três logins funcionam. O
    único bloqueio conhecido é o antivírus da máquina do administrador, que
    substitui os arquivos do domínio (HANDOFF 4.8). Domínio próprio resolve.
+
+---
+
+## 9. Auditoria de 5 de setembro de 2026
+
+Varredura do código inteiro em sete frentes (autenticação, contrato dos dois
+modos, regras de tarefa, estado do frontend, os quadros novos, higiene do
+repositório e acesso da equipe). O que segue foi **reproduzido**, não deduzido.
+
+### 9.1 Confirmado e já corrigido
+
+| O que acontecia | Onde |
+|---|---|
+| Meta concluída aparecia em "Concluídas hoje", junto do trabalho do dia | `web/js/store.js` — `feitasHoje()` não passava por `visiveis()` |
+| A busca (Ctrl+K) nunca encontrava item de quadro lateral | `web/js/palette.js` — usava `visiveis()` em vez de `visiveis("*")` |
+| Com filtro de projeto ativo, o item criado no quadro sumia no mesmo instante | `web/js/views/hoje.js` — nascia sem projeto |
+| A sincronização de 6s apagava o que estava sendo digitado na tela | `web/js/app.js` — o `#view` remontava sem respeitar campo em foco |
+| Tarefa apontando para si mesma como pai travava o servidor ao ser apagada | `server/tasks.js` — recursão sem fim em `deleteTask` |
+
+As quatro primeiras entraram junto com os quadros laterais. A quinta é antiga.
+
+### 9.2 Confirmado e ainda aberto
+
+1. **Mover tarefa entre projetos quebra o projeto de destino.** A tarefa leva o
+   número antigo; quando a numeração do destino alcança esse número, o `INSERT`
+   morre em `UNIQUE constraint failed: tasks.project_id, tasks.number` e ninguém
+   mais cria tarefa ali. Reproduzido: mover `AAA-2` para BBB e criar duas em BBB.
+2. **Apagar tarefa não avisa ninguém, e faz o relógio da sincronização andar para
+   trás.** `deleteTask` não grava evento e apaga os da tarefa em cascata, então o
+   maior `events.id` diminui. As outras abas seguem mostrando o cartão e podem
+   reprocessar eventos já vistos. Reproduzido: maior id caiu de 5 para 4.
+3. **Prazo impossível é aceito.** `2026-99-99`, `2026-02-30` e `0000-00-00` são
+   gravados como estão — `cleanDate` confere o formato, não a data.
+4. **O cookie de sessão sai sem `Secure` em produção.** `httpsAtivo()` só liga o
+   atributo quando `TRUST_PROXY_PROTO` existe, e essa variável não está definida
+   na hospedagem. O HSTS cobre o caso comum, mas o atributo deveria estar lá.
+   Conserto: definir `TRUST_PROXY_PROTO=https` no painel.
+5. **Não há `Content-Security-Policy`.** HSTS, `X-Frame-Options` e `nosniff` estão.
+6. **Criar aceita em silêncio o que editar recusa.** `createTask` normaliza valor
+   inválido para o padrão; `updateTask` devolve erro. O contrato deveria ser um só.
+7. **Quem perde a senha fica sem acesso.** Não existe redefinição nem desativação
+   pela interface — só um administrador criando outra conta.
+
+### 9.3 Levantado e refutado na reprodução
+
+Ficam registrados para não serem levantados de novo:
+
+- **Travessia de caminho na rota de arquivos.** Nenhuma das seis entradas hostis
+  passou: `normalize` + a limpeza do prefixo + `startsWith` seguram.
+- **Senha de administrador publicada em `docs/INSTALL.md`.** É exemplo de saída de
+  terminal; testada contra produção, devolve 401.
+- **Freio de tentativas ausente na hospedagem.** Medido em produção: a nona
+  tentativa devolve 429. Vale a ressalva de que o contador vive na memória da
+  instância, então o teto é por instância, não global.
+
+### 9.4 O que ficou sem verificação
+
+A varredura levantou 78 apontamentos; os acima foram reproduzidos um a um. O
+restante — sobretudo corrida de numeração e transação pela metade no modo
+hospedado, e limpeza de anexo órfão — continua como suspeita de peso, sem prova.

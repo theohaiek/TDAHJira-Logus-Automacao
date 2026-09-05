@@ -151,8 +151,12 @@ function quadroLateral(kind) {
       if (!texto) return;
       e.target.value = "";
       // Nasce já no quadro e fora da entrada: não é algo a triar, é algo a
-      // guardar.
-      await criarDoTexto(texto, { kind, status: "todo" });
+      // guardar. Herda o projeto filtrado, senão sumiria no mesmo instante.
+      await criarDoTexto(texto, {
+        kind,
+        status: "todo",
+        ...(state.filtroProjeto ? { projectId: state.filtroProjeto } : {}),
+      });
     },
   });
 

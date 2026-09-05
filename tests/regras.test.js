@@ -18,7 +18,7 @@ process.env.TDAH_DATA_DIR = mkdtempSync(join(tmpdir(), "tdah-test-"));
 const { openDb, one, insert } = await import("../server/db.js");
 const { DB_FILE, DATA_DIR } = await import("../server/paths.js");
 const { createUser } = await import("../server/auth.js");
-const { createTask, updateTask, addStep, toggleStep, getTaskFull, moveTask } = await import(
+const { createTask, updateTask, addStep, toggleStep, getTaskFull, moveTask, deleteTask } = await import(
   "../server/tasks.js"
 );
 const { addComment, listComments } = await import("../server/comments.js");
@@ -206,6 +206,19 @@ test("mover entre dois cartões coloca a tarefa no meio", async () => {
 
   const movida = await moveTask(c.id, { status: "todo", afterId: a.id, beforeId: b.id }, ator);
   assert.ok(movida.position > a.position && movida.position < b.position);
+});
+
+test("apagar tarefa que aponta para si mesma como pai não entra em laço", async () => {
+  const t = await createTask({ title: "Pai de si mesma" }, ator);
+  await updateTask(t.id, { parentId: t.id }, ator);
+
+  // Sem a guarda em deleteTask isto nunca retorna e leva o servidor junto.
+  await Promise.race([
+    deleteTask(t.id, ator),
+    new Promise((_, rej) => setTimeout(() => rej(new Error("deleteTask não retornou")), 4000)),
+  ]);
+
+  assert.equal(await one("SELECT id FROM tasks WHERE id = ?", [t.id]), null);
 });
 
 // --- Captura rápida --------------------------------------------------------

@@ -311,7 +311,9 @@ export async function deleteTask(id) {
   // O banco local apaga as dependentes em cascata pela chave estrangeira.
   // No modo hospedado a integridade referencial não é garantida do mesmo
   // jeito, então as filhas saem à mão para não virarem órfãs invisíveis.
-  const filhas = await all("SELECT id FROM tasks WHERE parent_id = ?", [id]);
+  // O "id <> ?" não é zelo excessivo: uma tarefa que aponta para si mesma
+  // como pai faria esta recursão nunca terminar, e o servidor trava junto.
+  const filhas = await all("SELECT id FROM tasks WHERE parent_id = ? AND id <> ?", [id, id]);
   for (const f of filhas) await deleteTask(f.id);
 
   if (getDb().tipo !== "local") {

@@ -60,6 +60,11 @@ async function entrar() {
 
   rota();
   window.addEventListener("hashchange", rota);
+  document.addEventListener("focusout", () => {
+    setTimeout(() => {
+      if (redesenhoAdiado && !editandoNaView()) desenhar();
+    }, 0);
+  });
   desenhar();
 }
 
@@ -113,8 +118,26 @@ function desenhar() {
   });
 }
 
+// Mesmo acordo do painel do ticket (ticket.js): a sincronização de 6s não
+// pode apagar o que alguém está escrevendo. O redesenho fica represado
+// enquanto houver campo em foco, e sai assim que o foco solta.
+let redesenhoAdiado = false;
+
+function editandoNaView() {
+  const ativo = document.activeElement;
+  const alvo = $("#view");
+  if (!ativo || !alvo || !alvo.contains(ativo)) return false;
+  return ativo.matches("input, textarea, [contenteditable]");
+}
+
 function desenharAgora() {
   if (!state.carregado) return;
+
+  if (editandoNaView()) {
+    redesenhoAdiado = true;
+    return;
+  }
+  redesenhoAdiado = false;
 
   desenharNav();
   desenharProjetos();
