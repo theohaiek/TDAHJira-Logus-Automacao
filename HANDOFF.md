@@ -157,19 +157,36 @@ Testes de API por `curl` mandaram `Automações` como `Automa��es`. **Não �
 aplicativo** — a interface e o Node tratam UTF-8 corretamente. Para testar
 acentuação, use `fetch` pelo Node ou a própria interface.
 
-### 4.8 Antivírus pode substituir os arquivos do aplicativo
+### 4.8 Antivírus libera a página e bloqueia os arquivos dela
 
-Numa das máquinas, o Kaspersky interceptou o domínio e **devolveu a própria
-página de bloqueio no lugar de cada CSS e JS**: o servidor entregava 3 KB de
-JavaScript e o navegador recebia 190 KB de HTML, com status 499. Resultado: tela
-branca, sem erro no console.
+Numa das máquinas, o Kaspersky classificou o endereço como "ameaça de perda de
+dados" e passou a agir **por arquivo, não por página**. O relatório dele mostra
+o padrão exato, todos no mesmo segundo:
 
-**Como reconhecer:** o `curl` baixa tudo com 200, mas no navegador as folhas de
-estilo aparecem com zero regras e o módulo falha com *"Failed to fetch
-dynamically imported module"*.
+```
+/                    Acesso permitido
+/css/tokens.css      Bloqueado
+/css/base.css        Bloqueado
+/css/app.css         Bloqueado
+/js/app.js           Bloqueado
+/js/store.js         Bloqueado
+/img/favicon.svg     Bloqueado
+```
 
-**Solução:** liberar o domínio no antivírus, ou usar domínio próprio — endereço
-recém-criado sem reputação é o gatilho.
+O HTML chega inteiro e nenhum estilo ou script chega junto. Resultado: tela
+branca, sem erro visível — o console só mostra ruído da própria extensão.
+
+**Como reconhecer:** `fetch` por fora do navegador baixa tudo com 200 e o
+conteúdo íntegro, mas na aba as folhas aparecem com zero regras e o `#view` fica
+vazio. Se o antivírus tiver uma tela de bloqueio, ela some depois do "desejo
+continuar" e a tela **continua** branca: aquele botão libera só a URL raiz.
+
+**Solução:** liberar o domínio **com curinga** no antivírus — em Kaspersky,
+Configurações → Segurança → Antivírus da Web → Endereços da Web confiáveis, e
+adicionar o endereço terminado em `/*`. Sem o curinga, libera-se a página e
+seguem bloqueados os arquivos, que é o estado que produz a tela branca. A saída
+definitiva é domínio próprio: o gatilho é `.vercel.app` ser endereço
+compartilhado e gratuito, não algo do aplicativo.
 
 ### 4.9 Coluna nova não chega ao banco que já existe
 
