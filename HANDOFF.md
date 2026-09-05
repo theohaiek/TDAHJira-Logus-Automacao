@@ -22,7 +22,8 @@ a trabalhar?
 
 | | |
 |---|---|
-| Produção | https://tdah-jira-logus-automacao.vercel.app |
+| Produção | https://tarefas.logusautomacao.com |
+| Endereço de reserva | https://tdah-jira-logus-automacao.vercel.app |
 | Repositório | https://github.com/theohaiek/TDAHJira-Logus-Automacao |
 | Painel | Vercel, conta **Logus** (plano Hobby), projeto `tdah-jira-logus-automacao` |
 | Banco | Turso `tdah-logus-db`, plano Starter ($0), região `iad1` |
@@ -181,7 +182,12 @@ conteúdo íntegro, mas na aba as folhas aparecem com zero regras e o `#view` fi
 vazio. Se o antivírus tiver uma tela de bloqueio, ela some depois do "desejo
 continuar" e a tela **continua** branca: aquele botão libera só a URL raiz.
 
-**Solução:** liberar o domínio **com curinga** no antivírus — em Kaspersky,
+**Resolvido em 5 de setembro de 2026** com domínio próprio: o mesmo navegador,
+com o mesmo antivírus ligado, passou de zero regra de estilo para 9, 55 e 253
+nas três folhas, e a tela de login apareceu. Fica o registro do sintoma, porque
+ele volta se alguém publicar em endereço compartilhado de novo.
+
+**Paliativo, se ainda for preciso:** liberar o domínio **com curinga** no antivírus — em Kaspersky,
 Configurações → Segurança → Antivírus da Web → Endereços da Web confiáveis, e
 adicionar o endereço terminado em `/*`. Sem o curinga, libera-se a página e
 seguem bloqueados os arquivos, que é o estado que produz a tela branca. A saída
@@ -316,15 +322,7 @@ Em ordem de valor por esforço. A lista longa, com origem de cada ideia, está e
 `OPEN_POINTS.md` seção 4. As pendências deixadas ao fim da última sessão
 estão na seção 8 do mesmo arquivo.
 
-1. **Domínio próprio — antes de qualquer outra coisa.** Hoje o aplicativo mora
-   em `*.vercel.app`, e antivírus com anti-phishing bloqueiam a combinação
-   "formulário de senha em domínio compartilhado gratuito". Foi medido: o
-   Kaspersky classifica como *ameaça de perda de dados*, libera o HTML e bloqueia
-   cada CSS e JS, o que produz tela branca sem erro. Isso não é particularidade
-   de uma máquina — é o que acontece com qualquer pessoa que tenha um antivírus
-   desses, e nenhuma mudança no código evita. Enquanto não houver domínio
-   próprio, cada pessoa nova pode precisar de exclusão manual no antivírus dela.
-2. **Usar por duas semanas antes de mudar qualquer coisa.** As perguntas abertas
+1. **Usar por duas semanas antes de mudar qualquer coisa.** As perguntas abertas
    (cinco estados são demais? limite de três é realista?) só se respondem com
    uso real.
 3. **Notificações** — o maior vazio apontado pela pesquisa. Hoje a tela inicial

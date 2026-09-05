@@ -203,11 +203,13 @@ Deixadas ao encerrar a sessão que entregou os quadros laterais da tela inicial.
    a planilha deve voltar a "Tarefa" ao trocar de tela.
 4. **Tela estreita não foi vista.** Abaixo de 900px os quadros descem para
    baixo do fluxo do dia; falta olhar num celular.
-5. **Acesso da equipe.** O aplicativo responde e os três logins funcionam pela
-   API. O bloqueio por antivírus, porém, **não é de uma máquina só**: é o
-   resultado previsível de servir um formulário de senha em `*.vercel.app`, e
-   vale para qualquer pessoa com anti-phishing ativo (HANDOFF 4.8). Tratar como
-   requisito de entrega, não como suporte individual: domínio próprio.
+5. ~~**Acesso da equipe.**~~ **Resolvido em 5 de setembro de 2026.** O aplicativo
+   passou a morar em `https://tarefas.logusautomacao.com` (CNAME `tarefas` para a
+   hospedagem, criado na Hostinger, onde fica o DNS do domínio). O bloqueio por
+   antivírus era consequência de servir formulário de senha em endereço
+   compartilhado gratuito, e desapareceu com o domínio próprio — verificado no
+   mesmo navegador, com o mesmo antivírus ligado. O endereço `.vercel.app`
+   continua respondendo como reserva.
 
 ---
 
