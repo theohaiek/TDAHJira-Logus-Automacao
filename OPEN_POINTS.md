@@ -203,9 +203,11 @@ Deixadas ao encerrar a sessão que entregou os quadros laterais da tela inicial.
    a planilha deve voltar a "Tarefa" ao trocar de tela.
 4. **Tela estreita não foi vista.** Abaixo de 900px os quadros descem para
    baixo do fluxo do dia; falta olhar num celular.
-5. **Acesso da equipe.** O aplicativo responde e os três logins funcionam. O
-   único bloqueio conhecido é o antivírus da máquina do administrador, que
-   substitui os arquivos do domínio (HANDOFF 4.8). Domínio próprio resolve.
+5. **Acesso da equipe.** O aplicativo responde e os três logins funcionam pela
+   API. O bloqueio por antivírus, porém, **não é de uma máquina só**: é o
+   resultado previsível de servir um formulário de senha em `*.vercel.app`, e
+   vale para qualquer pessoa com anti-phishing ativo (HANDOFF 4.8). Tratar como
+   requisito de entrega, não como suporte individual: domínio próprio.
 
 ---
 

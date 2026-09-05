@@ -316,11 +316,17 @@ Em ordem de valor por esforço. A lista longa, com origem de cada ideia, está e
 `OPEN_POINTS.md` seção 4. As pendências deixadas ao fim da última sessão
 estão na seção 8 do mesmo arquivo.
 
-1. **Usar por duas semanas antes de mudar qualquer coisa.** As perguntas abertas
+1. **Domínio próprio — antes de qualquer outra coisa.** Hoje o aplicativo mora
+   em `*.vercel.app`, e antivírus com anti-phishing bloqueiam a combinação
+   "formulário de senha em domínio compartilhado gratuito". Foi medido: o
+   Kaspersky classifica como *ameaça de perda de dados*, libera o HTML e bloqueia
+   cada CSS e JS, o que produz tela branca sem erro. Isso não é particularidade
+   de uma máquina — é o que acontece com qualquer pessoa que tenha um antivírus
+   desses, e nenhuma mudança no código evita. Enquanto não houver domínio
+   próprio, cada pessoa nova pode precisar de exclusão manual no antivírus dela.
+2. **Usar por duas semanas antes de mudar qualquer coisa.** As perguntas abertas
    (cinco estados são demais? limite de três é realista?) só se respondem com
    uso real.
-2. **Domínio próprio** (`tarefas.logus.com.br`). Resolve o bloqueio por
-   antivírus de vez e tira a cara de endereço genérico.
 3. **Notificações** — o maior vazio apontado pela pesquisa. Hoje a tela inicial
    responde "o que faço agora" só para quem abre o aplicativo. Um resumo diário
    passivo resolveria; um alerta interruptivo estragaria.
