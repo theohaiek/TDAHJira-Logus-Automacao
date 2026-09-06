@@ -358,3 +358,43 @@ retomar, sem peso de fato:
 - `salvarTexto()` chama `render()` de dentro do `blur`.
 
 O caminho para fechá-las é o mesmo de sempre: reproduzir antes de acreditar.
+
+---
+
+## 11. Falta um guia para agentes de código
+
+`CONTRIBUTING.md` foi escrito para uma pessoa: ela lê uma vez, entende o
+projeto e volta ao texto só quando esquece de algo. Um agente de código não
+funciona assim. Ele chega sem memória a cada sessão, lê o que couber na
+janela de contexto, e erra exatamente nos pontos onde este projeto é
+contra-intuitivo.
+
+Nas sessões em que agentes trabalharam neste repositório, os mesmos erros se
+repetiram, e todos são evitáveis por escrito:
+
+- Rodar `npm install`, ou propor uma dependência, num projeto que não tem
+  nenhuma de propósito.
+- Alterar `core/schema.sql` e não acrescentar o `ALTER TABLE` na lista
+  `MIGRACOES`, o que faz a coluna nunca existir no banco que já está em uso.
+- Escrever código de servidor que só funciona em um dos dois modos.
+- Usar `innerHTML` onde o projeto inteiro usa o helper `h()`.
+- Criar listagem de tarefas sem decidir se ela respeita o campo `kind`.
+- Mexer no ciclo de desenho e derrubar o represamento que protege o texto
+  em digitação.
+- Escrever comentário em inglês, ou sem acentuação, num código em português.
+- Propor abstração, camada ou configuração nova, quando a regra da casa é a
+  menor mudança que resolve.
+
+O que o arquivo precisa ter, e que o `CONTRIBUTING.md` não tem:
+
+1. **Os comandos exatos**, prontos para copiar, incluindo o de testes.
+2. **A lista do que nunca fazer**, em imperativo, sem rodeio.
+3. **Um mapa de "se você for mexer em X, leia Y antes"** — porque um agente
+   não sabe o que não sabe, e o custo de ler o arquivo errado é alto.
+4. **As invariantes**: o que precisa continuar verdadeiro depois de qualquer
+   mudança (a suíte passa; nenhuma dependência nova; nada de credencial nem
+   nome real; o esquema e as migrações andam juntos).
+5. **Como verificar o próprio trabalho** antes de dizer que terminou.
+
+Nome sugerido: `AGENTS.md` na raiz, que é a convenção que as ferramentas do
+ramo vêm adotando. Curto — se não couber em uma leitura, não será lido.
