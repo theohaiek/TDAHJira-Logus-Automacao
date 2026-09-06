@@ -16,7 +16,9 @@ uploads/
 .env.*
 !.env.example
 config.local.*
-# Anotacao de acesso: nome de pessoa e credencial nao entram num repositorio publico.
+# Anotacao local: acesso, nome de pessoa, credencial e handoff de sessao.
+# Nada disso entra num repositorio publico. Ver ACESSOS.local.md e
+# HANDOFF-SESSAO.local.md, que existem na maquina e nao aqui.
 *.local.md
 # Nasce sozinho no primeiro `vercel link` ou `vercel dev` e traz os
 # identificadores do projeto e da conta.
