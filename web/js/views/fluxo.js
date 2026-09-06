@@ -15,6 +15,7 @@ import {
   STATUS_LABEL,
   STATUS_ORDER,
   STATUS_COLOR,
+  KIND_LABEL,
   diasParado,
   agingTexto,
   desde,
@@ -157,6 +158,9 @@ function faixa(status, tarefas) {
 const FRASE = {
   created: () => "criou",
   status: (e) => `moveu para ${STATUS_LABEL[e.to] || e.to}`,
+  // Sem esta linha a troca de tipo cai no fallback e a trilha mostra a
+  // palavra "kind" crua no meio da frase.
+  kind: (e) => `moveu para ${KIND_LABEL[e.to] || e.to} —`,
   assignee: (e) => (e.to ? `passou para ${usuario(e.to)?.name || "alguém"}` : "tirou o responsável"),
   priority: (e) => `marcou como ${e.to === "quando_der" ? "quando der" : e.to}`,
   comment: () => "comentou em",
@@ -172,6 +176,9 @@ const FRASE = {
   energy: (e) => `marcou energia ${e.to} em`,
   size: (e) => `estimou ${e.to} bloco(s) em`,
   archived: (e) => (e.to === "1" ? "arquivou" : "restaurou"),
+  // A tarefa já não existe, então não há link para abrir: só o registro de
+  // que alguém a apagou, para a exclusão não acontecer em silêncio.
+  deleted: () => "apagou uma tarefa",
 };
 
 function atividade(e) {

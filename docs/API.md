@@ -180,7 +180,9 @@ X-Comment-Id: 34          (opcional: prende o anexo a um comentário)
 ```
 
 Tipos aceitos: `png`, `jpeg`, `gif`, `webp`, `avif`, `pdf`, `txt`, `csv`, `zip`,
-`json`. Teto de 12 MB.
+`json`. O teto depende do modo: 12 MB no autônomo, 4 MB no hospedado — a
+função sem servidor tem limite próprio de corpo. O valor em vigor vem em
+`limits.maxUpload` de `/boot` e de `/state`, e a interface recusa antes de subir.
 
 SVG é recusado de propósito: carrega script.
 
@@ -194,6 +196,7 @@ SVG é recusado de propósito: carrega script.
 | `DELETE` | `/labels/{id}` |
 | `GET` | `/users` |
 | `POST` | `/users` — só administrador; devolve `senhaInicial` uma vez |
+| `PATCH` | `/users/{id}` — só administrador: `senha` redefine (devolve `senhaInicial` uma vez e obriga a troca) e `active` ativa ou desativa, derrubando as sessões |
 | `PATCH` | `/me/prefs` |
 | `POST` | `/me/password` |
 

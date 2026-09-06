@@ -32,8 +32,9 @@ O plano gratuito cobre folgadamente um time pequeno.
 No painel da Vercel, em **Storage**, crie um **Blob**. A variável
 `BLOB_READ_WRITE_TOKEN` é adicionada ao projeto automaticamente.
 
-Sem isso, o aplicativo funciona, mas qualquer anexo enviado desaparece — em
-ambiente sem servidor não existe disco que sobreviva à requisição.
+Este passo não é opcional: sem `BLOB_READ_WRITE_TOKEN` a função recusa a subir e
+diz o que falta. Em ambiente sem servidor não existe disco que sobreviva à
+requisição, e descobrir isso só no dia em que alguém cola um print custa caro.
 
 ### 3. Publicar
 
@@ -69,6 +70,9 @@ Entre, troque a senha em **Ajustes** e crie as contas do time.
   função que pode ser encerrada a qualquer momento. A consequência prática é
   estreita: uma criação de tarefa interrompida no meio pode consumir um número
   de projeto sem criar a tarefa. É um buraco na sequência, não perda de dado.
+- **O anexo cabe em 4 MB, não em 12 MB.** A plataforma corta o corpo da
+  requisição antes de a função rodar, então o limite aqui é dela, não nosso. No
+  modo autônomo continuam valendo os 12 MB.
 
 ---
 
@@ -134,17 +138,12 @@ Para trocar a porta: `node server/index.js --port 8080`
 
 ### 4. Criar os outros acessos
 
-Entre como administrador e use a API para criar as contas:
+Entre como administrador e, dentro do aplicativo, clique no avatar no canto
+inferior esquerdo → **Criar acesso para alguém**. Só quem é `admin` enxerga a
+opção.
 
-```bash
-curl -X POST http://localhost:4173/api/users \
-  -H "Content-Type: application/json" \
-  -b "tdah_sess=SEU_TOKEN" \
-  -d '{"username":"bruno","name":"Bruno"}'
-```
-
-A resposta traz a senha inicial uma única vez. Repasse por um canal seguro e
-peça que seja trocada no primeiro acesso, em **Ajustes**.
+A senha pode ser escolhida ou sorteada, e aparece uma única vez. Repasse por um
+canal seguro e peça que seja trocada no primeiro acesso, em **Ajustes**.
 
 ### Conteúdo de exemplo
 

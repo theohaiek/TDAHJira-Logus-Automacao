@@ -30,12 +30,33 @@ import { pedir, confirmar as confirmarDialogo } from "./dialog.js";
 let abertoId = null;
 let dados = { comments: [], attachments: [], timeline: [] };
 
+// Arquivos escolhidos no compositor e ainda não enviados.
+//
+// Moram aqui fora, e não dentro do compositor, porque redesenhar o painel
+// reconstrói a caixa inteira: guardados no fechamento, os arquivos já
+// arrastados sumiriam da tela sem nunca ter sido enviados, e os endereços
+// temporários das imagens nunca seriam devolvidos.
+let pendentes = [];
+const enderecos = new Map();
+
+function limparPendentes() {
+  for (const url of enderecos.values()) URL.revokeObjectURL(url);
+  enderecos.clear();
+  pendentes = [];
+}
+
 export function ticketAberto() {
   return abertoId;
 }
 
 export async function abrirTicket(id) {
-  abertoId = Number(id);
+  const alvo = Number(id);
+  abertoId = alvo;
+  // A conversa da tarefa anterior não pode ficar na tela enquanto a nova
+  // carrega: seriam comentários de outra tarefa, com os botões de editar e
+  // apagar ativos e apontando para lá.
+  dados = { comments: [], attachments: [], timeline: [] };
+  limparPendentes();
   const drawer = $("#drawer");
   drawer.hidden = false;
   document.body.style.overflow = "hidden";
@@ -43,11 +64,15 @@ export async function abrirTicket(id) {
   render();
 
   try {
-    const r = await api.getTask(abertoId);
+    const r = await api.getTask(alvo);
+    // Duas aberturas seguidas deixam duas respostas em voo. A que chegar
+    // atrasada não pode escrever por cima da tarefa que está aberta agora.
+    if (abertoId !== alvo) return;
     mesclarTarefa(r.task);
     dados = { comments: r.comments, attachments: r.attachments, timeline: r.timeline };
     render();
   } catch (err) {
+    if (abertoId !== alvo) return;
     erro(err.message);
     fecharTicket();
   }
@@ -55,6 +80,8 @@ export async function abrirTicket(id) {
 
 export function fecharTicket() {
   abertoId = null;
+  dados = { comments: [], attachments: [], timeline: [] };
+  limparPendentes();
   const drawer = $("#drawer");
   if (drawer) drawer.hidden = true;
   document.body.style.overflow = "";
@@ -180,8 +207,11 @@ function render() {
           "aria-label": "Título da tarefa",
           onBlur: (e) => {
             const v = e.target.value.trim();
-            if (v && v !== t.title) salvar({ title: v });
-            else e.target.value = t.title;
+            if (!v) {
+              e.target.value = tarefa(abertoId)?.title ?? t.title;
+              return;
+            }
+            salvarTexto("title", t.title, v);
           },
           onKeydown: (e) => {
             if (e.key === "Enter") {
@@ -334,7 +364,10 @@ function propriedades(t, responsavel) {
             type: "text",
             value: t.waitingFor || "",
             placeholder: "de quem ou do quê",
-            onBlur: (e) => salvar({ waitingFor: e.target.value.trim() || null }),
+            onBlur: (e) => {
+              const v = e.target.value.trim();
+              salvarTexto("waitingFor", t.waitingFor || "", v, v || null);
+            },
           })
         )
       : null
@@ -384,9 +417,7 @@ function secaoDescricao(t) {
       class: "notes",
       value: t.description || "",
       placeholder: "O que precisa ser sabido para fazer isso? Cole links, decisões, o que veio do cliente…",
-      onBlur: (e) => {
-        if (e.target.value !== t.description) salvar({ description: e.target.value });
-      },
+      onBlur: (e) => salvarTexto("description", t.description || "", e.target.value),
     })
   );
 }
@@ -396,22 +427,31 @@ function secaoDescricao(t) {
 function secaoPassos(t) {
   const feitos = t.steps.filter((s) => s.done).length;
 
+  // Enquanto o passo não está no servidor, o texto continua no campo: se a
+  // gravação falhar, ele não some da tela para ser digitado de novo de memória.
+  // A trava evita que dois Enter seguidos criem o mesmo passo duas vezes.
+  let gravandoPasso = false;
+
   const entrada = h("input", {
     type: "text",
     placeholder: "+ um passo pequeno…",
     onKeydown: async (e) => {
       if (e.key !== "Enter") return;
-      const v = e.target.value.trim();
-      if (!v) return;
-      e.target.value = "";
+      const campo = e.target;
+      const v = campo.value.trim();
+      if (!v || gravandoPasso) return;
+      gravandoPasso = true;
       try {
         const r = await api.addStep(t.id, v);
+        campo.value = "";
         mesclarTarefa(r.task);
         emit();
         render();
         setTimeout(() => $(".ticket__section input[placeholder^='+']")?.focus(), 0);
       } catch (err) {
         erro(err.message);
+      } finally {
+        gravandoPasso = false;
       }
     },
   });
@@ -602,8 +642,6 @@ function editarComentario(c, corpo, t) {
 // problema" e "registrei o problema". Qualquer passo a mais (salvar em
 // arquivo, procurar a pasta, escolher no seletor) é onde o registro morre.
 function compositor(t) {
-  const pendentes = [];
-
   const previa = h("div", { class: "files" });
 
   // Rascunho guardado enquanto se digita.
@@ -696,14 +734,27 @@ function compositor(t) {
     for (const f of e.dataTransfer.files) adicionar(f);
   });
 
+  function adicionar(arquivo) {
+    // O teto muda com o modo em que o servidor roda, e vem no estado. Recusar
+    // aqui evita subir um arquivo inteiro para ouvir 413 no fim.
+    const teto = state.limits?.maxUpload;
+    if (teto && arquivo.size > teto) {
+      erro(`${arquivo.name} tem ${mb(arquivo.size)} e o limite é ${mb(teto)}.`);
+      return;
+    }
+    pendentes.push(arquivo);
+    previa.appendChild(previaDe(arquivo));
+  }
+
+  function mb(bytes) {
+    return `${(bytes / 1024 / 1024).toFixed(1).replace(".", ",")} MB`;
+  }
+
   // Cada prévia cria um endereço temporário para o arquivo. Eles precisam ser
   // devolvidos, senão a imagem fica presa na memória da aba até recarregar.
-  const enderecos = new Map();
-
-  function adicionar(arquivo) {
-    pendentes.push(arquivo);
+  function previaDe(arquivo) {
     const ehImagem = arquivo.type.startsWith("image/");
-    if (ehImagem) enderecos.set(arquivo, URL.createObjectURL(arquivo));
+    if (ehImagem && !enderecos.has(arquivo)) enderecos.set(arquivo, URL.createObjectURL(arquivo));
 
     const item = h(
       "div",
@@ -724,7 +775,7 @@ function compositor(t) {
         },
       })
     );
-    previa.appendChild(item);
+    return item;
   }
 
   function liberar(arquivo) {
@@ -735,45 +786,57 @@ function compositor(t) {
     }
   }
 
-  function liberarTudo() {
-    for (const url of enderecos.values()) URL.revokeObjectURL(url);
-    enderecos.clear();
-  }
-
   async function enviar() {
     const texto = area.value.trim();
-    if (!texto && !pendentes.length) return;
+    // Os arquivos são fixados agora: a lista vive fora desta função e pode ser
+    // zerada no meio, se o painel trocar de tarefa durante o envio.
+    const arquivos = pendentes.slice();
+    if (!texto && !arquivos.length) return;
 
     try {
       let comentarioId = null;
+      let comentarios = null;
       if (texto) {
         const r = await api.addComment(t.id, texto);
-        dados.comments = r.comments;
+        comentarios = r.comments;
         comentarioId = r.comments.at(-1)?.id ?? null;
         if (r.task) mesclarTarefa(r.task);
       }
-      for (const arquivo of pendentes) {
+      for (const arquivo of arquivos) {
         const r = await api.upload(t.id, arquivo, comentarioId);
         if (r.task) mesclarTarefa(r.task);
       }
-      if (pendentes.length) {
-        const novo = await api.getTask(t.id);
+      const novo = arquivos.length ? await api.getTask(t.id) : null;
+
+      // O rascunho só é descartado depois que o comentário existe de fato
+      // no servidor. Se a chamada falhar, o texto continua onde estava.
+      localStorage.removeItem(chaveRascunho);
+      // A caixa é limpa aqui, e não pelo redesenho: se alguém enviar com
+      // Ctrl+Enter, o cursor continua na textarea e o redesenho fica represado.
+      area.value = "";
+      limparPendentes();
+      mount(previa);
+      emit();
+
+      // O painel pode ter trocado de tarefa durante o envio: o que voltou é
+      // desta aqui, e não pode virar a conversa da que está na tela agora.
+      if (abertoId !== t.id) return;
+      if (comentarios) dados.comments = comentarios;
+      if (novo) {
         dados = {
           comments: novo.comments,
           attachments: novo.attachments,
           timeline: novo.timeline,
         };
       }
-      // O rascunho só é descartado depois que o comentário existe de fato
-      // no servidor. Se a chamada falhar, o texto continua onde estava.
-      localStorage.removeItem(chaveRascunho);
-      liberarTudo();
-      emit();
       render();
     } catch (err) {
       erro(err.message);
     }
   }
+
+  // Devolve à tela o que já tinha sido escolhido antes deste desenho.
+  for (const arquivo of pendentes) previa.appendChild(previaDe(arquivo));
 
   return caixa;
 }
@@ -982,6 +1045,44 @@ async function salvar(mudanca) {
     erro(err.message);
     render();
   }
+}
+
+const ROTULO_CAMPO = {
+  title: "o título",
+  description: "o contexto",
+  waitingFor: "o campo “esperando”",
+};
+
+// Grava um campo de texto comparando com o valor de agora, e não com o que
+// estava na tela quando ela foi desenhada.
+//
+// Entre desenhar e sair do campo cabe muita coisa: o sync roda a cada poucos
+// segundos e substitui a tarefa inteira no estado, então o objeto usado no
+// desenho envelhece sem avisar. Enquanto alguém digita, o redesenho fica
+// represado e o texto que a outra pessoa gravou nem chega a aparecer — comparar
+// com o objeto velho gravaria por cima dele em silêncio, e ninguém saberia.
+function salvarTexto(campo, desenhado, digitado, gravar = digitado) {
+  const atual = tarefa(abertoId);
+  const agora = atual ? atual[campo] ?? "" : desenhado;
+  if (digitado === agora) return;
+
+  // Nada foi digitado: o campo só ficou velho na tela. Mostra o valor de agora.
+  if (digitado === desenhado) {
+    render();
+    return;
+  }
+
+  if (agora !== desenhado) {
+    toast(`Alguém mudou ${ROTULO_CAMPO[campo] || "este campo"} enquanto você escrevia. O texto de lá está na tela.`, {
+      acao: "gravar o meu",
+      aoClicar: () => salvar({ [campo]: gravar }),
+      ms: 30000,
+    });
+    render();
+    return;
+  }
+
+  salvar({ [campo]: gravar });
 }
 
 function carimbo() {

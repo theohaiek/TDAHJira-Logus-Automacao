@@ -1449,7 +1449,12 @@ select.cell {
   flex-direction: column;
   gap: var(--sp-4);
   position: sticky;
-  top: 0;
+  top: var(--sp-2);
+  /* Sticky sem teto de altura prende a coluna no topo e some com o próprio
+     rodapé: com os três quadros cheios, o último e o campo de adicionar dele
+     ficariam fora de alcance em qualquer tela mais baixa que eles. */
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
 }
 
 .mini-board {
@@ -1565,10 +1570,34 @@ select.cell {
 .mini-item__title:hover {
   color: var(--accent);
 }
+.mini-item.is-done .mini-item__check {
+  background: var(--st-done);
+  border-color: var(--st-done);
+  color: var(--surface-0);
+}
+.mini-item.is-done .mini-item__title {
+  color: var(--text-3);
+  text-decoration: line-through;
+}
 
 /* ==========================================================================
    Telas estreitas
    ========================================================================== */
+
+/* Duas colunas só enquanto a coluna do dia continuar sendo a maior. Numa
+   janela de 940px sobram 336px para ela — menos do que os 300px dos quadros
+   depois de descontar a leitura, e o inverso da proporção que a tela quer. */
+@media (max-width: 1100px) {
+  .today {
+    grid-template-columns: 1fr;
+  }
+  .today__side {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+}
+
 @media (max-width: 900px) {
   .app {
     grid-template-columns: 1fr;
@@ -1591,12 +1620,6 @@ select.cell {
   }
   .flow {
     grid-template-columns: 1fr;
-  }
-  .today {
-    grid-template-columns: 1fr;
-  }
-  .today__side {
-    position: static;
   }
   .view {
     padding: var(--sp-4) var(--sp-4) var(--sp-16);

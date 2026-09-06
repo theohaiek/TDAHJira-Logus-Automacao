@@ -267,6 +267,94 @@ Ficam registrados para não serem levantados de novo:
 
 ### 9.4 O que ficou sem verificação
 
+> **Atualização:** os 66 apontamentos que restavam foram trabalhados um a um
+> logo em seguida. O resultado está na seção 10; o que sobrou de verdade é
+> curto e está em 10.2.
+
 A varredura levantou 78 apontamentos; os acima foram reproduzidos um a um. O
 restante — sobretudo corrida de numeração e transação pela metade no modo
 hospedado, e limpeza de anexo órfão — continua como suspeita de peso, sem prova.
+
+---
+
+## 10. Fechamento da V1
+
+Depois da auditoria da seção 9, os 66 apontamentos restantes foram divididos por
+arquivo e trabalhados em paralelo. 49 viraram correção, 20 foram descartados com
+motivo, e a costura entre eles rendeu mais sete consertos que nenhum grupo via
+sozinho. A suíte saiu de 36 para 78 testes.
+
+### 10.1 O que foi corrigido
+
+| Área | O que mudou |
+|---|---|
+| **Chave da tarefa** | Mover entre projetos renumera no destino; o número sai numa instrução só (`UPDATE … RETURNING`), sem a corrida de antes |
+| **Exclusão** | Gera evento próprio, o cursor de sincronização nunca recua, o cartão some da tela de quem está com a aba aberta, e os arquivos dos anexos saem do disco e da nuvem |
+| **Validação** | Criar e editar recusam os mesmos valores; data impossível (`2026-02-30`) deixa de passar; título é aparado e limitado; referência inexistente vira 400, não 500 |
+| **Ordenação** | A posição fracionária deixa de colapsar: a coluna se renumera sozinha quando o espaço acaba |
+| **Sessão e senha** | Cookie com `Secure` no modo hospedado, `logout` invalida a sessão certa, administrador redefine senha e desativa acesso, freio de login separa quem é quem atrás de proxy |
+| **Transações** | O modo local serializa as escritas que passam por `tx()`, em vez de derrubar a segunda com erro 500 |
+| **Migrações** | Sobrevivem a duas partidas simultâneas |
+| **Anexos** | Teto por modo (12 MB local, 4 MB hospedado), anunciado em `/boot` e `/state`, e a interface recusa antes de subir |
+| **Interface** | Cronômetro não vaza mais, anexos do compositor sobrevivem ao redesenho, filtro da planilha tem como ser limpo, texto da senha deixa de prometer regra que não existe |
+
+### 10.2 O que continua aberto, e por quê
+
+Nenhum deles impede o uso. Todos foram examinados e recusados por serem grandes
+demais para o retorno, não por falta de tempo:
+
+1. **O freio de login é por instância no modo hospedado.** O contador vive na
+   memória do processo, e a plataforma cria instâncias novas. Consertar de
+   verdade é guardar tentativas no banco — uma escrita a mais em toda tentativa
+   de login, inclusive nas legítimas. Para três pessoas atrás de um domínio
+   próprio, não compensa.
+2. **`UPDATE` e evento não são atômicos no Turso.** O driver HTTP não tem
+   transação de verdade. Na prática significa que uma queda de rede no
+   milissegundo errado grava a mudança sem a linha da trilha. Fechar isso é
+   refazer o driver para juntar as instruções num pipeline só.
+3. **`today()` é local e `nowIso()` é UTC.** Perto da meia-noite os dois
+   discordam sobre que dia é hoje. Uniformizar exige decidir o fuso da
+   instância e migrar o que já está gravado.
+4. **Escrita fora de `tx()` ainda pode ser desfeita por um `ROLLBACK` alheio**
+   no modo local (passos e comentários não passam por transação).
+5. **`PATCH /users/{id}` não tem botão.** A rota existe e é testada; falta a
+   tela para o administrador usar sem `curl`.
+6. **Adicionar um passo não aparece na hora** quando o cursor está dentro de um
+   campo do painel: o redesenho fica represado até o foco sair. É o preço de
+   não apagar o que está sendo digitado.
+
+### 10.3 Revisão do próprio lote
+
+O diff inteiro passou por uma segunda leitura, em seis frentes, antes de virar
+commit. Nada bloqueou a entrega. Quatro coisas apareceram e foram corrigidas na
+hora:
+
+1. A exclusão não chegava ao "O que andou": `recentActivity()` filtrava
+   `task_id IS NOT NULL`, que é exatamente a forma do único evento que nasce sem
+   tarefa. Agora ela aparece, sem link, porque não há mais o que abrir.
+2. `DELETE` de tarefa inexistente respondia 200 e ainda gravava o evento, o que
+   mandava os outros clientes removerem um cartão que nunca existiu. Agora é 404.
+3. `docs/API.md` prometia que `PATCH /users/{id}` mudava papel, nome e cor. A
+   rota não lê nenhum dos três: ela redefine senha e ativa ou desativa. Quem
+   fosse construir a tela por esse contrato faria um formulário que não grava.
+4. `tx()` ganhou guarda contra transação aninhada. Não há aninhamento hoje; o
+   problema é que, se alguém introduzir um, o processo trava sem erro e sem fim.
+
+A revisão também levantou uma leva de suspeitas que **não chegaram a ser
+verificadas** — a sessão esbarrou no limite antes. Ficam anotadas para quem
+retomar, sem peso de fato:
+
+- `emVoo` do `store.js` pode ficar preso se uma sondagem nunca terminar, e a
+  sincronização morreria em silêncio pelo resto da sessão.
+- `MAX_UPLOAD` decide o teto por `TURSO_DATABASE_URL`, mas o limite de 4 MB é da
+  função sem servidor, não do banco. Quem rodar o modo autônomo apontando para o
+  Turso perde 8 MB sem motivo técnico.
+- `X-Forwarded-For` é lido pela esquerda no freio de login; se a plataforma não
+  sanear o cabeçalho, dá para escolher a própria chave.
+- `espalhar()` renumera a coluna com um `UPDATE` por linha e sem evento: no modo
+  hospedado é uma ida à rede por tarefa, e as outras abas só veem a ordem nova no
+  carregamento seguinte.
+- No celular, o toque que segura o aviso pode prendê-lo na tela.
+- `salvarTexto()` chama `render()` de dentro do `blur`.
+
+O caminho para fechá-las é o mesmo de sempre: reproduzir antes de acreditar.

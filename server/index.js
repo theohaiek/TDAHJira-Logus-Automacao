@@ -97,7 +97,7 @@ async function prepararInstancia() {
     console.log(`  senha:   ${senha}`);
     console.log("  ─────────────────────────────────────────────");
     console.log("  Anote a senha: ela não é mostrada de novo.");
-    console.log("  Troque no primeiro acesso, em Ajustes.");
+    console.log("  Troque no primeiro acesso, no menu do seu nome.");
     console.log("");
   } else if (flag("setup")) {
     console.log("  A instância já tem contas. Nada a fazer.");

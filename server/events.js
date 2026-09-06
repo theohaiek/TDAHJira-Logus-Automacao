@@ -51,7 +51,7 @@ export async function recentActivity(limit = 80) {
        LEFT JOIN users u ON u.id = e.actor_id
        LEFT JOIN tasks t ON t.id = e.task_id
        LEFT JOIN projects p ON p.id = t.project_id
-      WHERE e.task_id IS NOT NULL
+      WHERE e.task_id IS NOT NULL OR e.kind = 'deleted'
       ORDER BY e.id DESC
       LIMIT ?`,
     [Math.min(Number(limit) || 80, 300)]
@@ -77,6 +77,20 @@ export async function changedSince(cur) {
     [Number(cur) || 0]
   );
   return linhas.map((r) => r.task_id);
+}
+
+// Identificadores das tarefas apagadas desde o cursor.
+//
+// O evento de exclusão nasce com task_id nulo — a linha da tarefa não existe
+// mais, e a chave estrangeira levaria o evento junto no CASCADE. O número da
+// tarefa fica em to_value, e é por ele que o cliente sabe qual cartão tirar
+// da tela.
+export async function deletedSince(cur) {
+  const linhas = await all(
+    "SELECT to_value FROM events WHERE id > ? AND kind = 'deleted' AND task_id IS NULL",
+    [Number(cur) || 0]
+  );
+  return linhas.map((r) => Number(r.to_value)).filter((n) => Number.isFinite(n));
 }
 
 function shape(e) {

@@ -1,6 +1,10 @@
 # Dados da instância: banco, anexos e qualquer coisa que pertença a quem usa.
 # Nada daqui vai para o repositório.
 /data/
+# Sem âncora, de propósito: TDAH_DATA_DIR pode apontar a pasta de dados para
+# qualquer lugar, e o anexo de trabalho não pode vazar por causa disso — os
+# globs de banco abaixo já valem em qualquer diretório pelo mesmo motivo.
+uploads/
 *.db
 *.db-wal
 *.db-shm
@@ -12,6 +16,9 @@
 .env.*
 !.env.example
 config.local.*
+# Nasce sozinho no primeiro `vercel link` ou `vercel dev` e traz os
+# identificadores do projeto e da conta.
+.vercel/
 
 # Dependências (o projeto não tem nenhuma, mas o diretório aparece se alguém
 # instalar alguma coisa para experimentar).

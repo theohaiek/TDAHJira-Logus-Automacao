@@ -25,12 +25,16 @@ a trabalhar?
 | Produção | https://tarefas.logusautomacao.com |
 | Endereço de reserva | https://tdah-jira-logus-automacao.vercel.app |
 | Repositório | https://github.com/theohaiek/TDAHJira-Logus-Automacao |
-| Painel | Vercel, conta **Logus** (plano Hobby), projeto `tdah-jira-logus-automacao` |
-| Banco | Turso `tdah-logus-db`, plano Starter ($0), região `iad1` |
-| Arquivos | Vercel Blob `tdah-jira-logus-automacao-blob`, **privado**, `iad1` |
+| Hospedagem | Vercel (plano Hobby): a função sem servidor e o Blob de anexos, **privado** |
+| Banco | Turso (plano Starter, $0), na mesma região da função |
 
 **As senhas não estão aqui e nunca devem estar** — o repositório é público. Elas
 foram passadas por outro canal. Se perdeu, veja a seção 7.
+
+Os nomes de conta, projeto, banco e store também não estão aqui, pelo mesmo
+motivo: sozinhos não abrem nada, mas descrevem o alvo para quem chega pelo
+GitHub. Estão no painel da Vercel, ao lado das chaves, que é onde quem retoma o
+projeto precisa entrar de qualquer jeito.
 
 ---
 
@@ -285,7 +289,7 @@ arbitrárias e não são.
 Não há recuperação por e-mail. Duas saídas:
 
 1. Outra pessoa com papel `admin` cria um acesso novo pelo menu.
-2. Apagar a linha do usuário direto no Turso (painel → `tdah-logus-db`) e
+2. Apagar a linha do usuário direto no Turso (painel → o banco do projeto) e
    reiniciar a função: sem nenhuma conta, a primeira requisição cria o
    administrador de novo e imprime a senha no log da Vercel.
 
@@ -313,6 +317,11 @@ Cinco, todas no painel da Vercel, nenhuma no repositório:
 `BLOB_STORE_ID`, `BLOB_WEBHOOK_PUBLIC_KEY`.
 
 Os nomes em `.env.example` estão sempre vazios — mantenha assim.
+
+`BLOB_READ_WRITE_TOKEN` não é opcional quando `TURSO_DATABASE_URL` existe: sem
+ele os anexos cairiam num disco somente leitura, então a função recusa a subir e
+diz o que falta. Se um Preview subir com 500 em tudo logo depois de recriar o
+store de Blob, é essa a causa — a variável não foi propagada para o ambiente.
 
 ---
 
@@ -347,7 +356,7 @@ campo no formulário.
 - Tela inicial com os três quadros laterais (validade longa, oportunidades,
   metas longas) fora do fluxo do dia; campo `kind` com migração idempotente
   para bancos que já existiam.
-- 36 testes automatizados passando.
+- 78 testes automatizados passando.
 - Auditoria completa em 5 de setembro de 2026: cinco defeitos corrigidos, sete
   confirmados e abertos, três levantados e refutados. Tudo em `OPEN_POINTS.md`
   seção 9.

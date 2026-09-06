@@ -206,7 +206,16 @@ const MIGRACOES = [
 async function aplicarMigracoes() {
   for (const m of MIGRACOES) {
     if (await temColuna(m.tabela, m.coluna)) continue;
-    await driver.executa(m.ddl, []);
+    try {
+      await driver.executa(m.ddl, []);
+    } catch (err) {
+      // No modo hospedado duas instâncias frias sobem juntas depois de um
+      // deploy: as duas checam a coluna antes de qualquer ALTER, as duas veem
+      // que falta, e a segunda leva "duplicate column name". Perguntar de novo
+      // resolve sem depender da mensagem do erro, que cada driver escreve à sua
+      // maneira — se a coluna está lá, alguém chegou antes e está tudo certo.
+      if (!(await temColuna(m.tabela, m.coluna))) throw err;
+    }
   }
 }
 
@@ -255,11 +264,38 @@ export async function insert(sql, params = []) {
 // A consequência é aceita conscientemente: uma criação de tarefa interrompida
 // no meio pode deixar um número de projeto consumido sem tarefa. É um buraco
 // na sequência, não uma perda de dado, e o log de eventos continua íntegro.
+//
+// As transações locais são atendidas uma por vez. A conexão é única e
+// compartilhada, e o corpo da transação tem await no meio: sem a fila, o laço
+// de eventos entrega a requisição seguinte com o BEGIN da primeira ainda
+// aberto, o SQLite recusa abrir transação dentro de transação, e duas pessoas
+// salvando no mesmo segundo bastavam para uma delas levar 500.
+let filaLocal = Promise.resolve();
+
 export async function tx(fn) {
   const d = getDb();
   if (d.tipo !== "local") return fn();
 
+  // Transação dentro de transação entraria na fila atrás de si mesma e o
+  // processo travaria em silêncio, sem erro e sem fim. Hoje ninguém aninha;
+  // esta guarda existe para que continuar não aninhando não dependa de
+  // alguém lembrar. Quem já está dentro simplesmente participa da que corre.
+  if (emTransacao) return fn();
+
+  const vez = filaLocal.then(() => transacaoLocal(d, fn));
+  // A fila não pode parar por causa de uma transação que falhou.
+  filaLocal = vez.then(
+    () => {},
+    () => {}
+  );
+  return vez;
+}
+
+let emTransacao = false;
+
+async function transacaoLocal(d, fn) {
   await d.exec("BEGIN");
+  emTransacao = true;
   try {
     const saida = await fn();
     await d.exec("COMMIT");
@@ -269,6 +305,8 @@ export async function tx(fn) {
       await d.exec("ROLLBACK");
     } catch {}
     throw err;
+  } finally {
+    emTransacao = false;
   }
 }
 

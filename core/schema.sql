@@ -177,6 +177,7 @@ CREATE TABLE IF NOT EXISTS events (
              -- | description | due | focus | waiting | project | parent
              -- | label_add | label_remove | step_add | step_done | step_undone
              -- | step_remove | comment | attachment | archived | restored
+             -- | kind | deleted (este com task_id nulo: a tarefa já não existe)
   field      TEXT,
   from_value TEXT,
   to_value   TEXT,

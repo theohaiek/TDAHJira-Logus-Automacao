@@ -10,7 +10,12 @@ import { logEvent } from "./events.js";
 import { touch, badRequest, notFound } from "./tasks.js";
 import { guardar, ler, remover } from "./storage.js";
 
-export const MAX_UPLOAD = 12 * 1024 * 1024; // 12 MB: um print cabe com folga.
+// 12 MB no modo autônomo: um print cabe com folga. No hospedado o número não é
+// nosso — a plataforma corta o corpo da requisição bem antes disso e devolve
+// uma página de erro que o cliente não sabe ler. Prometer 12 MB ali era mentir
+// duas vezes: na recusa sem explicação e no limits.maxUpload de /api/boot, que
+// é o número que a interface tem para avisar antes de enviar.
+export const MAX_UPLOAD = process.env.TURSO_DATABASE_URL ? 4 * 1024 * 1024 : 12 * 1024 * 1024;
 
 // Lista fechada. Nada de executável, nada de svg (que carrega script).
 const ALLOWED = new Map([

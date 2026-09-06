@@ -7,6 +7,7 @@ import { all, one, run, insert, nowIso } from "./db.js";
 
 const SCRYPT = { N: 16384, r: 8, p: 1, keylen: 64 };
 const SESSION_DAYS = 30;
+const FRESCOR_VISTO_MS = 10 * 60 * 1000;
 export const COOKIE = "tdah_sess";
 
 export function hashPassword(password) {
@@ -51,6 +52,7 @@ export function verifyPasswordConstantTime(password, stored) {
 const tentativas = new Map();
 const JANELA_MS = 15 * 60 * 1000;
 const LIMITE = 8;
+const TETO_CHAVES = 5000;
 
 export function podeTentar(chave) {
   const registro = tentativas.get(chave);
@@ -69,9 +71,19 @@ export function registrarFalha(chave) {
   } else {
     registro.falhas++;
   }
-  // Sem teto, uma rajada de tentativas com usuários inventados encheria a
-  // memória do processo.
-  if (tentativas.size > 5000) tentativas.clear();
+  // Sem nenhuma poda, uma rajada com usuários inventados encheria a memória do
+  // processo. Só que limpar o mapa inteiro era um jeito barato de desarmar o
+  // freio: bastava inventar chaves até estourar o teto para zerar junto o
+  // contador da conta sob ataque. Agora saem apenas as janelas já vencidas, e
+  // isso basta — cada falha custa um scrypt deliberadamente caro, então o mapa
+  // só cresce na velocidade em que a máquina consegue verificar senha, e o que
+  // entra some sozinho em quinze minutos.
+  if (tentativas.size > TETO_CHAVES) {
+    const agora = Date.now();
+    for (const [k, v] of tentativas) {
+      if (agora - v.desde > JANELA_MS) tentativas.delete(k);
+    }
+  }
 }
 
 export function limparTentativas(chave) {
@@ -114,7 +126,14 @@ export async function userFromToken(token) {
     [token, nowIso()]
   );
   if (!row) return null;
-  await run("UPDATE users SET last_seen_at = ? WHERE id = ?", [nowIso(), row.id]);
+  // Gravar a cada requisição custava uma escrita por sondagem: no modo
+  // hospedado, uma ida à rede inteira a cada seis segundos, por pessoa. Nada na
+  // tela depende do minuto exato deste campo, então de dez em dez minutos conta
+  // a mesma história por um décimo do preço.
+  const ultimo = Date.parse(row.last_seen_at || "") || 0;
+  if (Date.now() - ultimo > FRESCOR_VISTO_MS) {
+    await run("UPDATE users SET last_seen_at = ? WHERE id = ?", [nowIso(), row.id]);
+  }
   return row;
 }
 
@@ -131,7 +150,17 @@ export async function createUser({
   color = "#a2e4f0",
 }) {
   const clean = String(username).trim().toLowerCase().replace(/[^a-z0-9._-]/g, "");
-  if (!clean) throw new Error("Nome de usuário inválido.");
+  // Sem o status, estes dois viram "Erro interno. Confira o log do servidor." na
+  // tela de quem está criando o acesso — como se o aplicativo tivesse quebrado,
+  // quando só faltava dizer qual é o problema com o nome.
+  if (!clean) {
+    throw Object.assign(new Error("Nome de usuário inválido."), { status: 400 });
+  }
+  // O UNIQUE do banco continua sendo a garantia; esta consulta existe só para
+  // que o caso comum (criar de novo o mesmo acesso) tenha resposta legível.
+  if (await one("SELECT id FROM users WHERE lower(username) = ?", [clean])) {
+    throw Object.assign(new Error("Já existe alguém com esse usuário."), { status: 409 });
+  }
   const id = await insert(
     `INSERT INTO users (username, display_name, email, password_hash, color, role,
                         must_change_password, created_at)

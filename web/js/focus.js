@@ -26,6 +26,16 @@ export function abrirFoco(taskId, minutos = 25) {
   const t = tarefa(taskId);
   if (!t) return;
 
+  // Dá para entrar em foco já estando em foco: dentro da tela cheia o teclado
+  // ainda ouve o atalho "f". Sem limpar o cronômetro antigo aqui, ele seguiria
+  // desenhando a cada segundo até a aba fechar, porque só o último é limpo na
+  // saída. A sessão anterior no banco não precisa de cuidado: o servidor
+  // encerra a que estiver aberta quando uma nova começa.
+  if (tique) {
+    clearInterval(tique);
+    tique = null;
+  }
+
   estado = {
     taskId,
     minutos,
@@ -40,8 +50,12 @@ export function abrirFoco(taskId, minutos = 25) {
 
   // Entrar em foco declara que a tarefa está em andamento: é o estado real,
   // e não faz sentido pedir que se marque isso à mão.
-  if (t.status !== "doing") patch(taskId, { status: "doing" }).catch(() => {});
-  api.focusStart(taskId, minutos).catch(() => {});
+  //
+  // A falha precisa aparecer. Engolir o erro aqui é o pior caso possível: a
+  // pessoa trabalha vinte e cinco minutos achando que registrou, e ao sair a
+  // tarefa continua em "A fazer" e não há sessão de foco nenhuma.
+  if (t.status !== "doing") patch(taskId, { status: "doing" }).catch((e) => erro(e.message));
+  api.focusStart(taskId, minutos).catch((e) => erro(e.message));
 
   desenhar();
   tique = setInterval(desenhar, 1000);

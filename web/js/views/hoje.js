@@ -21,7 +21,7 @@ import {
   doQuadro,
   patch,
 } from "../store.js";
-import { taskCard, listaTarefas } from "../taskcard.js";
+import { taskCard, listaTarefas, alternarConclusao } from "../taskcard.js";
 import {
   saudacao,
   plural,
@@ -140,6 +140,13 @@ function quadroLateral(kind) {
   const mostrados = abertos.slice(0, TETO_DO_QUADRO);
   const escondidos = abertos.length - mostrados.length;
 
+  // O concluído mais recente do dia continua à vista, riscado. O alvo do ✓ é
+  // pequeno e fica colado no título: sem isto, um clique errado só teria volta
+  // indo até a planilha e trocando o filtro de tipo.
+  const feitoHoje = itens
+    .filter((t) => t.status === "done" && (t.doneAt || "").slice(0, 10) === state.hoje)
+    .sort((a, b) => String(b.doneAt).localeCompare(String(a.doneAt)))[0];
+
   const entrada = h("input", {
     type: "text",
     class: "mini-board__add",
@@ -171,11 +178,12 @@ function quadroLateral(kind) {
     ),
     h("p", { class: "mini-board__hint", text: KIND_HINT[kind] }),
 
-    mostrados.length
+    mostrados.length || feitoHoje
       ? h(
           "ul",
           { class: "mini-board__list" },
-          mostrados.map((t) => itemDoQuadro(t))
+          mostrados.map((t) => itemDoQuadro(t)),
+          feitoHoje ? itemDoQuadro(feitoHoje) : null
         )
       : h("p", { class: "mini-board__empty", text: "Nada aqui ainda." }),
 
@@ -184,7 +192,16 @@ function quadroLateral(kind) {
           class: "mini-board__more",
           text: `+${escondidos} · ver na planilha`,
           onClick: () => {
-            state.sheet.kind = kind;
+            // Só o tipo sobrevive ao salto. Um filtro de estado ou de texto
+            // deixado ligado na visita anterior abriria a planilha vazia.
+            state.sheet = {
+              ...state.sheet,
+              kind,
+              busca: "",
+              status: "",
+              pessoa: "",
+              rapido: null,
+            };
             location.hash = "#/planilha";
           },
         })
@@ -195,15 +212,16 @@ function quadroLateral(kind) {
 }
 
 function itemDoQuadro(t) {
+  const feito = t.status === "done";
   return h(
     "li",
-    { class: "mini-item" },
+    { class: `mini-item${feito ? " is-done" : ""}` },
     h("button", {
       class: "mini-item__check",
       text: "✓",
-      title: "Concluir",
-      "aria-label": `Concluir ${t.title}`,
-      onClick: () => patch(t.id, { status: "done" }).catch((e) => erro(e.message)),
+      title: feito ? "Reabrir" : "Concluir",
+      "aria-label": `${feito ? "Reabrir" : "Concluir"} ${t.title}`,
+      onClick: () => alternarConclusao(t),
     }),
     h("button", {
       class: "mini-item__title",

@@ -38,8 +38,18 @@ const COLUNAS = [
   { chave: "statusSince", titulo: "Parada há", largura: "94px" },
 ];
 
+// A coluna de tipo só entra quando a planilha está misturando os quatro tipos.
+// Com o filtro em um tipo só ela repetiria a mesma palavra em toda linha; sem
+// ela, na mistura, uma meta fica idêntica a uma tarefa do dia.
+const COLUNA_TIPO = { chave: "kind", titulo: "Tipo", largura: "124px" };
+
 export function viewPlanilha() {
   const f = state.sheet;
+
+  const misturado = (f.kind || "task") === "*";
+  const colunas = misturado
+    ? [...COLUNAS.slice(0, 2), COLUNA_TIPO, ...COLUNAS.slice(2)]
+    : COLUNAS;
 
   const base = visiveis(f.kind || "task");
   const linhas = filtrar(base, f).sort(ordenador(f));
@@ -113,12 +123,15 @@ export function viewPlanilha() {
         state.sheet.status = state.sheet.status === "waiting" ? "" : "waiting";
       }, f.status === "waiting"),
 
-      f.busca || f.status || f.pessoa || f.rapido
+      // O tipo conta como filtro: ele vem grudado do salto "ver na planilha",
+      // e uma planilha presa em "Meta longa" discorda do contador da barra
+      // lateral sem nada na tela explicando por quê.
+      f.busca || f.status || f.pessoa || f.rapido || (f.kind && f.kind !== "task")
         ? h("button", {
             class: "btn btn--sm btn--ghost",
             text: "limpar",
             onClick: () => {
-              state.sheet = { busca: "", status: "", pessoa: "", kind: f.kind, rapido: null, ordem: f.ordem, desc: f.desc };
+              state.sheet = { busca: "", status: "", pessoa: "", kind: "task", rapido: null, ordem: f.ordem, desc: f.desc };
               emit();
             },
           })
@@ -147,7 +160,7 @@ export function viewPlanilha() {
           h(
             "tr",
             null,
-            COLUNAS.map((c) =>
+            colunas.map((c) =>
               h("th", {
                 text: c.titulo,
                 class: f.ordem === c.chave ? "is-sorted" : "",
@@ -163,11 +176,11 @@ export function viewPlanilha() {
           "tbody",
           null,
           linhas.length
-            ? linhas.map((t) => linha(t))
+            ? linhas.map((t) => linha(t, misturado))
             : h(
                 "tr",
                 null,
-                h("td", { colspan: COLUNAS.length + 1 }, h("div", { class: "empty" }, "Nenhuma tarefa com esses filtros."))
+                h("td", { colspan: colunas.length + 1 }, h("div", { class: "empty" }, "Nenhuma tarefa com esses filtros."))
               )
         )
       )
@@ -175,7 +188,7 @@ export function viewPlanilha() {
   );
 }
 
-function linha(t) {
+function linha(t, misturado) {
   const parado = diasParado(t);
 
   return h(
@@ -193,6 +206,16 @@ function linha(t) {
         await salvar(t.id, { title: v.trim() });
       })
     ),
+
+    misturado
+      ? h(
+          "td",
+          null,
+          campoSelect(t.kind || "task", Object.entries(KIND_LABEL), (v) =>
+            salvar(t.id, { kind: v })
+          )
+        )
+      : null,
 
     h(
       "td",
@@ -352,6 +375,9 @@ function exportarCsv(linhas) {
   const colunas = [
     ["Chave", (t) => t.key],
     ["Tarefa", (t) => t.title],
+    // Sempre presente: o arquivo sai do produto e ninguém olhando a planilha
+    // no Excel tem como saber que aquela linha era uma meta, e não uma tarefa.
+    ["Tipo", (t) => KIND_LABEL[t.kind || "task"] || t.kind || ""],
     ["Estado", (t) => STATUS_LABEL[t.status]],
     ["Projeto", (t) => projeto(t.projectId)?.name || ""],
     ["Quem", (t) => usuario(t.assigneeId)?.name || ""],
@@ -456,6 +482,10 @@ function ordenador(f) {
       const ordem = ["leve", "media", "pesada"];
       x = ordem.indexOf(a.energy || "");
       y = ordem.indexOf(b.energy || "");
+    }
+    if (f.ordem === "kind") {
+      x = KIND_LABEL[a.kind || "task"] || "";
+      y = KIND_LABEL[b.kind || "task"] || "";
     }
     if (f.ordem === "assigneeId") {
       x = usuario(a.assigneeId)?.name || "";

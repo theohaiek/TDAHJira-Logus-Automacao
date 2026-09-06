@@ -25,7 +25,20 @@ export function toast(mensagem, { acao, aoClicar, ms = 4200 } = {}) {
     el.style.transform = "translateY(8px)";
     setTimeout(() => el.remove(), 320);
   }, ms);
+  // Segurar o aviso para ler com calma. O mouseenter não existe em toque, e
+  // há avisos que não se pode perder — a senha inicial de um acesso novo só
+  // aparece uma vez. No celular, um toque segura; o seguinte dispensa.
+  let preso = false;
   el.addEventListener("mouseenter", () => clearTimeout(t));
+  el.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "mouse") return;
+    if (preso) {
+      el.remove();
+      return;
+    }
+    clearTimeout(t);
+    preso = true;
+  });
   return el;
 }
 

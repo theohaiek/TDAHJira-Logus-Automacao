@@ -42,6 +42,9 @@ export async function carregar() {
   state.hoje = s.today;
   state.me = s.me;
   state.prefs = s.prefs || {};
+  // O teto de anexo muda com o modo em que o servidor roda. Guardar aqui
+  // deixa a interface recusar antes de subir o arquivo.
+  state.limits = s.limits || state.limits || {};
   state.users = s.users;
   state.projects = s.projects;
   state.labels = s.labels;
@@ -56,23 +59,45 @@ export async function carregar() {
 // exige conexão persistente nem um servidor que saiba manter estado.
 let timer = null;
 
+// Uma sondagem por vez. O ciclo de 6s não espera o anterior, e no modo
+// hospedado uma função fria passa disso com folga: duas respostas em voo
+// chegam fora de ordem e a mais velha desfaz o que a mais nova já aplicou —
+// o cartão concluído reaparece e o cursor anda para trás. Com uma requisição
+// de cada vez, a ordem de chegada é a ordem de saída.
+let emVoo = false;
+
+async function puxar() {
+  if (emVoo) return;
+  emVoo = true;
+  try {
+    const r = await api.sync(state.cursor);
+    if (r.cursor === state.cursor) return;
+    state.cursor = r.cursor;
+    if (r.tasks?.length) for (const t of r.tasks) mesclarTarefa(t);
+    if (r.removed?.length) {
+      state.tasks = state.tasks.filter((t) => !r.removed.includes(t.id));
+    }
+    if (r.events?.length) state.activity = r.events;
+    emit();
+  } catch (err) {
+    // Rede instável não é motivo para interromper o trabalho de ninguém.
+    // Sessão derrubada é outra coisa: sem isso a tela fica congelada num
+    // minuto antigo por tempo indefinido, sem dizer nada. Recarregar cai na
+    // tela de login pelo boot, que é para onde a pessoa precisa ir.
+    if (err?.status === 401) {
+      parar();
+      location.reload();
+    }
+  } finally {
+    emVoo = false;
+  }
+}
+
 export function iniciarSync(intervalo = 6000) {
   parar();
-  timer = setInterval(async () => {
+  timer = setInterval(() => {
     if (document.hidden) return;
-    try {
-      const r = await api.sync(state.cursor);
-      if (r.cursor === state.cursor) return;
-      state.cursor = r.cursor;
-      if (r.tasks?.length) for (const t of r.tasks) mesclarTarefa(t);
-      if (r.removed?.length) {
-        state.tasks = state.tasks.filter((t) => !r.removed.includes(t.id));
-      }
-      if (r.events?.length) state.activity = r.events;
-      emit();
-    } catch {
-      // Rede instável não é motivo para interromper o trabalho de ninguém.
-    }
+    puxar();
   }, intervalo);
 }
 
@@ -86,15 +111,7 @@ document.addEventListener("visibilitychange", () => {
 });
 
 export async function sincronizarAgora() {
-  try {
-    const r = await api.sync(state.cursor);
-    if (r.cursor === state.cursor) return;
-    state.cursor = r.cursor;
-    for (const t of r.tasks || []) mesclarTarefa(t);
-    if (r.removed?.length) state.tasks = state.tasks.filter((t) => !r.removed.includes(t.id));
-    if (r.events?.length) state.activity = r.events;
-    emit();
-  } catch {}
+  await puxar();
 }
 
 // --- Mutação local ---------------------------------------------------------

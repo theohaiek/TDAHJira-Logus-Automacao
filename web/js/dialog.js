@@ -14,12 +14,17 @@ export function pedir({ titulo, descricao, campos, confirmar = "Confirmar" }) {
     const caixa = $("#palette");
     const anterior = document.activeElement;
 
+    // "current-password" é o sinal de "aqui vai a senha salva deste site", e o
+    // gerenciador preenche sozinho. Num campo de senha nova — trocar a própria
+    // senha, ou criar o acesso de outra pessoa — isso entrega a senha de quem
+    // está na tela, mascarada, sem ninguém reparar. O padrão é "new-password";
+    // quem tiver um campo de senha atual passa "current-password" na mão.
     const entradas = campos.map((c) =>
       h("input", {
         type: c.tipo || "text",
         value: c.valor || "",
         placeholder: c.dica || "",
-        autocomplete: c.tipo === "password" ? "current-password" : "off",
+        autocomplete: c.autocomplete || (c.tipo === "password" ? "new-password" : "off"),
         id: `dlg-${c.chave}`,
       })
     );

@@ -5,7 +5,7 @@
 // arquivo já resolveram isso antes. A mesma requisição produz a mesma resposta
 // num servidor próprio ou numa função hospedada.
 
-import { all, one, run, insert, nowIso, today, getSetting, setSetting } from "./db.js";
+import { all, one, run, insert, nowIso, today, getSetting, setSetting, modo } from "./db.js";
 import {
   COOKIE,
   createSession,
@@ -53,8 +53,15 @@ import {
   isInline,
   MAX_UPLOAD,
 } from "./comments.js";
-import { taskTimeline, recentActivity, cursor, changedSince, logEvent } from "./events.js";
-import { readJson, readBody, sendJson, sendError, cookieHeader } from "./http.js";
+import {
+  taskTimeline,
+  recentActivity,
+  cursor,
+  changedSince,
+  deletedSince,
+  logEvent,
+} from "./events.js";
+import { readJson, readBody, sendJson, sendError, cookieHeader, parseCookies } from "./http.js";
 
 export async function handleApi(req, res, { path, query, user }) {
   const seg = path.split("/").filter(Boolean); // ["api", ...]
@@ -88,10 +95,16 @@ export async function handleApi(req, res, { path, query, user }) {
     // rede para cada tarefa tocada.
     const presentes = new Set(vivas.map((t) => t.id));
 
+    // Duas fontes para o que sumiu: a tarefa que mudou e não voltou viva, e o
+    // evento de exclusão — que não aparece na primeira porque nasce sem
+    // task_id. Sem a segunda, o cartão apagado ficava para sempre na tela de
+    // quem estava com a aba aberta.
+    const apagadas = await deletedSince(from);
+
     return sendJson(res, 200, {
       cursor: now,
       tasks: vivas,
-      removed: ids.filter((id) => !presentes.has(id)),
+      removed: [...new Set([...ids.filter((id) => !presentes.has(id)), ...apagadas])],
       events: await recentActivity(40),
     });
   }
@@ -130,7 +143,9 @@ export async function handleApi(req, res, { path, query, user }) {
       }
       if (method === "DELETE") {
         if (user.role !== "admin") return sendError(res, 403, "Apenas administradores apagam tarefas.");
-        await deleteTask(id);
+        if (!(await one("SELECT id FROM tasks WHERE id = ?", [id])))
+          return sendError(res, 404, "Tarefa não encontrada.");
+        await deleteTask(id, user.id);
         return sendJson(res, 200, { ok: true });
       }
     }
@@ -252,6 +267,11 @@ export async function handleApi(req, res, { path, query, user }) {
     const pid = Number(parts[1]);
     if (pid && method === "PATCH") {
       const body = await readJson(req);
+      // Renomear e recolorir é de qualquer pessoa. Arquivar tira o projeto da
+      // lista e não existe tela para trazer de volta, então pesa o mesmo que
+      // apagar e fica com o administrador.
+      if (body.archived !== undefined && user.role !== "admin")
+        return sendError(res, 403, "Apenas administradores arquivam projetos.");
       return sendJson(res, 200, { project: await updateProject(pid, body) });
     }
   }
@@ -273,6 +293,9 @@ export async function handleApi(req, res, { path, query, user }) {
     }
     const lid = Number(parts[1]);
     if (lid && method === "DELETE") {
+      // A etiqueta some de todas as tarefas do time de uma vez, por cascata.
+      // É tão irreversível quanto apagar tarefa, então tem o mesmo portão.
+      if (user.role !== "admin") return sendError(res, 403, "Apenas administradores apagam etiquetas.");
       await run("DELETE FROM labels WHERE id = ?", [lid]);
       return sendJson(res, 200, { ok: true });
     }
@@ -301,6 +324,42 @@ export async function handleApi(req, res, { path, query, user }) {
       // A senha aparece uma única vez, na resposta desta chamada, e não é
       // gravada em lugar nenhum além do hash.
       return sendJson(res, 201, { user: publicUser(novo), senhaInicial: senha });
+    }
+
+    // Quem esqueceu a senha não tem "esqueci minha senha" para chamar, e quem
+    // sai do time precisa perder o acesso hoje, não daqui a trinta dias. As
+    // duas coisas moram aqui porque as duas só o administrador faz.
+    const uid = Number(parts[1]);
+    if (uid && method === "PATCH") {
+      if (user.role !== "admin") return sendError(res, 403, "Apenas administradores mudam acessos.");
+      const alvo = await one("SELECT * FROM users WHERE id = ?", [uid]);
+      if (!alvo) return sendError(res, 404, "Pessoa não encontrada.");
+
+      const body = await readJson(req);
+      if (uid === user.id && body.active !== undefined && !body.active)
+        return sendError(res, 400, "Não dá para desativar a própria conta.");
+
+      let senhaInicial = null;
+      if (body.senha !== undefined) {
+        senhaInicial = body.senha ? String(body.senha) : generatePassword();
+        await setPassword(uid, senhaInicial);
+        // setPassword zera o aviso de senha inicial, mas senha escolhida por
+        // outra pessoa é exatamente o caso em que o aviso vale.
+        await run("UPDATE users SET must_change_password = 1 WHERE id = ?", [uid]);
+      }
+
+      if (body.active !== undefined) {
+        await run("UPDATE users SET is_active = ? WHERE id = ?", [body.active ? 1 : 0, uid]);
+        // Desativar sem derrubar as sessões deixaria o cookie valendo o resto
+        // dos trinta dias, que é justamente o que se quer cortar.
+        if (!body.active) await run("DELETE FROM sessions WHERE user_id = ?", [uid]);
+      }
+
+      const atualizado = await one("SELECT * FROM users WHERE id = ?", [uid]);
+      return sendJson(res, 200, {
+        user: publicUser(atualizado),
+        ...(senhaInicial ? { senhaInicial } : {}),
+      });
     }
   }
 
@@ -364,12 +423,16 @@ export async function handleApi(req, res, { path, query, user }) {
     }
     if (method === "GET") {
       return sendJson(res, 200, {
-        today: await all(
+        today: await one(
           `SELECT COALESCE(SUM(seconds), 0) AS s, COUNT(*) AS n
              FROM focus_sessions
             WHERE user_id = ? AND completed = 1 AND substr(started_at, 1, 10) = ?`,
+          // UTC de propósito, e não today(): started_at é gravado por nowIso(),
+          // que também é UTC. Comparar as duas pontas no mesmo fuso mantém a
+          // soma correta. O desencontro entre nowIso() e today() no resto do
+          // aplicativo está registrado em OPEN_POINTS.
           [user.id, new Date().toISOString().slice(0, 10)]
-        )[0],
+        ),
       });
     }
   }
@@ -386,7 +449,7 @@ export async function handleApi(req, res, { path, query, user }) {
 
 async function login(req, res) {
   const body = await readJson(req);
-  const chave = `${req.socket.remoteAddress || "?"}|${String(body.usuario || "").toLowerCase()}`;
+  const chave = `${clienteIp(req)}|${String(body.usuario || "").toLowerCase()}`;
 
   if (!podeTentar(chave)) {
     return sendError(
@@ -431,6 +494,10 @@ async function login(req, res) {
 // qualquer cliente poderia forjá-lo.
 function httpsAtivo(req) {
   if (req.socket.encrypted) return true;
+  // Na plataforma sem servidor o TLS termina na borda: a função sempre recebe
+  // HTTP puro, e o único acesso possível de fora é cifrado. Sem esta linha o
+  // cookie de sessão sairia sem Secure justamente em produção.
+  if (process.env.VERCEL) return true;
   if (process.env.TRUST_PROXY_PROTO === "https") return true;
   if (process.env.TRUST_PROXY_PROTO) {
     return req.headers["x-forwarded-proto"] === "https";
@@ -438,9 +505,28 @@ function httpsAtivo(req) {
   return false;
 }
 
+// Endereço de quem chamou, para a chave do freio de tentativas.
+//
+// Atrás de proxy — o compose publica a porta só em 127.0.0.1, e a plataforma
+// hospedada é sempre assim — req.socket.remoteAddress é o endereço do próprio
+// proxy, igual para o mundo inteiro. Aí a chave perde o que separa uma pessoa
+// da outra: oito senhas erradas de um estranho trancam a conta de quem
+// trabalha. O cabeçalho do proxy resolve, e vale a mesma cautela do cookie —
+// só é levado a sério onde há de fato um proxy à frente.
+function clienteIp(req) {
+  if (process.env.VERCEL || process.env.TRUST_PROXY_PROTO) {
+    const encaminhado = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
+    if (encaminhado) return encaminhado;
+  }
+  return req.socket.remoteAddress || "?";
+}
+
 async function logout(req, res) {
-  const token = (req.headers.cookie || "").match(/tdah_sess=([^;]+)/)?.[1];
-  await destroySession(token ? decodeURIComponent(token) : null);
+  // Pelo mesmo caminho que o resto do arquivo: uma busca solta pelo nome do
+  // cookie casaria dentro de "outro_tdah_sess=..." e apagaria a sessão errada,
+  // deixando a de verdade viva depois de a pessoa sair.
+  const token = parseCookies(req.headers.cookie)[COOKIE];
+  await destroySession(token || null);
   return sendJson(res, 200, { ok: true }, {
     "Set-Cookie": cookieHeader(COOKIE, "", { maxAge: 0, secure: httpsAtivo(req) }),
   });
@@ -449,7 +535,9 @@ async function logout(req, res) {
 async function boot(req, res, user) {
   return sendJson(res, 200, {
     app: "TDAH Jira — Logus",
-    mode: "standalone",
+    // Quem abre /api/boot para diagnosticar precisa ler o driver que está
+    // mesmo em uso, não um texto fixo que diz o contrário do que acontece.
+    mode: modo(),
     version: await getSetting("version", "1.0.0"),
     authenticated: !!user,
     user: publicUser(user),
@@ -473,6 +561,7 @@ async function snapshot(user) {
     labels: await all("SELECT * FROM labels ORDER BY name"),
     tasks: await listTasks(),
     activity: await recentActivity(50),
+    limits: { maxUpload: MAX_UPLOAD },
   };
 }
 

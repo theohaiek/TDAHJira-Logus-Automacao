@@ -4,6 +4,7 @@
 
 import { all, one, run, insert, tx, nowIso, today, getDb } from "./db.js";
 import { logEvent } from "./events.js";
+import { remover } from "./storage.js";
 
 export const STATUSES = ["inbox", "todo", "doing", "waiting", "done"];
 export const PRIORITIES = ["agora", "normal", "quando_der"];
@@ -15,7 +16,7 @@ export const KINDS = ["task", "longa", "oportunidade", "meta"];
 
 // Campos que a API aceita alterar, e como cada um se chama no banco.
 const FIELDS = {
-  title: { col: "title", type: "text" },
+  title: { col: "title", type: "text", trim: true, max: 500 },
   description: { col: "description", type: "text" },
   status: { col: "status", type: "enum", values: STATUSES },
   kind: { col: "kind", type: "enum", values: KINDS },
@@ -169,27 +170,25 @@ export async function createTask(input, actorId) {
   if (!title) throw badRequest("A tarefa precisa de um título.");
   if (title.length > 500) throw badRequest("Título longo demais.");
 
+  // Campo de escolha só aceita valor da lista, igual ao PATCH. Cair no padrão
+  // em silêncio é pior do que recusar: um "kind" com erro de digitação nasce
+  // como "task" e a meta vai parar na fila do dia, que é exatamente o que os
+  // quadros laterais existem para evitar.
+  const escolha = (campo, padrao) => {
+    const bruto = input[campo];
+    if (bruto === null || bruto === undefined || bruto === "") return padrao;
+    return coerce(campo, FIELDS[campo], bruto);
+  };
+  const status = escolha("status", "inbox");
+  const kind = escolha("kind", "task");
+  const priority = escolha("priority", "normal");
+  const energy = escolha("energy", null);
+
   return tx(async () => {
     const projectId = input.projectId ? Number(input.projectId) : null;
-    let number = null;
-
-    if (projectId) {
-      const proj = await one("SELECT id FROM projects WHERE id = ?", [projectId]);
-      if (!proj) throw badRequest("Projeto inexistente.");
-
-      // Incremento no próprio banco. Ler o valor, somar aqui e gravar de
-      // volta faria duas pessoas criando ao mesmo tempo receberem o mesmo
-      // número — e a chave visível deixaria de ser única.
-      await run("UPDATE projects SET seq = seq + 1, updated_at = ? WHERE id = ?", [
-        nowIso(),
-        projectId,
-      ]);
-      const atual = await one("SELECT seq FROM projects WHERE id = ?", [projectId]);
-      number = atual.seq;
-    }
+    const number = projectId ? await proximoNumero(projectId) : null;
 
     const ts = nowIso();
-    const status = STATUSES.includes(input.status) ? input.status : "inbox";
     const id = await insert(
       `INSERT INTO tasks (project_id, number, title, description, status, kind, priority,
                           energy, size, assignee_id, reporter_id, parent_id,
@@ -203,9 +202,9 @@ export async function createTask(input, actorId) {
         title,
         String(input.description || ""),
         status,
-        KINDS.includes(input.kind) ? input.kind : "task",
-        PRIORITIES.includes(input.priority) ? input.priority : "normal",
-        ENERGIES.includes(input.energy) ? input.energy : null,
+        kind,
+        priority,
+        energy,
         input.size ? Math.max(1, Math.min(40, Number(input.size))) : null,
         input.assigneeId ? Number(input.assigneeId) : null,
         actorId || null,
@@ -257,6 +256,26 @@ export async function updateTask(id, patch, actorId) {
 
     if (!changes.length) return getTaskFull(id);
 
+    // Apontar para linha que não existe: no modo local isso vira violação de
+    // chave estrangeira, ou seja, 500 sem explicação; no hospedado a checagem
+    // nem roda e a tarefa fica com um responsável fantasma que tela nenhuma
+    // resolve. Conferir aqui faz os dois modos responderem igual.
+    for (const c of changes) {
+      if (c.to === null) continue;
+      if (c.key === "assigneeId") await exigirLinha("users", c.to, "Pessoa inexistente.");
+      if (c.key === "parentId") await exigirLinha("tasks", c.to, "Tarefa pai inexistente.");
+    }
+
+    // Trocar de projeto troca a chave visível, e o número tem que vir do
+    // projeto de destino. Mantê-lo faria a tarefa ocupar um número que o
+    // destino ainda vai distribuir — e a partir daí o índice único recusaria
+    // toda criação nesse projeto, para sempre.
+    const projeto = changes.find((c) => c.key === "projectId");
+    if (projeto) {
+      sets.push("number = ?");
+      params.push(projeto.to ? await proximoNumero(projeto.to) : null);
+    }
+
     const ts = nowIso();
     const statusChange = changes.find((c) => c.key === "status");
 
@@ -307,14 +326,20 @@ export async function updateTask(id, patch, actorId) {
   });
 }
 
-export async function deleteTask(id) {
+export async function deleteTask(id, actorId = null) {
   // O banco local apaga as dependentes em cascata pela chave estrangeira.
   // No modo hospedado a integridade referencial não é garantida do mesmo
   // jeito, então as filhas saem à mão para não virarem órfãs invisíveis.
   // O "id <> ?" não é zelo excessivo: uma tarefa que aponta para si mesma
   // como pai faria esta recursão nunca terminar, e o servidor trava junto.
   const filhas = await all("SELECT id FROM tasks WHERE parent_id = ? AND id <> ?", [id, id]);
-  for (const f of filhas) await deleteTask(f.id);
+  for (const f of filhas) await deleteTask(f.id, actorId);
+
+  // Cascata apaga a linha do anexo, não o arquivo. Sem isto todo print colado
+  // num ticket apagado fica para sempre no disco (ou no repositório pago da
+  // hospedagem), e some do banco a única referência capaz de encontrá-lo.
+  const arquivos = await all("SELECT stored_name FROM attachments WHERE task_id = ?", [id]);
+  for (const a of arquivos) await remover(a.stored_name);
 
   if (getDb().tipo !== "local") {
     for (const tabela of ["steps", "comments", "attachments", "events", "task_labels", "focus_sessions"]) {
@@ -322,6 +347,12 @@ export async function deleteTask(id) {
     }
   }
   await run("DELETE FROM tasks WHERE id = ?", [id]);
+
+  // A trilha da tarefa some junto com ela, e com ela o maior id de evento —
+  // o que faria o cursor de sincronização andar para trás. Este evento fica
+  // sem task_id de propósito: é o que sobra para contar que a tarefa existiu
+  // e deixou de existir.
+  await logEvent({ taskId: null, actorId, kind: "deleted", to: String(id) });
 }
 
 // Reordenação por posição fracionária: mover um cartão só escreve uma linha.
@@ -337,8 +368,20 @@ export async function moveTask(id, { status, beforeId = null, afterId = null }, 
   const next = beforeId ? await one("SELECT position FROM tasks WHERE id = ?", [beforeId]) : null;
 
   let position;
-  if (prev && next) position = (prev.position + next.position) / 2;
-  else if (prev) position = prev.position + 1024;
+  if (prev && next) {
+    position = (prev.position + next.position) / 2;
+    // Dividir o intervalo ao meio sempre acaba: quem solta o cartão novo
+    // sempre no mesmo ponto esgota o espaço por volta da quinquagésima vez, e
+    // aí o meio cai em cima de um dos vizinhos. As duas tarefas passam a ter a
+    // mesma posição, o desempate vira o id, e a ordem escolhida à mão vira
+    // ordem de criação sem nenhum aviso na tela. Espalhar devolve o espaço.
+    if (position <= prev.position || position >= next.position) {
+      await espalhar(col);
+      const p = await one("SELECT position FROM tasks WHERE id = ?", [afterId]);
+      const n = await one("SELECT position FROM tasks WHERE id = ?", [beforeId]);
+      position = (p.position + n.position) / 2;
+    }
+  } else if (prev) position = prev.position + 1024;
   else if (next) position = next.position - 1024;
   else position = await nextPosition(col);
 
@@ -349,6 +392,14 @@ export async function moveTask(id, { status, beforeId = null, afterId = null }, 
 async function nextPosition(status) {
   const row = await one("SELECT MAX(position) AS m FROM tasks WHERE status = ?", [status]);
   return (row?.m ?? 0) + 1024;
+}
+
+// Renumera a coluna com passo largo, preservando a ordem que está valendo.
+async function espalhar(status) {
+  const linhas = await all("SELECT id FROM tasks WHERE status = ? ORDER BY position, id", [status]);
+  for (const [i, linha] of linhas.entries()) {
+    await run("UPDATE tasks SET position = ? WHERE id = ?", [(i + 1) * 1024, linha.id]);
+  }
 }
 
 // --- Passos ----------------------------------------------------------------
@@ -436,6 +487,25 @@ export async function getTaskFull(id) {
   return t || null;
 }
 
+// O próximo número legível do projeto (o 14 de LOG-14).
+//
+// Somar e ler precisam ser a MESMA instrução. Fossem duas, duas pessoas
+// criando ao mesmo tempo leriam o mesmo valor — no modo hospedado cada ida ao
+// banco é uma requisição HTTP própria, sem transação que as junte — e a
+// segunda criação morreria no índice único, perdendo a tarefa recém-digitada.
+async function proximoNumero(projectId) {
+  const linha = await one(
+    "UPDATE projects SET seq = seq + 1, updated_at = ? WHERE id = ? RETURNING seq",
+    [nowIso(), projectId]
+  );
+  if (!linha) throw badRequest("Projeto inexistente.");
+  return linha.seq;
+}
+
+async function exigirLinha(tabela, id, mensagem) {
+  if (!(await one(`SELECT id FROM ${tabela} WHERE id = ?`, [id]))) throw badRequest(mensagem);
+}
+
 function coerce(key, spec, raw) {
   const empty = raw === null || raw === undefined || raw === "";
   if (empty) {
@@ -468,8 +538,12 @@ function coerce(key, spec, raw) {
       return d;
     }
     default: {
-      const s = String(raw);
-      if (s.length > 20000) throw badRequest(`Texto longo demais em ${key}.`);
+      // Quem declara trim é o título, e por um motivo: ele é o rótulo da
+      // tarefa em toda tela. Sem aparar, um PATCH com três espaços deixa o
+      // cartão, a lista do dia e a planilha mostrando uma linha em branco.
+      const s = spec.trim ? String(raw).trim() : String(raw);
+      if (spec.trim && !s) throw badRequest(`O campo ${key} não pode ficar vazio.`);
+      if (s.length > (spec.max ?? 20000)) throw badRequest(`Texto longo demais em ${key}.`);
       return s;
     }
   }
@@ -478,7 +552,13 @@ function coerce(key, spec, raw) {
 function cleanDate(v) {
   if (!v) return null;
   const s = String(v).slice(0, 10);
-  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+
+  // Formato certo não quer dizer data existente: "2026-99-99" passa no teste
+  // acima e depois vira uma data qualquer na conta de prazo da tela, enquanto
+  // "0000-00-00" faz a tarefa parecer vencida há dois mil anos.
+  const d = new Date(`${s}T00:00:00Z`);
+  return Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== s ? null : s;
 }
 
 export function badRequest(message) {

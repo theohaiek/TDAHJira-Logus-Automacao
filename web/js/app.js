@@ -39,16 +39,21 @@ async function iniciar() {
   aplicarTemaSalvo();
 
   const boot = await api.boot().catch(() => ({ authenticated: false }));
+  if (boot.limits) state.limits = boot.limits;
   if (!boot.authenticated) return telaLogin();
 
   await entrar();
 }
 
 async function entrar() {
+  // A troca de tela vem depois da carga, e não antes: se o GET /api/state
+  // falhar (partida fria estourando o tempo, um 500), quem acabou de entrar
+  // ficaria olhando a moldura vazia enquanto a mensagem de erro é escrita
+  // dentro do #login já escondido. Assim o erro aparece onde dá para ler.
+  await carregar();
   $("#login").hidden = true;
   $("#app").hidden = false;
 
-  await carregar();
   aplicarPrefs();
 
   subscribe(desenhar);
@@ -81,7 +86,10 @@ function telaLogin() {
       const r = await api.login($("#login-user").value, $("#login-pass").value);
       await entrar();
       if (r.mustChangePassword) {
-        toast("Você ainda está com a senha inicial. Vale trocar em Ajustes.", { ms: 8000 });
+        toast(
+          "Você ainda está com a senha inicial. Vale trocar: clique no seu nome, no canto inferior esquerdo.",
+          { ms: 8000 }
+        );
       }
     } catch (err) {
       erroEl.textContent = err.message;
@@ -456,10 +464,15 @@ async function menuUsuario() {
 async function trocarSenha() {
   const r = await pedir({
     titulo: "Trocar a senha",
-    descricao: "A nova senha precisa de ao menos 8 caracteres.",
+    descricao: "A senha nova vale a partir de agora, neste e nos outros aparelhos.",
     confirmar: "Trocar",
     campos: [
-      { chave: "atual", rotulo: "Senha atual", tipo: "password" },
+      {
+        chave: "atual",
+        rotulo: "Senha atual",
+        tipo: "password",
+        autocomplete: "current-password",
+      },
       { chave: "nova", rotulo: "Senha nova", tipo: "password" },
     ],
   });

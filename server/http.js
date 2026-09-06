@@ -24,13 +24,23 @@ export const MIME = {
   ".zip": "application/zip",
 };
 
+// Os mesmos cabeçalhos que vercel.json acrescenta a toda resposta no modo
+// hospedado. Sem eles, a instância autônoma servida na rede pode ser embutida
+// num iframe de outra página — a montagem clássica de clique roubado sobre os
+// botões de mover e apagar. Mesmo commit, mesma proteção nos dois modos.
+const SEGURANCA = {
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "SAMEORIGIN",
+  "Referrer-Policy": "same-origin",
+};
+
 export function sendJson(res, status, data, headers = {}) {
   const body = Buffer.from(JSON.stringify(data), "utf8");
   res.writeHead(status, {
     "Content-Type": "application/json; charset=utf-8",
     "Content-Length": body.length,
     "Cache-Control": "no-store",
-    "X-Content-Type-Options": "nosniff",
+    ...SEGURANCA,
     ...headers,
   });
   res.end(body);
@@ -45,7 +55,7 @@ export function sendText(res, status, text, type = "text/plain; charset=utf-8") 
   res.writeHead(status, {
     "Content-Type": type,
     "Content-Length": body.length,
-    "X-Content-Type-Options": "nosniff",
+    ...SEGURANCA,
   });
   res.end(body);
 }
@@ -119,7 +129,7 @@ export function serveStatic(res, rootDir, relPath, { immutable = false } = {}) {
   res.writeHead(200, {
     "Content-Type": type,
     "Content-Length": st.size,
-    "X-Content-Type-Options": "nosniff",
+    ...SEGURANCA,
     "Cache-Control": immutable ? "public, max-age=31536000, immutable" : "no-cache",
   });
   createReadStream(full).pipe(res);
