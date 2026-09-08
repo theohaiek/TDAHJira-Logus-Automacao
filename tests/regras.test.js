@@ -15,7 +15,7 @@ import { join } from "node:path";
 
 process.env.TDAH_DATA_DIR = mkdtempSync(join(tmpdir(), "tdah-test-"));
 
-const { openDb, one, insert } = await import("../server/db.js");
+const { openDb, one, run, insert } = await import("../server/db.js");
 const { DB_FILE, DATA_DIR } = await import("../server/paths.js");
 const { createUser } = await import("../server/auth.js");
 const { createTask, updateTask, addStep, toggleStep, getTaskFull, moveTask, deleteTask } = await import(
@@ -208,15 +208,43 @@ test("mover entre dois cartões coloca a tarefa no meio", async () => {
   assert.ok(movida.position > a.position && movida.position < b.position);
 });
 
+test("tarefa não pode virar descendente de si mesma", async () => {
+  const a = await createTask({ title: "Mãe" }, ator);
+  const b = await createTask({ title: "Filha" }, ator);
+  await updateTask(b.id, { parentId: a.id }, ator);
+
+  // Nenhuma chave estrangeira impede este ciclo: as duas referências existem.
+  // Quem o aceitasse deixaria a exclusão em laço sem fim, e o servidor junto.
+  await assert.rejects(() => updateTask(a.id, { parentId: b.id }, ator), /descendente de si mesma/);
+  await assert.rejects(() => updateTask(a.id, { parentId: a.id }, ator), /descendente de si mesma/);
+});
+
+test("apagar tarefa dentro de um ciclo já gravado não entra em laço", async () => {
+  const a = await createTask({ title: "Uma" }, ator);
+  const b = await createTask({ title: "Outra" }, ator);
+
+  // Direto no banco, por fora da validação: é o estado que uma instância
+  // antiga pode ter guardado antes de existir a guarda em updateTask.
+  await run("UPDATE tasks SET parent_id = ? WHERE id = ?", [b.id, a.id]);
+  await run("UPDATE tasks SET parent_id = ? WHERE id = ?", [a.id, b.id]);
+
+  // A recursão nunca cede o laço de eventos, então um timeout aqui não
+  // dispararia: se esta chamada não voltar, o processo de teste trava inteiro.
+  await deleteTask(a.id, ator);
+
+  assert.equal(await one("SELECT id FROM tasks WHERE id = ?", [a.id]), null);
+  assert.equal(await one("SELECT id FROM tasks WHERE id = ?", [b.id]), null);
+});
+
 test("apagar tarefa que aponta para si mesma como pai não entra em laço", async () => {
   const t = await createTask({ title: "Pai de si mesma" }, ator);
-  await updateTask(t.id, { parentId: t.id }, ator);
+
+  // Direto no banco: updateTask recusa isto desde a guarda contra ciclo, mas
+  // uma instância antiga pode ter a linha gravada assim.
+  await run("UPDATE tasks SET parent_id = ? WHERE id = ?", [t.id, t.id]);
 
   // Sem a guarda em deleteTask isto nunca retorna e leva o servidor junto.
-  await Promise.race([
-    deleteTask(t.id, ator),
-    new Promise((_, rej) => setTimeout(() => rej(new Error("deleteTask não retornou")), 4000)),
-  ]);
+  await deleteTask(t.id, ator);
 
   assert.equal(await one("SELECT id FROM tasks WHERE id = ?", [t.id]), null);
 });

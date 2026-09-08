@@ -267,7 +267,10 @@ export async function updateTask(id, patch, actorId) {
     for (const c of changes) {
       if (c.to === null) continue;
       if (c.key === "assigneeId") await exigirLinha("users", c.to, "Pessoa inexistente.");
-      if (c.key === "parentId") await exigirLinha("tasks", c.to, "Tarefa pai inexistente.");
+      if (c.key === "parentId") {
+        await exigirLinha("tasks", c.to, "Tarefa pai inexistente.");
+        await exigirSemCiclo(id, c.to);
+      }
     }
 
     // Trocar de projeto troca a chave visível, e o número tem que vir do
@@ -330,14 +333,20 @@ export async function updateTask(id, patch, actorId) {
   });
 }
 
-export async function deleteTask(id, actorId = null) {
+export async function deleteTask(id, actorId = null, vistas = new Set()) {
+  // A lista de visitadas não é zelo excessivo: uma tarefa que aponta para si
+  // mesma, ou duas que apontam uma para a outra, fariam esta recursão nunca
+  // terminar. E como ela nunca cede o laço de eventos, o servidor trava junto
+  // — sem erro, sem log e sem parar sozinha. updateTask recusa o ciclo desde
+  // que ele nasça por lá; esta guarda existe para o que já esteja gravado.
+  if (vistas.has(id)) return;
+  vistas.add(id);
+
   // O banco local apaga as dependentes em cascata pela chave estrangeira.
   // No modo hospedado a integridade referencial não é garantida do mesmo
   // jeito, então as filhas saem à mão para não virarem órfãs invisíveis.
-  // O "id <> ?" não é zelo excessivo: uma tarefa que aponta para si mesma
-  // como pai faria esta recursão nunca terminar, e o servidor trava junto.
-  const filhas = await all("SELECT id FROM tasks WHERE parent_id = ? AND id <> ?", [id, id]);
-  for (const f of filhas) await deleteTask(f.id, actorId);
+  const filhas = await all("SELECT id FROM tasks WHERE parent_id = ?", [id]);
+  for (const f of filhas) await deleteTask(f.id, actorId, vistas);
 
   // Cascata apaga a linha do anexo, não o arquivo. Sem isto todo print colado
   // num ticket apagado fica para sempre no disco (ou no repositório pago da
@@ -508,6 +517,24 @@ async function proximoNumero(projectId) {
 
 async function exigirLinha(tabela, id, mensagem) {
   if (!(await one(`SELECT id FROM ${tabela} WHERE id = ?`, [id]))) throw badRequest(mensagem);
+}
+
+// Sobe a cadeia de pais antes de aceitar um novo.
+//
+// Nenhuma chave estrangeira impede um ciclo: A filha de B e B filha de A
+// satisfaz as duas referências. O estado é aceito pelo banco e transforma
+// qualquer caminhada da árvore em laço sem fim — a exclusão, principalmente,
+// que trava o processo inteiro sem erro, sem log e sem parar sozinha.
+async function exigirSemCiclo(id, paiId) {
+  const vistas = new Set([id]);
+  let atual = paiId;
+
+  while (atual) {
+    if (vistas.has(atual)) throw badRequest("Uma tarefa não pode ser descendente de si mesma.");
+    vistas.add(atual);
+    const linha = await one("SELECT parent_id FROM tasks WHERE id = ?", [atual]);
+    atual = linha?.parent_id ?? null;
+  }
 }
 
 function coerce(key, spec, raw) {
