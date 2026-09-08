@@ -60,6 +60,7 @@ Erro sempre no mesmo formato, em qualquer situação:
   "prefs": { "tema": "dark", "wip": 3 },
   "users": [ ... ],
   "projects": [ { "id": 1, "key": "AUT", "name": "Automações", "color": "#a2e4f0" } ],
+  "companies": [ { "id": 1, "name": "ACME Metalurgia", "color": "#c9b6f0" } ],
   "labels": [ { "id": 1, "name": "cliente", "color": "#a2e4f0" } ],
   "tasks": [ ... ],
   "activity": [ ... ]
@@ -93,6 +94,9 @@ barato.
   "projectKey": "AUT",
   "projectColor": "#a2e4f0",
   "projectName": "Automações",
+  "companyId": 2,
+  "companyName": "ACME Metalurgia",
+  "companyColor": "#c9b6f0",
   "title": "Revisar o fluxo de aprovação",
   "description": "",
   "status": "doing",
@@ -186,12 +190,18 @@ função sem servidor tem limite próprio de corpo. O valor em vigor vem em
 
 SVG é recusado de propósito: carrega script.
 
-### Projetos, etiquetas e pessoas
+### Projetos, empresas, etiquetas e pessoas
+
+O projeto diz de que área a tarefa é; a empresa, para quem ela é. São duas
+dimensões independentes: `projectId` decide a chave visível (`AUT-14`) e
+renumera a tarefa quando muda; `companyId` não mexe em número nenhum.
 
 | Método | Rota |
 |---|---|
 | `GET` `POST` | `/projects` |
 | `PATCH` | `/projects/{id}` |
+| `GET` `POST` | `/companies` — `POST` com nome repetido devolve a empresa que já existe, com 200 |
+| `PATCH` | `/companies/{id}` — nome e cor são de qualquer pessoa; `archived` é só do administrador. Não há `DELETE`: apagar deixaria as tarefas sem para quem |
 | `GET` `POST` | `/labels` |
 | `DELETE` | `/labels/{id}` |
 | `GET` | `/users` |

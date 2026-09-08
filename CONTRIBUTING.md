@@ -80,6 +80,12 @@ da tela inicial e ficam fora da fila, do quadro e da planilha sem filtro. A
 regra está em `visiveis(kind = "task")`, em `store.js`; passar `"*"` traz
 todos. **Ao criar uma listagem nova, escolha conscientemente entre as duas.**
 
+**Projeto e empresa.** Duas perguntas diferentes sobre a mesma tarefa: de que
+área ela é (`AUT`, `COM`) e para quem ela é. O projeto decide a chave visível
+e renumera a tarefa quando muda; a empresa não mexe em número nenhum. Os dois
+filtram o quadro pelos ícones do cabeçalho, e a captura rápida entende
+`#projeto` e `&empresa`.
+
 **A trilha.** Poucos campos na tarefa, muita história no log. Toda mudança
 vira uma linha em `events`, com valor anterior e novo. Se algo precisa ficar
 registrado, prefira um evento a um campo novo no formulário.

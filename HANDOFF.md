@@ -353,6 +353,11 @@ campo no formulário.
 
 ## 9. Estado em 8 de setembro de 2026
 
+- O aplicativo abre no quadro. O "Hoje" vem sozinho uma vez por dia, num
+  popup, e continua acessível pela navegação.
+- A tarefa tem empresa, além de projeto: de que área ela é, e para quem ela é.
+  O quadro filtra pelas duas dimensões, clicando nos ícones do cabeçalho.
+
 - Dois defeitos que chegavam ao usuário foram corrigidos: a trilha mostrava o
   nome cru do evento ("Fulano update TAREFA") a cada cartão arrastado, e um
   ciclo de tarefas pai-filha travava o servidor inteiro na exclusão, sem erro e
@@ -368,7 +373,7 @@ campo no formulário.
 - Tela inicial com os três quadros laterais (validade longa, oportunidades,
   metas longas) fora do fluxo do dia; campo `kind` com migração idempotente
   para bancos que já existiam.
-- 89 testes automatizados passando.
+- 103 testes automatizados passando.
 - Auditoria completa em 5 de setembro de 2026: cinco defeitos corrigidos, sete
   confirmados e abertos, três levantados e refutados. Tudo em `OPEN_POINTS.md`
   seção 9.

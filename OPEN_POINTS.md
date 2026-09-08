@@ -503,3 +503,82 @@ ordem delas só se acerta no carregamento seguinte.
 A extensão do navegador não estava conectada, e o frontend não tem suíte. O
 que foi verificado é o servidor, de ponta a ponta pelo protocolo, e a
 existência das traduções nos dois dicionários, por análise do arquivo.
+
+---
+
+## 13. A versão de 8 de setembro de 2026
+
+Quatro mudanças pedidas de uma vez, todas verificadas no navegador com dados
+de exemplo antes de publicar.
+
+### 13.1 O que mudou
+
+| Pedido | Como ficou |
+|---|---|
+| O "Hoje" vira popup ao entrar, e continua acessível | `<dialog>` nativo, aberto uma vez por dia; segue como tela em `#/hoje` |
+| A tela principal passa a ser o Quadro | A rota sem endereço vai para `quadro` |
+| Associar uma empresa ao ticket | Tabela `companies` e `company_id` na tarefa, com evento próprio na trilha |
+| Filtrar por pessoa e por empresa no cabeçalho | Avatares e selos que ligam e desligam, no quadro |
+
+### 13.2 Decisões que valem ser lembradas
+
+**Empresa não é projeto.** O projeto diz de que área a tarefa é; a empresa,
+para quem ela é. Juntar as duas obrigaria a criar um projeto por cliente. A
+tabela nasceu sem `key` e sem `seq` de propósito: a chave visível continua
+saindo do contador do projeto, e trocar a empresa não pode renumerar a tarefa
+— se renumerasse, duas tarefas do mesmo projeto colidiriam e o índice único
+recusaria toda criação futura naquele projeto.
+
+**Nome de empresa repetido devolve a que existe.** Duas fichas para o mesmo
+cliente dividem as tarefas entre elas e quebram o filtro sem nenhum aviso na
+tela. É o mesmo comportamento que o `POST` de etiqueta já tinha.
+
+**Empresa inexistente é recusada com 400.** O projeto não valida isso, e o
+resultado lá é 500 sem explicação no modo local e responsável fantasma no
+hospedado. A rota nova não copiou o defeito.
+
+**O filtro do quadro não entra em `visiveis()`.** Se entrasse, valeria também
+para `agora()`, `hojeLista()` e o popup do dia: alguém filtraria o quadro por
+uma empresa e o "o que eu faço agora" mudaria junto, sem nada na tela
+explicando por quê. E não é o `sheet` da planilha pela razão inversa — filtro
+compartilhado faz mexer num lugar alterar o outro em silêncio.
+
+**O popup abre uma vez por dia, não a cada carga.** Aviso que aparece toda
+hora vira clique reflexo, e clique reflexo não é leitura. A marca fica no
+`localStorage`, ou seja, por dispositivo: quem abre no computador de manhã e
+no celular à tarde quer ver nos dois.
+
+**O `<dialog>` nativo, e não o `dialog.js`.** O módulo existente só sabe
+formulário e pergunta de sim ou não, reaproveita o elemento da paleta de
+comandos que o Ctrl+K também usa, não empilha e vaza ouvinte de Escape. O
+elemento nativo entrega modal, fundo, Escape e prisão de foco sem uma linha
+de JavaScript.
+
+**O selo de empresa é fixo no cartão.** Entre os candidatos, o teto de quatro
+selos o cortaria às vezes, e um selo que some deixaria o filtro do cabeçalho
+parecendo quebrado. O teto passou a descontá-lo, então o cartão continua com
+a mesma quantidade de informação de antes.
+
+### 13.3 O que ficou de fora
+
+- **Não há tela de administração de empresas.** Cria-se pelo próprio seletor
+  do ticket, e arquiva-se por `PATCH`. Renomear e recolorir pela interface
+  ainda não têm botão — mesma situação em que `PATCH /users/{id}` está desde
+  a V1 (seção 10.2, item 5).
+- **A planilha continua com o filtro antigo**, o dela, que não conhece
+  empresa. Só o quadro ganhou o cabeçalho de ícones.
+- **O `&` da captura rápida exige tecla morta em teclado ABNT.** Os símbolos
+  fáceis já estavam tomados por `#`, `@`, `^`, `!`, `*`, `~` e `+`.
+
+### 13.4 O que a sessão deixou como rede
+
+Dois testes novos que não existiam e cobrem o que o frontend não tinha como
+cobrir:
+
+- `tests/modulos-web.test.js` lê todos os módulos de `web/js` como texto e
+  confere as junções: todo caminho de `import` existe, e todo nome importado é
+  mesmo exportado por quem deveria. É o erro que deixa a tela branca sem
+  registrar nada no servidor.
+- `tests/trilha.test.js` cobra os quatro arquivos do contrato de evento. Ele
+  pegou, nesta mesma sessão, o esquecimento do dicionário de frases quando o
+  evento `company` nasceu.

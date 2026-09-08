@@ -102,6 +102,8 @@ suíte: vale leitura atenta e coerência com o arquivo ao redor.
 | Ordem dos cartões | `moveTask` e `espalhar()` em `server/tasks.js` |
 | Ciclo de desenho | `app.js` e `ticket.js`: cada um tem sua instância do represamento que protege o campo em foco, e mexer numa só faz metade da tela apagar o que a pessoa digita |
 | Qualquer listagem | `visiveis()` em `web/js/store.js` — sem argumento, traz só `kind: "task"` |
+| Filtro de tela | `state.quadro` e `aplicarFiltroQuadro()` em `web/js/store.js`: é do quadro e de mais ninguém. Pôr filtro dentro de `visiveis()` faz o "o que faço agora" mudar junto, sem explicação na tela |
+| Projeto ou empresa numa tarefa | `updateTask` em `server/tasks.js`: trocar de projeto renumera a tarefa, trocar de empresa não. Copiar o comportamento errado quebra o índice único de numeração daquele projeto para sempre |
 | Anexo ou limite de upload | `MAX_UPLOAD` em `server/comments.js`, `/boot` e `/state` em `server/api.js`, e a recusa do cliente em `ticket.js`: o número aparece nos três |
 | Login, sessão, senha | `server/auth.js` e `httpsAtivo()` em `server/api.js` — o `Secure` do cookie nunca é escrito à mão |
 | Transação, escrita em lote | os comentários de `tx()` em `server/db.js` |
