@@ -215,6 +215,11 @@ const MIGRACOES = [
       "CREATE INDEX IF NOT EXISTS idx_tasks_company ON tasks(company_id, status)",
     ],
   },
+  // A foto da empresa. Sem DEFAULT, nullable e sem índice nenhum: empresa
+  // sem foto é o caso comum, e ninguém procura empresa por foto. Um índice
+  // sobre coluna que nasce aqui, escrito no esquema, foi o que derrubou a
+  // produção em 8 de setembro de 2026.
+  { tabela: "companies", coluna: "avatar", ddl: "ALTER TABLE companies ADD COLUMN avatar TEXT" },
 ];
 
 async function aplicarMigracoes() {

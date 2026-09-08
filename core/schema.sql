@@ -67,11 +67,17 @@ CREATE TABLE IF NOT EXISTS companies (
   name        TEXT    NOT NULL,
   color       TEXT    NOT NULL DEFAULT '#c9b6f0',
   description TEXT    NOT NULL DEFAULT '',
+  avatar      TEXT,                           -- a foto, como data URI. Ver abaixo.
   position    INTEGER NOT NULL DEFAULT 0,
   is_archived INTEGER NOT NULL DEFAULT 0,
   created_at  TEXT    NOT NULL,
   updated_at  TEXT    NOT NULL
 );
+-- A foto da empresa mora na própria linha, como data URI, e não em
+-- server/storage.js: sem BLOB_READ_WRITE_TOKEN o driver de arquivo cai no ramo
+-- de disco, e o disco do modo hospedado é somente leitura — a foto nasceria
+-- quebrada em produção e passaria nos testes locais. Nullable, sem índice:
+-- ninguém procura empresa por foto.
 
 -- --- Tarefas ---------------------------------------------------------------
 -- Campos obrigatórios ao criar: apenas o título. Todo o resto é opcional e
