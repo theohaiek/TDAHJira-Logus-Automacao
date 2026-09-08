@@ -663,3 +663,30 @@ quem escreve a migração.
 O `#a2e4f0` continua em `web/css/tokens.css` (é `--logus-ice`, extraído da
 logo) e em `web/img/favicon.svg`. Nos dois casos é a marca, e a marca continua
 sendo a única exceção.
+
+### 14.4 A foto da empresa não usa o repositório de arquivos
+
+Ela é um data URI numa coluna `avatar` de `companies`, e não um anexo por
+`server/storage.js`. Sem `BLOB_READ_WRITE_TOKEN`, aquele driver cai no ramo de
+disco — `mkdirSync` mais `writeFileSync` — e o disco do modo hospedado é
+somente leitura. Pelo caminho de arquivo, a foto passaria em toda a suíte local
+e nasceria quebrada em produção, que é exatamente o padrão de defeito que este
+projeto mais repete.
+
+O custo aceito: a foto viaja dentro do `/state` de todo mundo. Com 96×96 e teto
+de 24 KB no cliente, uma carteira de trinta clientes com foto acrescenta menos
+de 1 MB à carga inicial. Se um dia isso incomodar, a saída é uma rota própria
+para a foto — não o `storage.js`.
+
+### 14.5 Mexer em empresa não gera evento na trilha
+
+Criar, renomear, recolorir ou trocar a foto de uma empresa continua sem
+`EVENT_KIND` próprio. A consequência é conhecida: quem está com outra aba
+aberta só vê a mudança no recarregamento seguinte, porque o cursor de
+sincronização é o maior `events.id`.
+
+Foi decisão de custo. Um tipo de evento novo obriga a mexer em quatro
+dicionários — `EVENT_KINDS`, `EVENT_FOR`, `FRASE` e `NARRA` — mais o
+`tests/trilha.test.js`, e empresa não é campo de tarefa: é cadastro, como
+projeto, que segue o mesmo padrão desde a V1. A aba que editou atualiza
+`state.companies` localmente e emite; as outras veem depois.

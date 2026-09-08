@@ -176,6 +176,145 @@ test("o estado inicial entrega a lista de empresas", async () => {
   assert.ok(resposta.dados.companies.some((c) => c.name === "ACME"));
 });
 
+// --- A foto ----------------------------------------------------------------
+//
+// A foto da empresa é um data URI guardado na própria linha, e não um arquivo
+// em server/storage.js. Sem o token do repositório de arquivos, aquele driver
+// grava em disco — e o disco do modo hospedado é somente leitura. Testar o
+// caminho de arquivo aqui passaria e quebraria em produção.
+
+const FOTO = "data:image/webp;base64,UklGRhIAAABXRUJQVlA4TAYAAAAvAAAAAA==";
+
+test("a foto entra por PATCH e volta em GET /companies", async () => {
+  const criada = await chamar("/api/companies", {
+    method: "POST",
+    user: membro,
+    ...corpoJson({ name: "Com retrato" }),
+  });
+  const id = criada.dados.company.id;
+
+  // Empresa sem foto traz null, e não undefined: quem monta a lâmina do
+  // trilho decide entre miniatura e ponto colorido olhando este campo.
+  assert.equal(criada.dados.company.avatar, null);
+
+  const salva = await chamar(`/api/companies/${id}`, {
+    method: "PATCH",
+    user: membro,
+    ...corpoJson({ avatar: FOTO }),
+  });
+  assert.equal(salva.statusCode, 200);
+  assert.equal(salva.dados.company.avatar, FOTO);
+
+  const lista = await chamar("/api/companies", { user: membro });
+  assert.equal(lista.dados.companies.find((c) => c.id === id).avatar, FOTO);
+});
+
+test("foto com prefixo proibido é recusada com 400, nunca com 500", async () => {
+  const criada = await chamar("/api/companies", {
+    method: "POST",
+    user: membro,
+    ...corpoJson({ name: "Prefixo errado" }),
+  });
+
+  for (const proibido of [
+    "data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=", // SVG carrega script
+    "https://exemplo.test/foto.png",
+    "javascript:alert(1)",
+    "sem prefixo nenhum",
+  ]) {
+    const r = await chamar(`/api/companies/${criada.dados.company.id}`, {
+      method: "PATCH",
+      user: membro,
+      ...corpoJson({ avatar: proibido }),
+    });
+    assert.equal(r.statusCode, 400, `${proibido} deveria dar 400`);
+    // 500 vira "Erro interno. Confira o log do servidor." na tela, como se o
+    // aplicativo tivesse quebrado, quando só faltava dizer qual é o problema.
+    assert.match(r.dados.error, /imagem webp, jpeg ou png/);
+  }
+});
+
+test("foto acima de 32 KB é recusada com 400", async () => {
+  const criada = await chamar("/api/companies", {
+    method: "POST",
+    user: membro,
+    ...corpoJson({ name: "Foto gorda" }),
+  });
+
+  const gorda = `data:image/webp;base64,${"A".repeat(33 * 1024)}`;
+  const r = await chamar(`/api/companies/${criada.dados.company.id}`, {
+    method: "PATCH",
+    user: membro,
+    ...corpoJson({ avatar: gorda }),
+  });
+  assert.equal(r.statusCode, 400);
+  assert.match(r.dados.error, /32 KB/);
+});
+
+test("avatar null limpa a foto, e ausente não mexe nela", async () => {
+  const criada = await chamar("/api/companies", {
+    method: "POST",
+    user: membro,
+    ...corpoJson({ name: "Vai e volta" }),
+  });
+  const id = criada.dados.company.id;
+
+  await chamar(`/api/companies/${id}`, {
+    method: "PATCH",
+    user: membro,
+    ...corpoJson({ avatar: FOTO }),
+  });
+
+  // Renomear sem citar a foto não pode apagá-la: undefined mantém o que está,
+  // null é que limpa, e o ?? não distingue as duas.
+  const renomeada = await chamar(`/api/companies/${id}`, {
+    method: "PATCH",
+    user: membro,
+    ...corpoJson({ name: "Outro nome" }),
+  });
+  assert.equal(renomeada.dados.company.avatar, FOTO);
+
+  const limpa = await chamar(`/api/companies/${id}`, {
+    method: "PATCH",
+    user: membro,
+    ...corpoJson({ avatar: null }),
+  });
+  assert.equal(limpa.dados.company.avatar, null);
+});
+
+test("as tres rotas devolvem a empresa no mesmo formato", async () => {
+  // O POST e o PATCH devolviam a linha crua do SELECT *, com is_archived e
+  // created_at em snake_case, enquanto /state devolvia o objeto mapeado. Quem
+  // fazia state.companies.push(r.company) ficava com um objeto diferente de
+  // todos os outros da mesma lista.
+  const criada = await chamar("/api/companies", {
+    method: "POST",
+    user: membro,
+    ...corpoJson({ name: "Formato unico" }),
+  });
+  const editada = await chamar(`/api/companies/${criada.dados.company.id}`, {
+    method: "PATCH",
+    user: membro,
+    ...corpoJson({ color: "#8fa9b5" }),
+  });
+  const doEstado = (await chamar("/api/state", { user: membro })).dados.companies.find(
+    (c) => c.id === criada.dados.company.id
+  );
+
+  const chaves = (o) => Object.keys(o).sort().join(",");
+  assert.equal(chaves(criada.dados.company), chaves(doEstado));
+  assert.equal(chaves(editada.dados.company), chaves(doEstado));
+  assert.ok(!("is_archived" in criada.dados.company));
+});
+
+test("o estado inicial entrega a foto junto da empresa", async () => {
+  const resposta = await chamar("/api/state", { user: membro });
+  const comFoto = resposta.dados.companies.find((c) => c.name === "Com retrato");
+  assert.equal(comFoto.avatar, FOTO);
+  const semFoto = resposta.dados.companies.find((c) => c.name === "ACME");
+  assert.equal(semFoto.avatar, null);
+});
+
 // --- A captura rápida ------------------------------------------------------
 
 test("a captura entende o prefixo & para a empresa", () => {
@@ -248,11 +387,24 @@ async function chamar(caminho, { user = null, ...opcoes } = {}) {
   const url = new URL(caminho, "https://exemplo.test");
   const req = fingirRequisicao(opcoes);
   const res = fingirResposta();
-  await handleApi(req, res, {
-    path: url.pathname.replace(/^\/+/, ""),
-    query: url.searchParams,
-    user,
-  });
+  try {
+    await handleApi(req, res, {
+      path: url.pathname.replace(/^\/+/, ""),
+      query: url.searchParams,
+      user,
+    });
+  } catch (err) {
+    // O mesmo tratamento das duas entradas reais (server/index.js e
+    // api/index.js): erro com status vira resposta legível, erro sem status
+    // vira 500. Sem isto, o arreio deixaria passar por 400 uma rota que na
+    // prática devolve "Erro interno. Confira o log do servidor."
+    const status = err.status || 500;
+    if (!res.headersSent) {
+      const corpo = status >= 500 ? "Erro interno. Confira o log do servidor." : err.message;
+      res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ error: corpo }));
+    }
+  }
   await res.espera;
   return res;
 }

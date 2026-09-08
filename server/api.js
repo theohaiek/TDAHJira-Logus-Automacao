@@ -599,15 +599,58 @@ async function listProjects() {
   }));
 }
 
+// Um formato só para a empresa, venha ela de onde vier.
+//
+// Antes disto, /state devolvia o objeto mapeado e o POST e o PATCH devolviam a
+// linha crua do SELECT *, com is_archived e created_at em snake_case. Quem
+// fazia state.companies.push(r.company) acabava com um objeto de formato
+// diferente de todos os outros da mesma lista.
+function mapaEmpresa(linha) {
+  if (!linha) return null;
+  return {
+    id: linha.id,
+    name: linha.name,
+    color: linha.color,
+    description: linha.description,
+    avatar: linha.avatar ?? null,
+    position: linha.position,
+  };
+}
+
+// A foto é um data URI guardado na própria linha. Ver o comentário de
+// core/schema.sql: sem token do repositório de arquivos, o driver de arquivo
+// grava em disco, e o disco do modo hospedado é somente leitura.
+const AVATAR_PREFIXOS = [
+  "data:image/webp;base64,",
+  "data:image/jpeg;base64,",
+  "data:image/png;base64,",
+];
+// O cliente já reduz para 96x96 e cai de qualidade até caber em 24 KB. A folga
+// daqui até 32 KB existe para o navegador que codifica um pouco mais gordo, e
+// não para virar porta de entrada de arquivo grande.
+const AVATAR_MAX = 32 * 1024;
+
+function validarAvatar(valor) {
+  if (valor === null) return null;
+  const texto = String(valor);
+  if (!AVATAR_PREFIXOS.some((p) => texto.startsWith(p))) {
+    throw Object.assign(
+      new Error("A foto precisa ser uma imagem webp, jpeg ou png."),
+      { status: 400 }
+    );
+  }
+  if (texto.length > AVATAR_MAX) {
+    throw Object.assign(
+      new Error("A foto ficou grande demais. O limite é 32 KB depois de reduzida."),
+      { status: 400 }
+    );
+  }
+  return texto;
+}
+
 async function listCompanies() {
   const linhas = await all("SELECT * FROM companies WHERE is_archived = 0 ORDER BY position, name");
-  return linhas.map((c) => ({
-    id: c.id,
-    name: c.name,
-    color: c.color,
-    description: c.description,
-    position: c.position,
-  }));
+  return linhas.map(mapaEmpresa);
 }
 
 async function createCompany(body) {
@@ -619,7 +662,7 @@ async function createCompany(body) {
   // quebram o filtro em silêncio. Devolver a que existe é o que o POST de
   // etiqueta já faz.
   const existente = await one("SELECT * FROM companies WHERE lower(name) = lower(?)", [name]);
-  if (existente) return existente;
+  if (existente) return mapaEmpresa(existente);
 
   const ts = nowIso();
   const id = await insert(
@@ -634,24 +677,30 @@ async function createCompany(body) {
       ts,
     ]
   );
-  return await one("SELECT * FROM companies WHERE id = ?", [id]);
+  return mapaEmpresa(await one("SELECT * FROM companies WHERE id = ?", [id]));
 }
 
 async function updateCompany(id, body) {
   const c = await one("SELECT * FROM companies WHERE id = ?", [id]);
   if (!c) throw Object.assign(new Error("Empresa não encontrada."), { status: 404 });
+
+  // undefined mantém o que está lá; null limpa a foto. São coisas diferentes,
+  // e o ?? não distingue as duas — por isso a checagem é pela chave.
+  const avatar = "avatar" in body ? validarAvatar(body.avatar) : c.avatar ?? null;
+
   await run(
-    "UPDATE companies SET name = ?, color = ?, description = ?, is_archived = ?, updated_at = ? WHERE id = ?",
+    "UPDATE companies SET name = ?, color = ?, description = ?, avatar = ?, is_archived = ?, updated_at = ? WHERE id = ?",
     [
       String(body.name ?? c.name).slice(0, 120),
       String(body.color ?? c.color).slice(0, 9),
       String(body.description ?? c.description).slice(0, 500),
+      avatar,
       body.archived === undefined ? c.is_archived : body.archived ? 1 : 0,
       nowIso(),
       id,
     ]
   );
-  return await one("SELECT * FROM companies WHERE id = ?", [id]);
+  return mapaEmpresa(await one("SELECT * FROM companies WHERE id = ?", [id]));
 }
 
 async function createProject(body) {

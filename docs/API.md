@@ -60,7 +60,7 @@ Erro sempre no mesmo formato, em qualquer situação:
   "prefs": { "tema": "dark", "wip": 3 },
   "users": [ ... ],
   "projects": [ { "id": 1, "key": "AUT", "name": "Automações", "color": "#a2e4f0" } ],
-  "companies": [ { "id": 1, "name": "ACME Metalurgia", "color": "#c9b6f0" } ],
+  "companies": [ { "id": 1, "name": "ACME Metalurgia", "color": "#c9b6f0", "avatar": null, "description": "", "position": 0 } ],
   "labels": [ { "id": 1, "name": "cliente", "color": "#a2e4f0" } ],
   "tasks": [ ... ],
   "activity": [ ... ]
@@ -201,7 +201,33 @@ renumera a tarefa quando muda; `companyId` não mexe em número nenhum.
 | `GET` `POST` | `/projects` |
 | `PATCH` | `/projects/{id}` |
 | `GET` `POST` | `/companies` — `POST` com nome repetido devolve a empresa que já existe, com 200 |
-| `PATCH` | `/companies/{id}` — nome e cor são de qualquer pessoa; `archived` é só do administrador. Não há `DELETE`: apagar deixaria as tarefas sem para quem |
+| `PATCH` | `/companies/{id}` — nome, cor e foto são de qualquer pessoa; `archived` é só do administrador. Não há `DELETE`: apagar deixaria as tarefas sem para quem |
+
+As três rotas devolvem a empresa no mesmo formato do `/state`:
+
+```json
+{ "id": 1, "name": "ACME Metalurgia", "color": "#c9b6f0", "description": "", "avatar": null, "position": 0 }
+```
+
+**A foto da empresa.** O campo `avatar` é um *data URI* guardado na própria
+linha da empresa, e não um anexo com rota de arquivo. O motivo é o modo
+hospedado: sem o token do repositório de arquivos, o driver de arquivo grava em
+disco, e ali o disco é somente leitura — a foto funcionaria em todo teste local
+e nasceria quebrada em produção. Data URI se comporta igual nos dois modos.
+
+O `PATCH` aceita:
+
+| Valor de `avatar` | Efeito |
+|---|---|
+| ausente | mantém a foto que está lá |
+| `null` | limpa a foto |
+| `data:image/webp;base64,…` · `data:image/jpeg;base64,…` · `data:image/png;base64,…` | grava, se couber em 32 KB |
+
+Qualquer outra coisa é recusada com `400` e frase legível — inclusive SVG, pela
+mesma razão dos anexos: ele carrega script. O teto de 32 KB vale para a string
+inteira. A interface reduz a imagem para 96×96 antes de enviar e cai de
+qualidade até caber em 24 KB, então a folga existe para o navegador que
+codifica mais gordo, e não para virar porta de entrada de arquivo grande.
 | `GET` `POST` | `/labels` |
 | `DELETE` | `/labels/{id}` |
 | `GET` | `/users` |
