@@ -21,7 +21,7 @@ export const state = {
   labels: [],
   tasks: [],
   activity: [],
-  view: "hoje",
+  view: "quadro",
   filtroProjeto: null,
   sheet: { busca: "", status: "", pessoa: "", kind: "task", rapido: null, ordem: "position", desc: false },
 };

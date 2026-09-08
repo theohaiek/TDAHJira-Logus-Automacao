@@ -1636,3 +1636,57 @@ select.cell {
     display: none;
   }
 }
+
+
+/* ==========================================================================
+   O Hoje que abre sozinho
+   --------------------------------------------------------------------------
+   <dialog> nativo: o modal, o fundo, o Escape e a prisão de foco vêm do
+   navegador. O que sobra para o CSS é caber na tela sem esmagar as duas
+   colunas do Hoje — e empilhar quando não couberem.
+   ========================================================================== */
+.popup {
+  width: min(1180px, 94vw);
+  max-height: 90vh;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  color: inherit;
+  box-shadow: var(--shadow-3);
+  overflow: hidden;
+}
+.popup::backdrop {
+  background: var(--scrim);
+}
+.popup__corpo {
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: var(--sp-5) var(--sp-6) var(--sp-6);
+}
+.popup__topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-2);
+}
+.popup__eyebrow {
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+/* A coluna lateral do Hoje é sticky com teto em 100vh; dentro do popup o teto
+   é a caixa, não a janela, e sem isto ela cresce para fora do que rola. */
+.popup .today__side {
+  position: static;
+  max-height: none;
+}
+
+@media (max-width: 900px) {
+  .popup .today {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -23,6 +23,7 @@ import { abrirFoco, fecharFoco, focoAtivo } from "./focus.js";
 import { abrirPaleta, fecharPaleta, paletaAberta, iniciarPaleta } from "./palette.js";
 import { criarDoTexto } from "./quickadd.js";
 import { parseCaptura, dicas } from "./capture.js";
+import { abrirHojeSePrimeiraVezNoDia, redesenharHoje } from "./popup.js";
 import { toast, erro } from "./toast.js";
 import { pedir } from "./dialog.js";
 
@@ -65,6 +66,9 @@ async function entrar() {
 
   rota();
   window.addEventListener("hashchange", rota);
+  // Quem entrou direto no #/hoje já está lendo a mesma coisa: abrir o popup
+  // por cima seria mostrar a tela duas vezes.
+  if (state.view !== "hoje") abrirHojeSePrimeiraVezNoDia();
   document.addEventListener("focusout", () => {
     setTimeout(() => {
       if (redesenhoAdiado && !editandoNaView()) desenhar();
@@ -102,8 +106,11 @@ function telaLogin() {
 // --- Navegação --------------------------------------------------------------
 
 function rota() {
-  const alvo = (location.hash.replace(/^#\/?/, "") || "hoje").split("/")[0];
-  state.view = VIEWS[alvo] ? alvo : "hoje";
+  // O quadro é onde o trabalho acontece, e é o que faz sentido ver ao chegar.
+  // A pergunta "o que eu faço agora" continua sendo respondida pelo Hoje, que
+  // vem sozinho uma vez por dia (popup.js) e segue acessível na navegação.
+  const alvo = (location.hash.replace(/^#\/?/, "") || "quadro").split("/")[0];
+  state.view = VIEWS[alvo] ? alvo : "quadro";
   desenhar();
   $("#view")?.scrollTo({ top: 0 });
 }
@@ -160,6 +167,9 @@ function desenharAgora() {
   alvo.scrollTop = rolagem;
 
   if (ticketAberto()) rerenderTicket();
+  // A lista do dia muda enquanto se lê. Sem isto, o popup congela no instante
+  // em que abriu e mostra tarefa que já saiu da fila.
+  redesenharHoje();
 }
 
 function desenharNav() {
