@@ -362,11 +362,16 @@ campo no formulário.
 
 ## 9. Estado em 8 de setembro de 2026
 
+Marcado como `v1.0`. É a árvore que se sabe boa: se uma mudança futura derrubar
+a produção, `git revert` até aqui devolve o aplicativo ao ar.
+
 - O aplicativo abre no quadro. O "Hoje" vem sozinho uma vez por dia, num
   popup, e continua acessível pela navegação.
 - A tarefa tem empresa, além de projeto: de que área ela é, e para quem ela é.
   O quadro filtra pelas duas dimensões, clicando nos ícones do cabeçalho.
-
+- A publicação desta versão derrubou a produção por um intervalo, por um índice
+  posto no esquema em vez de na migração. Está contado em `OPEN_POINTS.md`
+  seção 13.5, e `tests/migracao.test.js` existe para recusar a repetição.
 - Dois defeitos que chegavam ao usuário foram corrigidos: a trilha mostrava o
   nome cru do evento ("Fulano update TAREFA") a cada cartão arrastado, e um
   ciclo de tarefas pai-filha travava o servidor inteiro na exclusão, sem erro e
