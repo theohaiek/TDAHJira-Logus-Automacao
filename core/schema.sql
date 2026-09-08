@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS users (
   display_name  TEXT    NOT NULL,
   email         TEXT,
   password_hash TEXT,                       -- nulo enquanto o convite não é aceito
-  color         TEXT    NOT NULL DEFAULT '#a2e4f0',
+  color         TEXT    NOT NULL DEFAULT '#8fa9b5',
   role          TEXT    NOT NULL DEFAULT 'member',   -- admin | member
   is_active     INTEGER NOT NULL DEFAULT 1,
   must_change_password INTEGER NOT NULL DEFAULT 0,
@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS projects (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   key         TEXT    NOT NULL UNIQUE,      -- ex.: LOG. Vira LOG-14 no cartão.
   name        TEXT    NOT NULL,
-  color       TEXT    NOT NULL DEFAULT '#a2e4f0',
+  color       TEXT    NOT NULL DEFAULT '#8fa9b5',
   description TEXT    NOT NULL DEFAULT '',
   position    INTEGER NOT NULL DEFAULT 0,
   is_archived INTEGER NOT NULL DEFAULT 0,

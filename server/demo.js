@@ -18,7 +18,7 @@ export async function seedDemo() {
   // público, e não faz sentido publicar quem é do time nem nome de cliente.
   // Quem for usar de verdade cria as próprias contas — veja docs/INSTALL.md.
   const pessoas = [
-    { username: "ana", name: "Ana Exemplo", color: "#a2e4f0", role: "admin" },
+    { username: "ana", name: "Ana Exemplo", color: "#8fa9b5", role: "admin" },
     { username: "bruno", name: "Bruno Exemplo", color: "#7fc8a9", role: "member" },
     { username: "carla", name: "Carla Exemplo", color: "#e3b877", role: "member" },
   ];
@@ -44,7 +44,7 @@ export async function seedDemo() {
 
   // --- Projetos ------------------------------------------------------------
   const projetos = [
-    { key: "AUT", name: "Automações", color: "#a2e4f0" },
+    { key: "AUT", name: "Automações", color: "#8fa9b5" },
     { key: "COM", name: "Comercial", color: "#7fc8a9" },
     { key: "INT", name: "Interno", color: "#e3b877" },
   ];
@@ -65,7 +65,7 @@ export async function seedDemo() {
 
   // --- Etiquetas -----------------------------------------------------------
   for (const [nome, cor] of [
-    ["cliente", "#a2e4f0"],
+    ["cliente", "#8fa9b5"],
     ["urgente", "#e88b7d"],
     ["rápido", "#7fc8a9"],
     ["precisa de resposta", "#e3b877"],

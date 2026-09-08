@@ -147,7 +147,7 @@ export async function createUser({
   email = null,
   password = null,
   role = "member",
-  color = "#a2e4f0",
+  color = "#8fa9b5",
 }) {
   const clean = String(username).trim().toLowerCase().replace(/[^a-z0-9._-]/g, "");
   // Sem o status, estes dois viram "Erro interno. Confira o log do servidor." na

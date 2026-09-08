@@ -37,9 +37,27 @@ Valores extraídos por leitura direta dos pixels dos arquivos.
 | Azul profundo | `#033552` | Topo do gradiente de fundo |
 | Quase preto | `#020515` | Base do gradiente de fundo |
 
-O ciano gelo é a **cor de ação** da interface: foco, seleção, botão principal,
-estado "Fazendo". Ela é reservada para isso. Espalhá-la por elementos decorativos
-tiraria dela justamente a função de dizer "é aqui".
+O ciano gelo é a **cor de ação** da interface, e vale para **dois** papéis:
+a ação primária (o botão que a tela quer que se clique) e o foco de teclado.
+Nada mais.
+
+A versão anterior deste parágrafo dava a ela quatro papéis — ação, foco,
+seleção e o estado "Fazendo" — e o código foi ainda mais longe: os cinco
+títulos de coluna, o item de navegação ativo, o filtro ligado, a coluna alvo
+de arraste, os rótulos em versalete, as setas decorativas e o herói da tela
+inicial diziam "é aqui" ao mesmo tempo. Quando tudo diz "é aqui", nenhum diz.
+Espalhá-la por elemento decorativo tira dela justamente a função que ela tem.
+
+O que sobrou de fora do acento é resolvido por três mecanismos que já
+existiam e eram subusados: **superfície** (`--surface-3` para hover,
+`--surface-4` mais um traço interno para selecionado), **contorno**
+(`--border-strong`, tracejado onde é área de soltura, `currentColor` onde o
+elemento já tem cor própria) e **peso ou sublinhado**. Link nunca se
+distingue só pela cor: leva sublinhado junto, que é o mínimo da WCAG 1.4.1.
+
+A única exceção é a marca. No glifo `.mark`, no favicon e na tela de entrada
+o ciano aparece cheio, porque ali "decorativo" e "identidade" são a mesma
+coisa.
 
 O fundo reproduz o gradiente diagonal da própria logo.
 
@@ -51,10 +69,21 @@ Dessaturadas de propósito.
 |---|---|
 | Entrada | `#8fa9b5` névoa |
 | A fazer | `#6b9fc9` azul-aço |
-| Fazendo | `#a2e4f0` ciano da marca |
+| Fazendo | `#6aa7b9` ciano assentado |
 | Esperando | `#e3b877` âmbar suave |
 | Feito | `#7fc8a9` verde-menta |
 | Atenção | `#e88b7d` coral |
+
+"Fazendo" era o ciano da marca, bit a bit igual à cor de ação — e como
+título de coluna ele competia com o botão principal e com o item de navegação
+ativo. O valor de hoje é 65% do gelo da marca com 35% do azul profundo dela:
+mesma família de matiz (194 contra 189), saturação de 72% para 36%,
+luminosidade de 79% para 57%. Deixa de ser fonte de luz e entra na família
+dessaturada que esta seção promete.
+
+No tema claro, "Esperando" era `#a1701f` e dava 4,04:1 sobre o fundo quase
+branco — reprovando AA como título de coluna. Passou a `#8a5e14`, que dá
+5,31:1 com o matiz praticamente intacto (37,4° contra 37,6°).
 
 Um painel que grita em vermelho e verde vira ruído e destrói a hierarquia. O
 coral de atenção aparece pouco: se tudo é urgente, nada é. E vermelho puro nunca
@@ -111,3 +140,16 @@ fio.
 A única animação com alguma presença é o pulso de conclusão, com 620ms. Toda
 animação é desligada quando o sistema pede movimento reduzido, e também no modo
 calmo.
+
+**Profundidade do trilho.** O quadro é um trilho horizontal de cenas, e a cena
+ao lado da que está aberta não fica desligada: fica ao fundo. Isso é dito por
+opacidade (`--cena-perto`, `--cena-longe`), não por `filter` — filter cria
+bloco de contenção, e o modo calmo já aplica `saturate(0.45)` no `body`; dois
+filtros compostos ficam imprevisíveis. Opacidade também é a única propriedade
+barata de mexer a cada quadro durante um arrasto.
+
+No modo calmo a lâmina vizinha **afunda mais**, e não menos: o propósito do
+modo é ter menos coisa competindo pela atenção. E o deslizamento entre cenas
+lê a duração de `--dur-slow` a cada movimento, nunca de um número cravado no
+JavaScript — é assim que `prefers-reduced-motion` e o modo calmo valem de
+graça para um movimento que não é CSS.

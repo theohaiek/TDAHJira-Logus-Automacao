@@ -59,6 +59,15 @@
   --dur: 150ms;
   --dur-slow: 260ms;
 
+  /* --- Profundidade do trilho de cenas ------------------------------------ */
+  /* A cena ao lado não está desligada: está ao fundo. Opacidade, e não
+     `filter`: filter cria bloco de contenção, e o modo calmo já aplica
+     saturate(0.45) no body — dois filtros compostos ficam imprevisíveis.
+     Opacidade também é a única propriedade barata de mexer a cada quadro
+     durante o arrasto. */
+  --cena-perto: 0.55; /* lâmina vizinha imediata                            */
+  --cena-longe: 0.32; /* duas ou mais de distância                          */
+
   --z-sticky: 10;
   --z-drawer: 40;
   --z-modal: 50;
@@ -94,9 +103,9 @@
 
   --accent: #a2e4f0;
   --accent-hover: #c4eff8;
-  --accent-strong: #6fcfe4;
-  --accent-dim: rgba(162, 228, 240, 0.13);
-  --accent-line: rgba(162, 228, 240, 0.32);
+  /* Derivado do próprio acento, como o resto do arquivo promete: um valor
+     cravado à mão envelhece sozinho quando o acento muda. */
+  --accent-dim: color-mix(in srgb, var(--accent) 13%, transparent);
   --on-accent: #02202b;
 
   --brand-mark: var(--logus-ice);
@@ -140,9 +149,7 @@
 
   --accent: #0d5f7d;
   --accent-hover: #0a4d66;
-  --accent-strong: #083c50;
-  --accent-dim: rgba(13, 95, 125, 0.1);
-  --accent-line: rgba(13, 95, 125, 0.3);
+  --accent-dim: color-mix(in srgb, var(--accent) 10%, transparent);
   --on-accent: #ffffff;
 
   --brand-mark: var(--logus-navy);
@@ -169,8 +176,15 @@
   --st-todo: #6b9fc9;
   --st-todo-bg: rgba(107, 159, 201, 0.14);
 
-  --st-doing: #a2e4f0;
-  --st-doing-bg: rgba(162, 228, 240, 0.16);
+  /* "Fazendo" era bit a bit o ciano de ação, e o título da coluna dizia
+     "é aqui" ao mesmo tempo que o botão principal e o item de navegação
+     ativo. Este valor é 65% do gelo da marca com 35% do azul profundo dela,
+     canal a canal: R 106, G 167, B 185. Matiz 194 contra 189 do gelo, mesma
+     família; a saturação cai de 72% para 36% e a luminosidade de 79% para
+     57%. Deixa de ser fonte de luz e entra na família dessaturada que esta
+     seção promete. */
+  --st-doing: #6aa7b9;
+  --st-doing-bg: rgba(106, 167, 185, 0.16);
 
   --st-waiting: #e3b877;
   --st-waiting-bg: rgba(227, 184, 119, 0.15);
@@ -193,16 +207,22 @@
   --st-inbox-bg: rgba(92, 116, 128, 0.12);
   --st-todo: #2f6f9e;
   --st-todo-bg: rgba(47, 111, 158, 0.12);
-  --st-doing: #0d5f7d;
-  --st-doing-bg: rgba(13, 95, 125, 0.14);
-  --st-waiting: #a1701f;
-  --st-waiting-bg: rgba(161, 112, 31, 0.13);
+  /* No escuro o gelo desce para o azul profundo; no claro o azul profundo
+     sobe para o cinza-gelo do lettering — 78% de --logus-deep com 22% de
+     --logus-mist, canal a canal: R 42, G 88, B 112. */
+  --st-doing: #2a5870;
+  --st-doing-bg: rgba(42, 88, 112, 0.14);
+  /* O âmbar anterior (#a1701f) dava 4,04:1 sobre o branco do tema claro e
+     reprovava AA como título de coluna. Este dá 5,31:1 com o matiz
+     preservado (37,4° contra 37,6°). */
+  --st-waiting: #8a5e14;
+  --st-waiting-bg: rgba(138, 94, 20, 0.13);
   --st-done: #2e7d5b;
   --st-done-bg: rgba(46, 125, 91, 0.12);
   --alert: #b8412e;
   --alert-bg: rgba(184, 65, 46, 0.11);
   --energy-leve: #2e7d5b;
-  --energy-media: #a1701f;
+  --energy-media: #8a5e14;
   --energy-pesada: #a34667;
 }
 
@@ -225,6 +245,11 @@
   --app-backdrop: var(--surface-0);
   --shadow-2: var(--shadow-1);
   --shadow-3: var(--shadow-1);
+
+  /* No modo calmo a lâmina do trilho afunda mais, e não menos: o propósito
+     do modo é ter menos coisa competindo pela atenção. */
+  --cena-perto: 0.38;
+  --cena-longe: 0.2;
 }
 
 :root[data-calm="1"] body {

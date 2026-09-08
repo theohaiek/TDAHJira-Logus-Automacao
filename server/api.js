@@ -338,7 +338,7 @@ export async function handleApi(req, res, { path, query, user }) {
         email: body.email || null,
         password: senha,
         role: body.role === "admin" ? "admin" : "member",
-        color: body.color || "#a2e4f0",
+        color: body.color || "#8fa9b5",
       });
       // A senha aparece uma única vez, na resposta desta chamada, e não é
       // gravada em lugar nenhum além do hash.
@@ -673,7 +673,7 @@ async function createProject(body) {
     [
       final,
       name.slice(0, 120),
-      String(body.color || "#a2e4f0").slice(0, 9),
+      String(body.color || "#8fa9b5").slice(0, 9),
       String(body.description || "").slice(0, 500),
       Number(body.position) || 0,
       ts,

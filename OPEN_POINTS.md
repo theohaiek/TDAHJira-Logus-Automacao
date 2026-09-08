@@ -613,3 +613,53 @@ Com o defeito reintroduzido de propósito, dois dos quatro testes falham.
 **A lição, para o próximo deploy:** nada aqui é verificado de verdade enquanto
 não roda contra um banco que já existe. Banco novo é o caso fácil, e é o único
 que a suíte cobria.
+
+---
+
+## 14. A versão 1.1, de 8 de setembro de 2026
+
+Quatro frentes numa sessão: cor, empresas, o Hoje em pop-up e o trilho de
+cenas do quadro. O que cada uma deixou em aberto está registrado abaixo, na
+ordem em que foi entregue.
+
+### 14.1 Cor: o acento passou de quatro papéis para dois
+
+`docs/BRAND.md` dizia que o ciano gelo era "foco, seleção, botão principal,
+estado Fazendo" — quatro papéis. O código ia além: cinco títulos de coluna, o
+item de navegação ativo, o filtro ligado, a coluna alvo de arraste, os rótulos
+em versalete, as setas decorativas, os links e o herói da tela inicial. Com
+tudo dizendo "é aqui", nenhum dizia.
+
+A doutrina nova tem dois papéis: **ação primária** e **foco de teclado**. O
+resto passou a ser dito por superfície, contorno e peso — três mecanismos que
+já existiam no arquivo e eram subusados. A contagem de `var(--accent)` em
+`web/css/` caiu de 43 para 17, e desses 17 dois são a própria definição de
+`--accent-dim` nos dois temas.
+
+`--accent-strong` e `--accent-line` foram apagados: o primeiro não tinha
+consumidor nenhum no repositório, e o segundo só a borda do herói do Hoje, que
+deixou de existir.
+
+### 14.2 `--st-waiting` reprovava AA no tema claro, e foi corrigido
+
+Como título de coluna sobre o fundo quase branco, `#a1701f` dava **4,04:1** —
+abaixo do mínimo de 4,5:1 da WCAG AA. Passou para `#8a5e14`, que dá 5,31:1
+mantendo o matiz (37,4° contra 37,6°). `--st-waiting-bg` e `--energy-media`
+acompanharam. Não é redesenho: é dívida antiga paga.
+
+### 14.3 A cor ciano das entidades que já existem vem do banco
+
+O padrão de `users.color` e `projects.color` era `#a2e4f0`, exatamente a cor de
+ação, em `core/schema.sql`, `server/auth.js`, `server/api.js`, `server/demo.js`
+e no *fallback* de `web/js/dom.js`. Era essa a causa concreta da queixa de
+"muito ciano" — e ela não estava no CSS. O padrão passou a `#8fa9b5`, a névoa
+de `--st-inbox`, que é neutra e já pertence à paleta.
+
+**Não houve `UPDATE` retroativo.** As três pessoas e o projeto que já existem
+em produção continuam com a cor antiga até alguém trocar pela interface: mudar
+a cor de gente por migração é decisão de quem administra a instância, não de
+quem escreve a migração.
+
+O `#a2e4f0` continua em `web/css/tokens.css` (é `--logus-ice`, extraído da
+logo) e em `web/img/favicon.svg`. Nos dois casos é a marca, e a marca continua
+sendo a única exceção.

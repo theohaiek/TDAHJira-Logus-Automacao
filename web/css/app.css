@@ -114,10 +114,16 @@
   background: var(--surface-3);
   color: var(--text-1);
 }
+/* Selecionado tem um idioma só no aplicativo inteiro: superfície um degrau
+   acima do hover, texto cheio, peso e um traço na borda de dentro. Antes
+   disto o item de navegação usava o acento e o de projeto usava a mesma
+   superfície do próprio hover — errados de maneiras diferentes, e nenhum dos
+   dois distinguível de "estou passando o mouse aqui". */
 .navitem.is-active {
-  background: var(--accent-dim);
-  color: var(--accent);
+  background: var(--surface-4);
+  color: var(--text-1);
   font-weight: 600;
+  box-shadow: inset 2px 0 0 var(--text-2);
 }
 .navitem__icon {
   width: 18px;
@@ -132,7 +138,7 @@
   font-variant-numeric: tabular-nums;
 }
 .navitem.is-active .navitem__count {
-  color: var(--accent);
+  color: var(--text-2);
 }
 
 .rail__projects {
@@ -167,8 +173,10 @@
   color: var(--text-1);
 }
 .projitem.is-active {
-  background: var(--surface-3);
+  background: var(--surface-4);
   color: var(--text-1);
+  font-weight: 600;
+  box-shadow: inset 2px 0 0 var(--text-2);
 }
 .projitem__key {
   font-family: var(--font-mono);
@@ -414,7 +422,7 @@
 }
 .task__next::before {
   content: "→ ";
-  color: var(--accent);
+  color: var(--text-3);
 }
 .task__right {
   display: flex;
@@ -474,25 +482,25 @@
 /* ==========================================================================
    Hoje
    ========================================================================== */
+/* Era a maior mancha de brilho do aplicativo, e ficava no topo da primeira
+   tela. Elevação por superfície e sombra dá o mesmo destaque sem gastar o
+   acento num bloco que ninguém clica. */
 .today__hero {
   display: grid;
   gap: var(--sp-4);
   padding: var(--sp-6);
   margin-bottom: var(--sp-6);
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--accent) 9%, var(--surface-2)),
-    var(--surface-2) 62%
-  );
-  border: 1px solid var(--accent-line);
+  background: var(--surface-3);
+  border: 1px solid var(--border);
   border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
 }
 .today__eyebrow {
   font-family: var(--font-display);
   font-size: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: var(--tracking-brand);
-  color: var(--accent);
+  color: var(--text-2);
 }
 .today__now {
   font-size: var(--text-xl);
@@ -556,9 +564,12 @@
   border-radius: var(--radius);
   padding: var(--sp-3);
 }
+/* Alvo de soltura fala o idioma que a casa já tinha: contorno tracejado, o
+   mesmo de .col__add e .mini-board__add. */
 .col.is-over {
-  border-color: var(--accent);
-  background: var(--accent-dim);
+  border-style: dashed;
+  border-color: var(--border-strong);
+  background: var(--surface-3);
 }
 .col__head {
   display: flex;
@@ -590,7 +601,7 @@
   border: 1px dashed transparent;
 }
 .col__add:hover {
-  color: var(--accent);
+  color: var(--text-1);
   border-color: var(--border);
   background: var(--surface-2);
 }
@@ -643,7 +654,8 @@ table.sheet {
   color: var(--text-1);
 }
 .sheet th.is-sorted {
-  color: var(--accent);
+  color: var(--text-1);
+  font-weight: 700;
 }
 .sheet td {
   padding: 0;
@@ -709,7 +721,7 @@ select.cell {
   border-radius: var(--radius-sm);
 }
 .sheet .rowopen:hover {
-  color: var(--accent);
+  color: var(--text-1);
   background: var(--surface-4);
 }
 
@@ -814,11 +826,12 @@ select.cell {
   color: var(--text-1);
   font-weight: 600;
 }
+/* Link se distingue por sublinhado, e não só por cor: cor sozinha é a
+   falha 1.4.1 da WCAG, e quem não separa os dois tons não vê link nenhum. */
 .act__task {
-  color: var(--accent);
-}
-.act__task:hover {
+  color: var(--text-1);
   text-decoration: underline;
+  text-underline-offset: 2px;
 }
 .act__when {
   color: var(--text-faint);
@@ -1071,11 +1084,14 @@ select.cell {
   border-radius: 4px;
 }
 .comment__body a {
-  color: var(--accent);
+  color: var(--text-1);
   text-decoration: underline;
+  text-underline-offset: 2px;
 }
+/* A menção não é link: ticket.js monta um <span>. Sublinhar mentiria sobre o
+   que acontece ao clicar, então ela se distingue pelo peso. */
 .comment__mention {
-  color: var(--accent);
+  color: var(--text-1);
   font-weight: 600;
 }
 .comment__actions {
@@ -1093,7 +1109,7 @@ select.cell {
   color: var(--text-faint);
 }
 .comment__actions button:hover {
-  color: var(--accent);
+  color: var(--text-1);
 }
 
 .composer {
@@ -1108,8 +1124,9 @@ select.cell {
   border-color: var(--accent);
 }
 .composer.is-drop {
-  border-color: var(--accent);
-  background: var(--accent-dim);
+  border-style: dashed;
+  border-color: var(--border-strong);
+  background: var(--surface-3);
 }
 .composer textarea {
   border: 0;
@@ -1214,7 +1231,7 @@ select.cell {
   border: 2px solid var(--surface-1);
 }
 .tl--status::before {
-  background: var(--accent);
+  background: var(--text-2);
 }
 .tl b {
   color: var(--text-2);
@@ -1243,7 +1260,7 @@ select.cell {
   font-size: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: var(--tracking-brand);
-  color: var(--accent);
+  color: var(--text-2);
   margin-bottom: var(--sp-4);
 }
 .focus__title {
@@ -1260,7 +1277,7 @@ select.cell {
 }
 .focus__step::before {
   content: "→ ";
-  color: var(--accent);
+  color: var(--text-3);
 }
 .clock {
   font-family: var(--font-display);
@@ -1348,8 +1365,10 @@ select.cell {
   color: var(--text-2);
 }
 .pres.is-sel {
-  background: var(--accent-dim);
+  background: var(--surface-4);
   color: var(--text-1);
+  font-weight: 600;
+  box-shadow: inset 2px 0 0 var(--text-2);
 }
 .pres__key {
   font-family: var(--font-mono);
@@ -1387,9 +1406,11 @@ select.cell {
   animation: toast-in var(--dur-slow) var(--ease);
 }
 .toast button {
-  color: var(--accent);
+  color: var(--text-1);
   font-weight: 600;
   font-size: var(--text-xs);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 @keyframes toast-in {
   from {
@@ -1479,7 +1500,7 @@ select.cell {
 }
 .mini-board--longa .mini-board__title { color: var(--st-todo); }
 .mini-board--oportunidade .mini-board__title { color: var(--st-waiting); }
-.mini-board--meta .mini-board__title { color: var(--accent); }
+/* Meta longa não tem regra própria: herda o --text-2 do bloco base. */
 
 .mini-board__hint {
   font-size: var(--text-xs);
@@ -1509,7 +1530,7 @@ select.cell {
   border-radius: var(--radius-sm);
 }
 .mini-board__more:hover {
-  color: var(--accent);
+  color: var(--text-1);
   background: var(--surface-3);
 }
 .mini-board__add {
@@ -1568,7 +1589,7 @@ select.cell {
   padding: 0;
 }
 .mini-item__title:hover {
-  color: var(--accent);
+  color: var(--text-1);
 }
 .mini-item.is-done .mini-item__check {
   background: var(--st-done);
@@ -1733,7 +1754,7 @@ select.cell {
 }
 .filtros__btn.is-on {
   opacity: 1;
-  border-color: var(--accent);
+  border-color: currentColor;
 }
 .filtros__empresa {
   display: inline-flex;

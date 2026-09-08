@@ -81,7 +81,7 @@ export function avatar(user, size = "") {
     "span",
     {
       class: `avatar ${size}`,
-      style: { background: user.color || "#a2e4f0" },
+      style: { background: user.color || "#8fa9b5" },
       title: user.name,
     },
     initials(user.name)

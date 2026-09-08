@@ -266,7 +266,10 @@ textarea::placeholder {
   font-size: var(--text-xs);
   font-weight: 700;
   color: var(--surface-0);
-  background: var(--accent);
+  /* dom.js sempre injeta a cor da pessoa inline, então esta regra nunca é
+     vista hoje. Se um dia for, não pode ser a cor de ação: avatar é
+     identidade, não "clique aqui". */
+  background: var(--surface-4);
   letter-spacing: 0;
 }
 .avatar--sm {
