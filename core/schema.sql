@@ -117,7 +117,10 @@ CREATE TABLE IF NOT EXISTS tasks (
 CREATE INDEX IF NOT EXISTS idx_tasks_status    ON tasks(status, is_archived);
 CREATE INDEX IF NOT EXISTS idx_tasks_assignee  ON tasks(assignee_id, status);
 CREATE INDEX IF NOT EXISTS idx_tasks_project   ON tasks(project_id, status);
-CREATE INDEX IF NOT EXISTS idx_tasks_company   ON tasks(company_id, status);
+-- O índice de company_id não está aqui: ele acompanha a coluna, na lista
+-- MIGRACOES de server/db.js. Um índice sobre coluna que nasce por migração,
+-- posto neste arquivo, roda antes de a coluna existir e derruba a subida
+-- inteira de qualquer instância que já estivesse em uso.
 CREATE INDEX IF NOT EXISTS idx_tasks_parent    ON tasks(parent_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_focus     ON tasks(focus_on);
 CREATE INDEX IF NOT EXISTS idx_tasks_due       ON tasks(due_on);

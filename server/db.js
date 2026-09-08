@@ -203,14 +203,25 @@ const MIGRACOES = [
   { tabela: "tasks", coluna: "kind", ddl: "ALTER TABLE tasks ADD COLUMN kind TEXT NOT NULL DEFAULT 'task'" },
   // A tabela companies nasce sozinha pelo CREATE TABLE IF NOT EXISTS do
   // esquema; só a coluna na tabela que já existe precisa de migração.
-  { tabela: "tasks", coluna: "company_id", ddl: "ALTER TABLE tasks ADD COLUMN company_id INTEGER REFERENCES companies(id) ON DELETE SET NULL" },
+  //
+  // O índice vem junto, e não em core/schema.sql, porque o esquema roda
+  // inteiro ANTES desta lista: num banco já em uso, o índice tentaria ler uma
+  // coluna que só nasce aqui embaixo, e a subida inteira morreria.
+  {
+    tabela: "tasks",
+    coluna: "company_id",
+    ddl: [
+      "ALTER TABLE tasks ADD COLUMN company_id INTEGER REFERENCES companies(id) ON DELETE SET NULL",
+      "CREATE INDEX IF NOT EXISTS idx_tasks_company ON tasks(company_id, status)",
+    ],
+  },
 ];
 
 async function aplicarMigracoes() {
   for (const m of MIGRACOES) {
     if (await temColuna(m.tabela, m.coluna)) continue;
     try {
-      await driver.executa(m.ddl, []);
+      for (const ddl of [].concat(m.ddl)) await driver.executa(ddl, []);
     } catch (err) {
       // No modo hospedado duas instâncias frias sobem juntas depois de um
       // deploy: as duas checam a coluna antes de qualquer ALTER, as duas veem
