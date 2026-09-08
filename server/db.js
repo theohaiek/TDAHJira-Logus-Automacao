@@ -201,6 +201,9 @@ async function aplicarEsquema() {
 // aplicada uma vez, e a checagem prévia a torna segura de repetir.
 const MIGRACOES = [
   { tabela: "tasks", coluna: "kind", ddl: "ALTER TABLE tasks ADD COLUMN kind TEXT NOT NULL DEFAULT 'task'" },
+  // A tabela companies nasce sozinha pelo CREATE TABLE IF NOT EXISTS do
+  // esquema; só a coluna na tabela que já existe precisa de migração.
+  { tabela: "tasks", coluna: "company_id", ddl: "ALTER TABLE tasks ADD COLUMN company_id INTEGER REFERENCES companies(id) ON DELETE SET NULL" },
 ];
 
 async function aplicarMigracoes() {

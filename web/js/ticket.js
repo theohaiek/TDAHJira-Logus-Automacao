@@ -7,7 +7,7 @@
 
 import { h, frag, mount, avatar, autoGrow, $ } from "./dom.js";
 import { api } from "./api.js";
-import { state, tarefa, usuario, patch, mesclarTarefa, emit, removerTarefa } from "./store.js";
+import { state, tarefa, usuario, empresa, patch, mesclarTarefa, emit, removerTarefa } from "./store.js";
 import {
   STATUS_LABEL,
   STATUS_ORDER,
@@ -26,6 +26,10 @@ import {
 import { toast, erro, comemorar } from "./toast.js";
 import { abrirFoco } from "./focus.js";
 import { pedir, confirmar as confirmarDialogo } from "./dialog.js";
+
+// Cadastrar empresa sem sair do ticket. Sem isto, a primeira empresa só
+// nasceria por chamada direta à API, e o seletor abriria vazio para sempre.
+const NOVA_EMPRESA = "__nova__";
 
 let abertoId = null;
 let dados = { comments: [], attachments: [], timeline: [] };
@@ -300,6 +304,21 @@ function propriedades(t, responsavel) {
         t.projectId ? String(t.projectId) : "",
         [["", "Sem projeto"], ...state.projects.map((p) => [String(p.id), p.name])],
         (v) => salvar({ projectId: v ? Number(v) : null })
+      )
+    ),
+
+    // O projeto diz de que área a tarefa é; a empresa, para quem ela é.
+    // Trocar de empresa não mexe na chave do cartão, que vem do projeto.
+    linha(
+      "Empresa",
+      select(
+        t.companyId ? String(t.companyId) : "",
+        [
+          ["", "Sem empresa"],
+          ...state.companies.map((c) => [String(c.id), c.name]),
+          [NOVA_EMPRESA, "+ Nova empresa…"],
+        ],
+        (v) => (v === NOVA_EMPRESA ? novaEmpresa() : salvar({ companyId: v ? Number(v) : null }))
       )
     ),
 
@@ -948,6 +967,7 @@ const NARRA = {
   focus: (e) => (e.to ? "puxou para hoje" : "tirou do foco de hoje"),
   waiting: (e) => (e.to ? `passou a esperar: ${e.to}` : "não espera mais nada"),
   project: () => "mudou de projeto",
+  company: (e) => (e.to ? `empresa: ${empresa(e.to)?.name || e.to}` : "tirou a empresa"),
   parent: (e) => (e.to ? "definiu a tarefa-pai" : "tirou a tarefa-pai"),
   comment: () => "comentou",
   comment_edit: () => "editou um comentário",
@@ -1037,6 +1057,31 @@ function rodape(t) {
       title: dataHoraLonga(t.createdAt),
     })
   );
+}
+
+async function novaEmpresa() {
+  const r = await pedir({
+    titulo: "Nova empresa",
+    descricao: "Para quem este trabalho é. O projeto continua dizendo de que área ele é.",
+    confirmar: "Criar",
+    campos: [{ chave: "nome", rotulo: "Nome", dica: "ACME" }],
+  });
+
+  const nome = r?.nome?.trim();
+  // Desistir deixaria o seletor mostrando "+ Nova empresa…" como se fosse o
+  // valor gravado. Redesenhar devolve o que a tarefa realmente tem.
+  if (!nome) return render();
+
+  try {
+    const { company } = await api.createCompany({ name: nome });
+    // O servidor devolve a que já existe quando o nome se repete.
+    if (!state.companies.some((c) => c.id === company.id)) state.companies.push(company);
+    await salvar({ companyId: company.id });
+    toast(`Empresa ${company.name} anotada.`);
+  } catch (err) {
+    erro(err.message);
+    render();
+  }
 }
 
 async function salvar(mudanca) {

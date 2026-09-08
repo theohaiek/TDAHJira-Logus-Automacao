@@ -9,7 +9,7 @@
 // mais novo. É a ordem que faz uma tarefa esquecida aparecer sozinha.
 
 import { h, frag, avatar } from "../dom.js";
-import { state, visiveis, usuario } from "../store.js";
+import { state, visiveis, usuario, empresa } from "../store.js";
 import { taskCard } from "../taskcard.js";
 import {
   STATUS_LABEL,
@@ -163,6 +163,8 @@ const FRASE = {
   kind: (e) => `moveu para ${KIND_LABEL[e.to] || e.to} —`,
   assignee: (e) => (e.to ? `passou para ${usuario(e.to)?.name || "alguém"}` : "tirou o responsável"),
   project: () => "mudou o projeto de",
+  company: (e) =>
+    e.to ? `marcou ${empresa(e.to)?.name || "uma empresa"} em` : "tirou a empresa de",
   parent: (e) => (e.to ? "definiu a tarefa-pai de" : "tirou a tarefa-pai de"),
   priority: (e) => `marcou como ${e.to === "quando_der" ? "quando der" : e.to}`,
   comment: () => "comentou em",

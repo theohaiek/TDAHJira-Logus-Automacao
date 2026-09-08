@@ -17,6 +17,7 @@ export const state = {
   prefs: {},
   users: [],
   projects: [],
+  companies: [],
   labels: [],
   tasks: [],
   activity: [],
@@ -47,6 +48,9 @@ export async function carregar() {
   state.limits = s.limits || state.limits || {};
   state.users = s.users;
   state.projects = s.projects;
+  // Instância antiga responde /state sem o campo: sem o padrão, toda leitura
+  // de empresa quebraria até o servidor ser atualizado.
+  state.companies = s.companies || [];
   state.labels = s.labels;
   state.tasks = s.tasks;
   state.activity = s.activity;
@@ -137,6 +141,10 @@ export function usuario(id) {
 
 export function projeto(id) {
   return state.projects.find((p) => p.id === Number(id)) || null;
+}
+
+export function empresa(id) {
+  return state.companies.find((c) => c.id === Number(id)) || null;
 }
 
 export function etiqueta(id) {

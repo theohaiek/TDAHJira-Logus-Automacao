@@ -25,6 +25,7 @@ const FIELDS = {
   size: { col: "size", type: "int", nullable: true, min: 1, max: 40 },
   assigneeId: { col: "assignee_id", type: "int", nullable: true },
   projectId: { col: "project_id", type: "int", nullable: true },
+  companyId: { col: "company_id", type: "int", nullable: true },
   parentId: { col: "parent_id", type: "int", nullable: true },
   dueOn: { col: "due_on", type: "date", nullable: true },
   focusOn: { col: "focus_on", type: "date", nullable: true },
@@ -43,6 +44,7 @@ const EVENT_FOR = {
   size: "size",
   assigneeId: "assignee",
   projectId: "project",
+  companyId: "company",
   parentId: "parent",
   dueOn: "due",
   focusOn: "focus",
@@ -57,9 +59,11 @@ const EVENT_FOR = {
 // --- Leitura ---------------------------------------------------------------
 
 const SELECT_TASK = `
-  SELECT t.*, p.key AS project_key, p.color AS project_color, p.name AS project_name
+  SELECT t.*, p.key AS project_key, p.color AS project_color, p.name AS project_name,
+         c.name AS company_name, c.color AS company_color
     FROM tasks t
-    LEFT JOIN projects p ON p.id = t.project_id`;
+    LEFT JOIN projects p ON p.id = t.project_id
+    LEFT JOIN companies c ON c.id = t.company_id`;
 
 export async function getTask(id) {
   const row = await one(`${SELECT_TASK} WHERE t.id = ?`, [id]);
@@ -139,6 +143,9 @@ function shape(r) {
     projectKey: r.project_key || null,
     projectColor: r.project_color || null,
     projectName: r.project_name || null,
+    companyId: r.company_id ?? null,
+    companyName: r.company_name || null,
+    companyColor: r.company_color || null,
     title: r.title,
     description: r.description || "",
     status: r.status,
@@ -194,14 +201,15 @@ export async function createTask(input, actorId) {
 
     const ts = nowIso();
     const id = await insert(
-      `INSERT INTO tasks (project_id, number, title, description, status, kind, priority,
+      `INSERT INTO tasks (project_id, company_id, number, title, description, status, kind, priority,
                           energy, size, assignee_id, reporter_id, parent_id,
                           due_on, focus_on, waiting_for, position,
                           created_at, updated_at, status_since, touched_at,
                           started_at, done_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [
         projectId,
+        input.companyId ? Number(input.companyId) : null,
         number,
         title,
         String(input.description || ""),
@@ -267,6 +275,7 @@ export async function updateTask(id, patch, actorId) {
     for (const c of changes) {
       if (c.to === null) continue;
       if (c.key === "assigneeId") await exigirLinha("users", c.to, "Pessoa inexistente.");
+      if (c.key === "companyId") await exigirLinha("companies", c.to, "Empresa inexistente.");
       if (c.key === "parentId") {
         await exigirLinha("tasks", c.to, "Tarefa pai inexistente.");
         await exigirSemCiclo(id, c.to);

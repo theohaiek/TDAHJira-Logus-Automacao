@@ -38,7 +38,7 @@ const TIPOS = {
 
 const ENERGIAS = { leve: "leve", media: "media", média: "media", pesada: "pesada", pesado: "pesada" };
 
-export function parseCaptura(texto, { projects = [], users = [], labels = [] } = {}) {
+export function parseCaptura(texto, { projects = [], users = [], companies = [], labels = [] } = {}) {
   const dados = {};
   const tokens = [];
   let resto = ` ${texto} `;
@@ -111,6 +111,16 @@ export function parseCaptura(texto, { projects = [], users = [], labels = [] } =
     return true;
   });
 
+  // Empresa: para quem o trabalho é. Aceita o começo do nome (&acme).
+  consome(/\s&([\p{L}\p{N}_-]+)/giu, (bruto) => {
+    const alvo = norm(bruto);
+    const c = companies.find((x) => norm(x.name).startsWith(alvo));
+    if (!c) return false;
+    dados.companyId = c.id;
+    tokens.push({ tipo: "empresa", texto: c.name, cor: c.color });
+    return true;
+  });
+
   // Etiquetas
   consome(/\s\+([\p{L}\p{N}_-]+)/giu, (bruto) => {
     const alvo = norm(bruto);
@@ -179,6 +189,7 @@ export function dicas(texto, ctx) {
   return [
     { tipo: "dica", texto: "#projeto" },
     { tipo: "dica", texto: "@pessoa" },
+    { tipo: "dica", texto: "&empresa" },
     { tipo: "dica", texto: "!agora" },
     { tipo: "dica", texto: "*leve" },
     { tipo: "dica", texto: "~2 blocos" },

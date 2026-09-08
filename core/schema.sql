@@ -55,12 +55,31 @@ CREATE TABLE IF NOT EXISTS projects (
   updated_at  TEXT    NOT NULL
 );
 
+-- --- Empresas --------------------------------------------------------------
+-- Para quem o trabalho é feito. O projeto diz de que área a tarefa é (AUT,
+-- COM); a empresa diz de quem ela é. São duas perguntas diferentes, e juntar
+-- as duas num campo só obrigaria a criar um projeto por cliente.
+--
+-- Sem key e sem seq de propósito: a chave visível do cartão continua vindo do
+-- projeto. Trocar a empresa de uma tarefa não pode renumerá-la.
+CREATE TABLE IF NOT EXISTS companies (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  name        TEXT    NOT NULL,
+  color       TEXT    NOT NULL DEFAULT '#c9b6f0',
+  description TEXT    NOT NULL DEFAULT '',
+  position    INTEGER NOT NULL DEFAULT 0,
+  is_archived INTEGER NOT NULL DEFAULT 0,
+  created_at  TEXT    NOT NULL,
+  updated_at  TEXT    NOT NULL
+);
+
 -- --- Tarefas ---------------------------------------------------------------
 -- Campos obrigatórios ao criar: apenas o título. Todo o resto é opcional e
 -- pode ser preenchido depois, ou nunca. Capturar tem que custar um segundo.
 CREATE TABLE IF NOT EXISTS tasks (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
   project_id    INTEGER REFERENCES projects(id) ON DELETE SET NULL,
+  company_id    INTEGER REFERENCES companies(id) ON DELETE SET NULL,
   number        INTEGER,                    -- o 14 de LOG-14
   title         TEXT    NOT NULL,
   description   TEXT    NOT NULL DEFAULT '',
@@ -98,6 +117,7 @@ CREATE TABLE IF NOT EXISTS tasks (
 CREATE INDEX IF NOT EXISTS idx_tasks_status    ON tasks(status, is_archived);
 CREATE INDEX IF NOT EXISTS idx_tasks_assignee  ON tasks(assignee_id, status);
 CREATE INDEX IF NOT EXISTS idx_tasks_project   ON tasks(project_id, status);
+CREATE INDEX IF NOT EXISTS idx_tasks_company   ON tasks(company_id, status);
 CREATE INDEX IF NOT EXISTS idx_tasks_parent    ON tasks(parent_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_focus     ON tasks(focus_on);
 CREATE INDEX IF NOT EXISTS idx_tasks_due       ON tasks(due_on);

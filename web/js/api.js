@@ -90,6 +90,10 @@ export const api = {
   createProject: (dados) => request("POST", "projects", { body: dados }),
   patchProject: (id, dados) => request("PATCH", `projects/${id}`, { body: dados }),
 
+  companies: () => request("GET", "companies"),
+  createCompany: (dados) => request("POST", "companies", { body: dados }),
+  patchCompany: (id, dados) => request("PATCH", `companies/${id}`, { body: dados }),
+
   labels: () => request("GET", "labels"),
   createLabel: (name, color) => request("POST", "labels", { body: { name, color } }),
 

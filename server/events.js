@@ -24,6 +24,7 @@ export const EVENT_KINDS = [
   "size",
   "assignee",
   "project",
+  "company",
   "parent",
   "due",
   "focus",

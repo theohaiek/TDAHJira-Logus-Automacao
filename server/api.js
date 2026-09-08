@@ -276,6 +276,25 @@ export async function handleApi(req, res, { path, query, user }) {
     }
   }
 
+  // --- Empresas -------------------------------------------------------------
+  if (head === "companies") {
+    if (method === "GET") return sendJson(res, 200, { companies: await listCompanies() });
+    if (method === "POST") {
+      const body = await readJson(req);
+      return sendJson(res, 201, { company: await createCompany(body) });
+    }
+    const cid = Number(parts[1]);
+    if (cid && method === "PATCH") {
+      const body = await readJson(req);
+      // Mesmo portão do projeto: renomear e recolorir é de qualquer pessoa,
+      // arquivar tira a empresa da lista de todo mundo e fica com quem
+      // administra. Não há DELETE: apagar deixaria as tarefas sem para quem.
+      if (body.archived !== undefined && user.role !== "admin")
+        return sendError(res, 403, "Apenas administradores arquivam empresas.");
+      return sendJson(res, 200, { company: await updateCompany(cid, body) });
+    }
+  }
+
   // --- Etiquetas ------------------------------------------------------------
   if (head === "labels") {
     if (method === "GET") return sendJson(res, 200, { labels: await all("SELECT * FROM labels ORDER BY name") });
@@ -558,6 +577,7 @@ async function snapshot(user) {
     prefs: safeJson((await one("SELECT prefs FROM users WHERE id = ?", [user.id]))?.prefs),
     users: (await listUsers()).map(publicUser),
     projects: await listProjects(),
+    companies: await listCompanies(),
     labels: await all("SELECT * FROM labels ORDER BY name"),
     tasks: await listTasks(),
     activity: await recentActivity(50),
@@ -577,6 +597,61 @@ async function listProjects() {
     description: p.description,
     position: p.position,
   }));
+}
+
+async function listCompanies() {
+  const linhas = await all("SELECT * FROM companies WHERE is_archived = 0 ORDER BY position, name");
+  return linhas.map((c) => ({
+    id: c.id,
+    name: c.name,
+    color: c.color,
+    description: c.description,
+    position: c.position,
+  }));
+}
+
+async function createCompany(body) {
+  const name = String(body.name || "").trim();
+  if (!name) throw Object.assign(new Error("A empresa precisa de um nome."), { status: 400 });
+
+  // Nome repetido não é erro de digitação a ser adivinhado: é quase sempre a
+  // mesma empresa cadastrada duas vezes, e duas fichas para o mesmo cliente
+  // quebram o filtro em silêncio. Devolver a que existe é o que o POST de
+  // etiqueta já faz.
+  const existente = await one("SELECT * FROM companies WHERE lower(name) = lower(?)", [name]);
+  if (existente) return existente;
+
+  const ts = nowIso();
+  const id = await insert(
+    `INSERT INTO companies (name, color, description, position, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [
+      name.slice(0, 120),
+      String(body.color || "#c9b6f0").slice(0, 9),
+      String(body.description || "").slice(0, 500),
+      Number(body.position) || 0,
+      ts,
+      ts,
+    ]
+  );
+  return await one("SELECT * FROM companies WHERE id = ?", [id]);
+}
+
+async function updateCompany(id, body) {
+  const c = await one("SELECT * FROM companies WHERE id = ?", [id]);
+  if (!c) throw Object.assign(new Error("Empresa não encontrada."), { status: 404 });
+  await run(
+    "UPDATE companies SET name = ?, color = ?, description = ?, is_archived = ?, updated_at = ? WHERE id = ?",
+    [
+      String(body.name ?? c.name).slice(0, 120),
+      String(body.color ?? c.color).slice(0, 9),
+      String(body.description ?? c.description).slice(0, 500),
+      body.archived === undefined ? c.is_archived : body.archived ? 1 : 0,
+      nowIso(),
+      id,
+    ]
+  );
+  return await one("SELECT * FROM companies WHERE id = ?", [id]);
 }
 
 async function createProject(body) {
