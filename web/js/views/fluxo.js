@@ -162,12 +162,20 @@ const FRASE = {
   // palavra "kind" crua no meio da frase.
   kind: (e) => `moveu para ${KIND_LABEL[e.to] || e.to} —`,
   assignee: (e) => (e.to ? `passou para ${usuario(e.to)?.name || "alguém"}` : "tirou o responsável"),
+  project: () => "mudou o projeto de",
+  parent: (e) => (e.to ? "definiu a tarefa-pai de" : "tirou a tarefa-pai de"),
   priority: (e) => `marcou como ${e.to === "quando_der" ? "quando der" : e.to}`,
   comment: () => "comentou em",
   attachment: (e) => `anexou ${e.to || "um arquivo"} em`,
   step_add: () => "adicionou um passo em",
   step_done: (e) => `concluiu "${corta(e.to)}" em`,
   step_undone: () => "reabriu um passo em",
+  step_remove: () => "removeu um passo de",
+  label_add: () => "marcou uma etiqueta em",
+  label_remove: () => "tirou uma etiqueta de",
+  comment_edit: () => "editou um comentário em",
+  comment_remove: () => "apagou um comentário de",
+  attachment_remove: (e) => (e.from ? `removeu ${corta(e.from)} de` : "removeu um anexo de"),
   waiting: (e) => (e.to ? `passou a esperar ${corta(e.to)} em` : "parou de esperar em"),
   due: (e) => (e.to ? "definiu prazo em" : "removeu o prazo de"),
   focus: (e) => (e.to ? "puxou para hoje" : "tirou do foco"),
@@ -183,7 +191,9 @@ const FRASE = {
 
 function atividade(e) {
   const quem = { name: e.actorName, color: e.actorColor };
-  const descricao = FRASE[e.kind] ? FRASE[e.kind](e) : e.kind;
+  // O genérico é rede de segurança, não destino: quem grava evento novo sem
+  // frase aqui é pego por tests/trilha.test.js antes de chegar a esta tela.
+  const descricao = FRASE[e.kind] ? FRASE[e.kind](e) : "mexeu em";
 
   return h(
     "div",

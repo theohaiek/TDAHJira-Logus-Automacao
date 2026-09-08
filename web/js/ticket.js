@@ -948,8 +948,12 @@ const NARRA = {
   focus: (e) => (e.to ? "puxou para hoje" : "tirou do foco de hoje"),
   waiting: (e) => (e.to ? `passou a esperar: ${e.to}` : "não espera mais nada"),
   project: () => "mudou de projeto",
+  parent: (e) => (e.to ? "definiu a tarefa-pai" : "tirou a tarefa-pai"),
   comment: () => "comentou",
+  comment_edit: () => "editou um comentário",
+  comment_remove: () => "apagou um comentário",
   attachment: (e) => `anexou ${e.to}`,
+  attachment_remove: (e) => (e.from ? `removeu o anexo ${e.from}` : "removeu um anexo"),
   step_add: (e) => `passo novo: ${e.to}`,
   step_done: (e) => `concluiu o passo: ${e.to}`,
   step_undone: (e) => `reabriu o passo: ${e.to}`,
@@ -977,7 +981,7 @@ function secaoTrilha(t) {
             "div",
             { class: `tl${e.kind === "status" ? " tl--status" : ""}`, title: dataHoraLonga(e.at) },
             h("b", { text: (e.actorName || "Alguém").split(" ")[0] }),
-            ` ${NARRA[e.kind] ? NARRA[e.kind](e) : e.kind} · `,
+            ` ${NARRA[e.kind] ? NARRA[e.kind](e) : "mexeu na tarefa"} · `,
             h("span", { class: "muted", text: desde(e.at) })
           )
         )

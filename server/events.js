@@ -4,6 +4,57 @@
 
 import { all, insert, nowIso } from "./db.js";
 
+// O universo fechado de eventos que a trilha grava.
+//
+// A lista mora aqui, e não espalhada pelas chamadas de logEvent, porque cada
+// nome precisa de tradução em dois dicionários do cliente que nada no código
+// liga a este arquivo: FRASE, em web/js/views/fluxo.js, e NARRA, em
+// web/js/ticket.js. Sem a lista, quem acrescenta um evento novo descobre o
+// esquecimento pelo usuário lendo "fulano label_add TAREFA" na tela.
+// tests/trilha.test.js cobra os quatro arquivos de uma vez.
+export const EVENT_KINDS = [
+  "created",
+  "deleted",
+  "title",
+  "description",
+  "status",
+  "kind",
+  "priority",
+  "energy",
+  "size",
+  "assignee",
+  "project",
+  "parent",
+  "due",
+  "focus",
+  "waiting",
+  "archived",
+  "position",
+  "comment",
+  "comment_edit",
+  "comment_remove",
+  "attachment",
+  "attachment_remove",
+  "step_add",
+  "step_done",
+  "step_undone",
+  "step_remove",
+  "label_add",
+  "label_remove",
+];
+
+// Os eventos que existem só para mover o relógio da sincronização.
+//
+// O cursor de quem está com a aba aberta é o maior id de events: escrita que
+// não gera evento não chega a ninguém até um recarregamento completo. Mas
+// arrastar cartão não é história de tarefa — ninguém quer ler "fulano
+// reordenou" doze vezes na trilha. Então o evento é gravado e não é exibido.
+// A lista não pode ficar vazia: as consultas abaixo montam um NOT IN a
+// partir dela, e NOT IN () não é SQL válido em nenhum dos dois bancos.
+export const EVENT_KINDS_MUDOS = ["position"];
+
+const MUDOS = EVENT_KINDS_MUDOS.map(() => "?").join(", ");
+
 export async function logEvent({
   taskId,
   actorId = null,
@@ -13,6 +64,12 @@ export async function logEvent({
   to = null,
   note = null,
 }) {
+  // Falhar aqui é melhor que gravar um nome que nenhum dicionário do cliente
+  // traduz: o defeito aparece no teste, e não na tela de quem usa.
+  if (!EVENT_KINDS.includes(kind)) {
+    throw new Error(`Evento desconhecido: "${kind}". Acrescente-o a EVENT_KINDS.`);
+  }
+
   return insert(
     `INSERT INTO events (task_id, actor_id, kind, field, from_value, to_value, note, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -34,9 +91,9 @@ export async function taskTimeline(taskId) {
     `SELECT e.*, u.display_name AS actor_name, u.color AS actor_color
        FROM events e
        LEFT JOIN users u ON u.id = e.actor_id
-      WHERE e.task_id = ?
+      WHERE e.task_id = ? AND e.kind NOT IN (${MUDOS})
       ORDER BY e.id`,
-    [taskId]
+    [taskId, ...EVENT_KINDS_MUDOS]
   );
   return linhas.map(shape);
 }
@@ -51,10 +108,11 @@ export async function recentActivity(limit = 80) {
        LEFT JOIN users u ON u.id = e.actor_id
        LEFT JOIN tasks t ON t.id = e.task_id
        LEFT JOIN projects p ON p.id = t.project_id
-      WHERE e.task_id IS NOT NULL OR e.kind = 'deleted'
+      WHERE (e.task_id IS NOT NULL OR e.kind = 'deleted')
+        AND e.kind NOT IN (${MUDOS})
       ORDER BY e.id DESC
       LIMIT ?`,
-    [Math.min(Number(limit) || 80, 300)]
+    [...EVENT_KINDS_MUDOS, Math.min(Number(limit) || 80, 300)]
   );
 
   return linhas.map((e) => ({

@@ -48,6 +48,10 @@ const EVENT_FOR = {
   focusOn: "focus",
   waitingFor: "waiting",
   archived: "archived",
+  // Reordenar não conta história, mas precisa mover o cursor da sincronização,
+  // senão a ordem nova só chega às outras abas no recarregamento seguinte.
+  // Quem esconde este evento da tela é EVENT_KINDS_MUDOS, em events.js.
+  position: "position",
 };
 
 // --- Leitura ---------------------------------------------------------------
@@ -316,7 +320,7 @@ export async function updateTask(id, patch, actorId) {
       await logEvent({
         taskId: id,
         actorId,
-        kind: EVENT_FOR[c.key] || "update",
+        kind: EVENT_FOR[c.key],
         field: c.key,
         from: c.from,
         to: c.to,

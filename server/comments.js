@@ -94,6 +94,7 @@ export async function editComment(commentId, body, actorId) {
     nowIso(),
     commentId,
   ]);
+  await logEvent({ taskId: c.task_id, actorId, kind: "comment_edit", to: text.slice(0, 160) });
   await touch(c.task_id);
   return one("SELECT * FROM comments WHERE id = ?", [commentId]);
 }
@@ -112,6 +113,12 @@ export async function deleteComment(commentId, actor) {
 
   await run("DELETE FROM attachments WHERE comment_id = ?", [commentId]);
   await run("DELETE FROM comments WHERE id = ?", [commentId]);
+  await logEvent({
+    taskId: c.task_id,
+    actorId: actor.id,
+    kind: "comment_remove",
+    from: String(c.body || "").slice(0, 160),
+  });
   await touch(c.task_id);
 }
 
@@ -206,6 +213,12 @@ export async function deleteAttachment(id, actor) {
   }
   await remover(a.stored_name);
   await run("DELETE FROM attachments WHERE id = ?", [id]);
+  await logEvent({
+    taskId: a.task_id,
+    actorId: actor.id,
+    kind: "attachment_remove",
+    from: a.original_name,
+  });
   await touch(a.task_id);
 }
 

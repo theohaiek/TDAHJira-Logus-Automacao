@@ -367,7 +367,7 @@ O que a pesquisa acertou e continua valendo no que foi construído:
 | Achado | Como aparece hoje |
 |---|---|
 | Um núcleo agnóstico, com adaptadores finos nas pontas | O núcleo não sabe onde roda; trocam-se apenas o driver de banco e o de arquivo |
-| Testes de contrato contra os adaptadores | 31 testes, cobrindo as regras e o caminho hospedado |
+| Testes de contrato contra os adaptadores | 78 testes, cobrindo as regras e o caminho hospedado |
 | Datas sempre em UTC, conversão só na apresentação | É a regra do esquema e do contrato |
 | Permissão verificada no servidor, nunca no menu escondido | Toda rota confere a sessão antes de responder |
 | Módulos ES sem etapa de compilação | O que está no repositório é o que o navegador executa |

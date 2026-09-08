@@ -54,7 +54,7 @@ Não há `npm install` no modo local. Node 22.5+ basta — o SQLite vem embutido
 ### Testes
 
 ```bash
-node --test "tests/*.test.js"     # 31 testes, sem dependência externa
+node --test "tests/*.test.js"     # 78 testes, sem dependência externa
 ```
 
 Rode antes de qualquer commit. Eles cobrem as transições de estado e o
@@ -87,7 +87,7 @@ rodando. Quem resolve isso são os dois drivers, escolhidos em tempo de execuç�
 - `TURSO_DATABASE_URL` presente → banco hospedado; ausente → arquivo local
 - `BLOB_READ_WRITE_TOKEN` presente → arquivos na nuvem; ausente → disco
 
-Isso é o que permite testar de verdade: os 31 testes exercitam o núcleo real
+Isso é o que permite testar de verdade: os 78 testes exercitam o núcleo real
 contra um SQLite real, não contra simulação.
 
 ### O princípio que governa o banco

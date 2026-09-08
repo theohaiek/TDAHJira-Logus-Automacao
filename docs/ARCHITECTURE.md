@@ -182,6 +182,6 @@ web/                    interface
     palette.js          paleta de comandos
     views/              hoje, quadro, planilha, fluxo
 
-tests/                  31 testes, sem dependência externa
+tests/                  78 testes, sem dependência externa
 data/                   banco e anexos no modo autônomo (fora do versionamento)
 ```

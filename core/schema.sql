@@ -173,11 +173,11 @@ CREATE TABLE IF NOT EXISTS events (
   task_id    INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
   actor_id   INTEGER REFERENCES users(id) ON DELETE SET NULL,
   kind       TEXT    NOT NULL,
-             -- created | status | assignee | priority | energy | size | title
-             -- | description | due | focus | waiting | project | parent
-             -- | label_add | label_remove | step_add | step_done | step_undone
-             -- | step_remove | comment | attachment | archived | restored
-             -- | kind | deleted (este com task_id nulo: a tarefa já não existe)
+             -- A lista fechada está em EVENT_KINDS, em server/events.js, e
+             -- não aqui: duplicada nos dois lugares, uma delas envelhece.
+             -- O caso especial é "deleted", que nasce com task_id nulo — a
+             -- tarefa já não existe, e a chave estrangeira levaria o evento
+             -- junto na cascata. O identificador dela vai em to_value.
   field      TEXT,
   from_value TEXT,
   to_value   TEXT,
