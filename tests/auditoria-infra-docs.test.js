@@ -64,7 +64,11 @@ before(async () => {
 
 after(() => {
   try {
-    rmSync(DATA_DIR, { recursive: true, force: true });
+    // A condição não é paranoia: DATA_DIR só aponta para o diretório
+    // temporário porque TDAH_DATA_DIR foi definido ANTES do import de
+    // paths.js. Trocar o import dinâmico por um estático faz esta linha
+    // apagar o banco e os anexos de quem usa a máquina, sem erro nenhum.
+    if (DATA_DIR.startsWith(tmpdir())) rmSync(DATA_DIR, { recursive: true, force: true });
   } catch {}
 });
 

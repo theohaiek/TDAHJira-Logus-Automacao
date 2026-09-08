@@ -363,6 +363,9 @@ O caminho para fechá-las é o mesmo de sempre: reproduzir antes de acreditar.
 
 ## 11. Falta um guia para agentes de código
 
+> **Resolvido em 8 de setembro de 2026:** o arquivo é [AGENTS.md](AGENTS.md), na
+> raiz. O texto abaixo fica como registro do que foi pedido e por quê.
+
 `CONTRIBUTING.md` foi escrito para uma pessoa: ela lê uma vez, entende o
 projeto e volta ao texto só quando esquece de algo. Um agente de código não
 funciona assim. Ele chega sem memória a cada sessão, lê o que couber na
@@ -398,3 +401,105 @@ O que o arquivo precisa ter, e que o `CONTRIBUTING.md` não tem:
 
 Nome sugerido: `AGENTS.md` na raiz, que é a convenção que as ferramentas do
 ramo vêm adotando. Curto — se não couber em uma leitura, não será lido.
+
+---
+
+## 12. Sessão de 8 de setembro de 2026
+
+O trabalho começou pelo `AGENTS.md` da seção 11. Levantar as invariantes para
+escrevê-lo exigiu ler o repositório inteiro em grupos disjuntos de arquivos, e
+foi a costura entre esses grupos — não a leitura de nenhum deles — que achou os
+dois defeitos abaixo. Nenhum leitor os enxergava sozinho.
+
+### 12.1 A trilha mostrava o nome cru do evento
+
+Arrastar um cartão gravava um evento sem nome próprio, e as duas telas que
+mostram história não tinham tradução para ele: chegava ao usuário como
+"Fulano update TAREFA", na tela inicial e no ticket. O mesmo buraco existia
+para `parent`, `project`, `step_remove`, `label_add`, `label_remove` e os dois
+eventos novos de comentário.
+
+A causa é estrutural: o nome do evento nasce no servidor e precisa de tradução
+em dois dicionários do cliente, e nada no código ligava os quatro arquivos.
+Agora a lista fechada mora em `EVENT_KINDS` (`server/events.js`), `logEvent`
+recusa nome que não esteja nela, e `tests/trilha.test.js` cobra os quatro de
+uma vez, nos dois sentidos.
+
+Reordenar continua gravando evento — o cursor de sincronização é o maior
+`events.id`, e sem ele a ordem nova não chegaria às outras abas — mas não é
+mais exibido: reordenar não é história de tarefa.
+
+Pela mesma razão, editar comentário, apagar comentário e apagar anexo passaram
+a gravar evento. Antes chamavam só `touch()`, que não move o cursor: quem
+estivesse com a aba aberta via o texto antigo e a contagem errada até
+recarregar a página inteira.
+
+### 12.2 Um ciclo de tarefas travava o servidor inteiro
+
+Duas tarefas apontando uma para a outra como pai satisfazem as duas chaves
+estrangeiras — o banco aceita. A partir daí, apagar qualquer uma das duas
+entra em recursão sem fim; como a recursão nunca cede o laço de eventos, o
+processo não estoura a pilha nem registra erro: para de responder, para todos,
+até alguém reiniciar. No modo autônomo, dois `PATCH` e um `DELETE` derrubam a
+instância do time inteiro, e nada no log explica.
+
+Reproduzido: o timeout de cinco segundos do próprio teste não chegou a
+disparar.
+
+A guarda que existia cobria só a tarefa que apontava para si mesma.
+`updateTask` agora sobe a cadeia de pais e recusa o ciclo na escrita, que é
+onde ele nasce, e `deleteTask` carrega a lista do que já visitou, para
+sobreviver ao ciclo que alguma instância já tenha gravado.
+
+### 12.3 Um teste escrito com `import` estático apaga o banco real
+
+Todos os testes definem `TDAH_DATA_DIR` para um diretório temporário e só
+depois usam `await import`. O motivo nunca esteve escrito: `paths.js` resolve
+`DATA_DIR` na avaliação do módulo, e declaração de `import` é içada. Trocar o
+import dinâmico por um comum — que parece mais limpo — faz `DATA_DIR` apontar
+para o `./data` do repositório, e o `rmSync` do `after()`, que todo teste
+copia, apaga o banco e os anexos de quem usa a máquina. Sem erro: o teste
+passa.
+
+Reproduzido. Os sete arquivos de teste passaram a só apagar o que estiver
+dentro do diretório temporário do sistema, e o `AGENTS.md` explica a ordem.
+
+### 12.4 Levantado e refutado na reprodução
+
+Três suspeitas da mesma leitura não sobreviveram ao caso rodado:
+
+1. `createTask` aceitaria responsável ou pai inexistente — **recusa**, como o
+   `PATCH`.
+2. A captura rápida aceitaria `31/02` e `20/13` — **rejeita as duas**.
+3. Anexos seriam sempre gravados em disco nos dois modos — falso, `storage.js`
+   desvia para a nuvem quando há token.
+
+### 12.5 Divergências entre documento e realidade, corrigidas
+
+- Quatro lugares diziam "31 testes" quando eram 78 (`HANDOFF.md` em dois
+  pontos, `docs/ARCHITECTURE.md`, `docs/RESEARCH.md`).
+- `.env.example` mandava copiar o arquivo para `.env`, mas nada no projeto lê
+  um `.env`: não há `dotenv` nem `--env-file`. O cabeçalho também citava um
+  plugin de WordPress que não existe mais.
+- O comentário de `core/schema.sql` mantinha uma lista de eventos própria, já
+  desatualizada (prometia um `restored` que nunca foi gravado). Agora aponta
+  para `EVENT_KINDS`.
+
+### 12.6 O que continua aberto
+
+Os seis itens da seção 10.2 seguem recusados pelos mesmos motivos. Das seis
+suspeitas da 10.3, uma foi confirmada por leitura e não reproduzida — o
+`X-Forwarded-For` lido pela esquerda no freio de login — e quatro continuam
+sem verificação: `emVoo` do `store.js`, o teto de upload decidido por
+`TURSO_DATABASE_URL`, o toque que prende o aviso no celular, e `salvarTexto()`
+chamando `render()` de dentro do `blur`.
+
+A sexta, `espalhar()` renumerar a coluna sem evento, continua valendo com uma
+nuance: a tarefa movida agora gera evento de posição e chega às outras abas,
+mas as vizinhas renumeradas no mesmo `espalhar()` não entram no cursor, e a
+ordem delas só se acerta no carregamento seguinte.
+
+**Não verificado nesta sessão:** a correção da trilha não foi vista na tela.
+A extensão do navegador não estava conectada, e o frontend não tem suíte. O
+que foi verificado é o servidor, de ponta a ponta pelo protocolo, e a
+existência das traduções nos dois dicionários, por análise do arquivo.

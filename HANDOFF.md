@@ -272,6 +272,8 @@ docs/RESEARCH.md      as 51 ferramentas analisadas e o que foi aproveitado
 docs/PRODUCT.md       os dez princípios e por que cada um existe
 docs/ARCHITECTURE.md  como os dois modos coexistem
 docs/API.md           o contrato, normativo
+CONTRIBUTING.md       como mexer, para quem vai desenvolver
+AGENTS.md             o mesmo, para agentes de código
 OPEN_POINTS.md        o que ficou em aberto
 ```
 
@@ -334,12 +336,12 @@ estão na seção 8 do mesmo arquivo.
 1. **Usar por duas semanas antes de mudar qualquer coisa.** As perguntas abertas
    (cinco estados são demais? limite de três é realista?) só se respondem com
    uso real.
-3. **Notificações** — o maior vazio apontado pela pesquisa. Hoje a tela inicial
+2. **Notificações** — o maior vazio apontado pela pesquisa. Hoje a tela inicial
    responde "o que faço agora" só para quem abre o aplicativo. Um resumo diário
    passivo resolveria; um alerta interruptivo estragaria.
-4. **Miniatura do anexo no cartão** — um print visível no quadro entrega
+3. **Miniatura do anexo no cartão** — um print visível no quadro entrega
    contexto em meio segundo.
-5. **Etiquetas e subtarefas na interface.** Ambas já existem no banco e na API;
+4. **Etiquetas e subtarefas na interface.** Ambas já existem no banco e na API;
    falta só a tela.
 
 **O que não fazer:** adicionar campos ao formulário de tarefa. Cada campo novo é
@@ -349,14 +351,24 @@ campo no formulário.
 
 ---
 
-## 9. Estado ao fim desta sessão
+## 9. Estado em 8 de setembro de 2026
+
+- Dois defeitos que chegavam ao usuário foram corrigidos: a trilha mostrava o
+  nome cru do evento ("Fulano update TAREFA") a cada cartão arrastado, e um
+  ciclo de tarefas pai-filha travava o servidor inteiro na exclusão, sem erro e
+  sem fim. Os dois estão em `OPEN_POINTS.md` seção 12, com o caso reproduzido.
+- `AGENTS.md` escrito: o guia para agentes de código que a seção 11 pedia.
+- Os testes deixaram de poder apagar o banco real quando escritos com `import`
+  estático — armadilha reproduzida e agora barrada nos sete arquivos.
+
+## 9.1 Estado em 5 de setembro de 2026
 
 - V1 completa, publicada e validada em produção de ponta a ponta: criar tarefa,
   comentar, anexar print, recuperá-lo byte a byte, e recusar acesso sem sessão.
 - Tela inicial com os três quadros laterais (validade longa, oportunidades,
   metas longas) fora do fluxo do dia; campo `kind` com migração idempotente
   para bancos que já existiam.
-- 78 testes automatizados passando.
+- 89 testes automatizados passando.
 - Auditoria completa em 5 de setembro de 2026: cinco defeitos corrigidos, sete
   confirmados e abertos, três levantados e refutados. Tudo em `OPEN_POINTS.md`
   seção 9.

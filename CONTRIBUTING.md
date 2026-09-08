@@ -4,6 +4,9 @@ Guia prático para quem vai desenvolver. O que está aqui é o que se precisa
 saber para não quebrar nada; o porquê de cada decisão está em
 [docs/PRODUCT.md](docs/PRODUCT.md) e em [HANDOFF.md](HANDOFF.md).
 
+Se quem vai mexer é um agente de código, o arquivo é o [AGENTS.md](AGENTS.md):
+mesmo projeto, escrito para quem chega sem memória e lê uma vez só.
+
 ## Rodar local
 
 Precisa de Node 22.5 ou mais novo — o projeto usa o `node:sqlite` embutido.

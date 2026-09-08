@@ -107,12 +107,13 @@ está em [docs/INSTALL.md](docs/INSTALL.md).
 | [OPEN_POINTS.md](OPEN_POINTS.md) | O que ficou em aberto depois da V1 |
 | [HANDOFF.md](HANDOFF.md) | Para retomar o projeto: decisões tomadas, armadilhas conhecidas e o que fazer a seguir |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Como rodar, onde está cada coisa e o que não fazer — o começo para quem vai desenvolver |
+| [AGENTS.md](AGENTS.md) | O mesmo, para agentes de código: o que quebra em silêncio, em imperativo |
 
 ---
 
 ## Estado atual
 
-V1 completa, publicada e em uso, com 78 testes automatizados passando.
+V1 completa, publicada e em uso, com 89 testes automatizados passando.
 
 Os dois modos foram exercitados de ponta a ponta: o autônomo no navegador, e
 o hospedado em produção — criar tarefa, comentar, anexar um print, recuperá-lo
