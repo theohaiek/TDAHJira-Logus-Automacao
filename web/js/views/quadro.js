@@ -4,8 +4,17 @@
 // movimento de cartão, e a soma dessas decisões é o que torna um quadro de
 // Jira exaustivo de manter.
 
-import { h, frag } from "../dom.js";
-import { porStatus, limiteWip, emAndamento } from "../store.js";
+import { h, frag, avatar } from "../dom.js";
+import {
+  state,
+  porStatus,
+  limiteWip,
+  emAndamento,
+  visiveis,
+  alternarFiltroQuadro,
+  limparFiltroQuadro,
+  filtroQuadroAtivo,
+} from "../store.js";
 import { taskCard } from "../taskcard.js";
 import { STATUS_LABEL, STATUS_ORDER, STATUS_COLOR } from "../format.js";
 import { api } from "../api.js";
@@ -26,11 +35,84 @@ export function viewQuadro() {
         text: "Arraste para mudar de estado, ou use as setas ← → com o cartão selecionado.",
       })
     ),
+    filtros(),
     h(
       "div",
       { class: "board" },
       STATUS_ORDER.map((s) => coluna(s, wip, emCurso))
     )
+  );
+}
+
+// O cabeçalho de filtros: os rostos de quem tem tarefa aberta, e as empresas
+// para quem elas são. Clicar liga, clicar de novo desliga.
+//
+// Só aparece quem tem tarefa no quadro agora. Uma fileira com o time inteiro e
+// o cadastro de clientes completo seria uma parede de ícones para decidir, que
+// é exatamente o que este produto evita — e ainda esconderia as pessoas que
+// importam entre as que não têm nada em andamento.
+function filtros() {
+  const abertas = visiveis();
+  const pessoas = state.users.filter((u) => abertas.some((t) => t.assigneeId === u.id));
+  const empresas = state.companies.filter((c) => abertas.some((t) => t.companyId === c.id));
+
+  if (!pessoas.length && !empresas.length) return null;
+
+  return h(
+    "div",
+    { class: "filtros", role: "group", "aria-label": "Filtrar o quadro" },
+
+    pessoas.length
+      ? h(
+          "div",
+          { class: "filtros__grupo" },
+          pessoas.map((u) => {
+            const ligado = state.quadro.pessoas.includes(u.id);
+            return h(
+              "button",
+              {
+                class: `filtros__btn${ligado ? " is-on" : ""}`,
+                title: ligado ? `Tirar ${u.name} do filtro` : `Ver só o que é de ${u.name}`,
+                "aria-pressed": ligado ? "true" : "false",
+                onClick: () => alternarFiltroQuadro("pessoas", u.id),
+              },
+              avatar(u, "avatar--sm")
+            );
+          })
+        )
+      : null,
+
+    pessoas.length && empresas.length ? h("span", { class: "filtros__risco" }) : null,
+
+    empresas.length
+      ? h(
+          "div",
+          { class: "filtros__grupo" },
+          empresas.map((c) => {
+            const ligado = state.quadro.empresas.includes(c.id);
+            return h(
+              "button",
+              {
+                class: `filtros__empresa${ligado ? " is-on" : ""}`,
+                style: { color: c.color },
+                title: ligado ? `Tirar ${c.name} do filtro` : `Ver só o que é da ${c.name}`,
+                "aria-pressed": ligado ? "true" : "false",
+                onClick: () => alternarFiltroQuadro("empresas", c.id),
+              },
+              h("span", { class: "dot" }),
+              c.name
+            );
+          })
+        )
+      : null,
+
+    filtroQuadroAtivo()
+      ? h("button", {
+          class: "filtros__limpar",
+          text: "limpar",
+          onClick: () => limparFiltroQuadro(),
+        })
+      : null
   );
 }
 

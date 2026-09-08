@@ -24,6 +24,14 @@ export const state = {
   view: "quadro",
   filtroProjeto: null,
   sheet: { busca: "", status: "", pessoa: "", kind: "task", rapido: null, ordem: "position", desc: false },
+  // O filtro do quadro é próprio, e não entra em visiveis().
+  //
+  // Se entrasse, valeria também para agora(), hojeLista() e o popup do dia:
+  // alguém filtraria o quadro por uma empresa e o "o que eu faço agora"
+  // mudaria junto, sem nada na tela explicando por quê. E ele não é o sheet
+  // da planilha pela razão inversa — filtro compartilhado faz mexer num lugar
+  // alterar o outro em silêncio.
+  quadro: { pessoas: [], empresas: [] },
 };
 
 export function subscribe(fn) {
@@ -280,8 +288,42 @@ export function feitasHoje() {
   );
 }
 
+// Liga e desliga um valor do filtro do quadro. É o que faz o ícone se
+// comportar como no Jira: clicar acumula, clicar de novo tira.
+export function alternarFiltroQuadro(dimensao, id) {
+  const atual = state.quadro[dimensao];
+  const chave = Number(id);
+  state.quadro[dimensao] = atual.includes(chave)
+    ? atual.filter((x) => x !== chave)
+    : [...atual, chave];
+  emit();
+}
+
+export function limparFiltroQuadro() {
+  state.quadro = { pessoas: [], empresas: [] };
+  emit();
+}
+
+export function filtroQuadroAtivo() {
+  return state.quadro.pessoas.length > 0 || state.quadro.empresas.length > 0;
+}
+
+// Vários valores da mesma dimensão somam (ou uma pessoa, ou a outra); as duas
+// dimensões se cruzam (daquelas pessoas E daquela empresa). É o que se espera
+// de quem já usou um quadro com avatares no cabeçalho.
+export function aplicarFiltroQuadro(tarefas) {
+  const { pessoas, empresas } = state.quadro;
+  if (!pessoas.length && !empresas.length) return tarefas;
+
+  return tarefas.filter((t) => {
+    if (pessoas.length && !pessoas.includes(Number(t.assigneeId))) return false;
+    if (empresas.length && !empresas.includes(Number(t.companyId))) return false;
+    return true;
+  });
+}
+
 export function porStatus(status) {
-  return visiveis()
+  return aplicarFiltroQuadro(visiveis())
     .filter((t) => t.status === status)
     .sort((a, b) => a.position - b.position);
 }

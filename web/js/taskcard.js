@@ -16,7 +16,7 @@ import {
   agingTexto,
   blocos,
 } from "./format.js";
-import { usuario, projeto, patch } from "./store.js";
+import { usuario, projeto, empresa, patch } from "./store.js";
 import { avatar } from "./dom.js";
 import { comemorar, erro } from "./toast.js";
 import { abrirTicket } from "./ticket.js";
@@ -26,6 +26,7 @@ export function taskCard(t, opcoes = {}) {
   const feito = t.status === "done";
   const responsavel = usuario(t.assigneeId);
   const proj = mostrarProjeto ? projeto(t.projectId) : null;
+  const cliente = empresa(t.companyId);
 
   const passosFeitos = t.steps.filter((s) => s.done).length;
   const proximoPasso = t.steps.find((s) => !s.done);
@@ -71,7 +72,7 @@ export function taskCard(t, opcoes = {}) {
         ? h("span", { class: "task__next", text: proximoPasso.text })
         : null,
 
-      h("div", { class: "task__meta" }, ...metaDoCartao(t, { feito, proj, passosFeitos, parado }))
+      h("div", { class: "task__meta" }, ...metaDoCartao(t, { feito, proj, cliente, passosFeitos, parado }))
     ),
 
     h(
@@ -101,7 +102,7 @@ export function taskCard(t, opcoes = {}) {
 // queria resolver. O que não couber aqui está no ticket, a um clique.
 const TETO_DE_SELOS = 4;
 
-function metaDoCartao(t, { feito, proj, passosFeitos, parado }) {
+function metaDoCartao(t, { feito, proj, cliente, passosFeitos, parado }) {
   const fixos = [
     proj
       ? h(
@@ -109,6 +110,18 @@ function metaDoCartao(t, { feito, proj, passosFeitos, parado }) {
           { class: "chip chip--proj", style: { color: proj.color } },
           h("span", { class: "dot" }),
           proj.name
+        )
+      : null,
+    // Para quem o trabalho é. Fica fixo, e não entre os candidatos, porque é
+    // por ele que se filtra: um selo que às vezes é cortado deixaria o filtro
+    // do cabeçalho parecendo quebrado. O teto abaixo desconta este selo, então
+    // o cartão continua com a mesma quantidade de informação de antes.
+    cliente
+      ? h(
+          "span",
+          { class: "chip chip--empresa", style: { color: cliente.color }, title: cliente.name },
+          h("span", { class: "dot" }),
+          cliente.name
         )
       : null,
     t.key && !t.key.startsWith("#") ? h("span", { class: "task__key", text: t.key }) : null,
@@ -179,8 +192,11 @@ function metaDoCartao(t, { feito, proj, passosFeitos, parado }) {
     },
   ].filter(Boolean);
 
-  const mostrados = candidatos.slice(0, TETO_DE_SELOS);
-  const escondidos = candidatos.slice(TETO_DE_SELOS);
+  // O teto é do cartão inteiro, não da lista de candidatos: o selo de empresa
+  // ocupa um lugar como qualquer outro, em vez de ser um a mais.
+  const teto = Math.max(1, TETO_DE_SELOS - (cliente ? 1 : 0));
+  const mostrados = candidatos.slice(0, teto);
+  const escondidos = candidatos.slice(teto);
 
   return [
     ...fixos,
