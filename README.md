@@ -113,7 +113,7 @@ está em [docs/INSTALL.md](docs/INSTALL.md).
 
 ## Estado atual
 
-V1 completa, publicada e em uso, com 103 testes automatizados passando.
+V1 completa, publicada e em uso, com 107 testes automatizados passando.
 
 Os dois modos foram exercitados de ponta a ponta: o autônomo no navegador, e
 o hospedado em produção — criar tarefa, comentar, anexar um print, recuperá-lo

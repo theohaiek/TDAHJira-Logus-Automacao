@@ -582,3 +582,34 @@ cobrir:
 - `tests/trilha.test.js` cobra os quatro arquivos do contrato de evento. Ele
   pegou, nesta mesma sessão, o esquecimento do dicionário de frases quando o
   evento `company` nasceu.
+
+### 13.5 A publicação derrubou a produção, e o que ficou disso
+
+Entre a publicação e o conserto, o aplicativo respondeu 500 em tudo — inclusive
+no `/boot`, ou seja, nem a tela de entrada carregava.
+
+**A causa.** `CREATE INDEX ... ON tasks(company_id, status)` foi escrito em
+`core/schema.sql`. O esquema roda inteiro a cada subida e **antes** da lista
+`MIGRACOES`. Num banco criado por uma versão anterior, a coluna `company_id`
+ainda não existe quando o índice tenta lê-la. Quem falha aí é `openDb()`, não
+uma rota: a aplicação inteira cai junto.
+
+**Por que passou em tudo que foi rodado.** Banco novo já nasce com a coluna,
+porque o `CREATE TABLE` a traz. E o driver local manda o arquivo de uma vez só,
+enquanto o hospedado executa instrução por instrução — é lá que o erro aparece.
+É exatamente o padrão da armadilha 4.1 do `HANDOFF.md`, documentada desde a V1
+e repetida mesmo assim, no mesmo dia em que o `AGENTS.md` foi escrito para
+evitá-la.
+
+**O conserto.** O índice foi para dentro da entrada de `MIGRACOES`, ao lado do
+`ALTER TABLE` que cria a coluna; uma migração passou a aceitar mais de uma
+instrução.
+
+**A rede.** `tests/migracao.test.js` roda o esquema como o driver hospedado
+roda, uma instrução por vez, sobre um banco montado sem as colunas migradas, e
+recusa qualquer índice do esquema que dependa de coluna que nasce na migração.
+Com o defeito reintroduzido de propósito, dois dos quatro testes falham.
+
+**A lição, para o próximo deploy:** nada aqui é verificado de verdade enquanto
+não roda contra um banco que já existe. Banco novo é o caso fácil, e é o único
+que a suíte cobria.

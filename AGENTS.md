@@ -96,7 +96,7 @@ suíte: vale leitura atenta e coerência com o arquivo ao redor.
 | Você vai mexer em | Leia antes |
 |---|---|
 | Qualquer rota | `docs/API.md`, e a outra entrada (`server/index.js` ou `api/index.js`) |
-| `core/schema.sql` | `MIGRACOES` e o `exec()` do driver Turso, em `server/db.js`: `PRAGMA` é descartado no modo hospedado, e a divisão das instruções só ignora linha que **começa** com `--` |
+| `core/schema.sql` | `MIGRACOES` e o `exec()` do driver Turso, em `server/db.js`. **O índice de uma coluna migrada vai dentro da migração, nunca no esquema**: o esquema roda antes dela, e um índice sobre coluna que ainda não existe derruba a subida inteira de todo banco em uso — foi assim que a produção caiu em 8 de setembro de 2026. Ali também: `PRAGMA` é descartado no modo hospedado, e a divisão das instruções só ignora linha que **começa** com `--` |
 | Evento, trilha, atividade | `EVENT_KINDS` em `server/events.js`, `EVENT_FOR` em `server/tasks.js`, e os dois dicionários que traduzem o evento para o usuário, `FRASE` (`web/js/views/fluxo.js`) e `NARRA` (`web/js/ticket.js`). `tests/trilha.test.js` cobra os quatro de uma vez |
 | Exclusão de tarefa | `deleteTask` em `server/tasks.js`: o evento nasce sem `task_id` de propósito, e a lista de visitadas é o que impede um ciclo de travar o processo |
 | Ordem dos cartões | `moveTask` e `espalhar()` em `server/tasks.js` |

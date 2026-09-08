@@ -198,7 +198,7 @@ seguem bloqueados os arquivos, que é o estado que produz a tela branca. A saíd
 definitiva é domínio próprio: o gatilho é `.vercel.app` ser endereço
 compartilhado e gratuito, não algo do aplicativo.
 
-### 4.9 Coluna nova não chega ao banco que já existe
+### 4.9 Coluna nova não chega ao banco que já existe, e o índice dela derruba a subida
 
 O esquema usa `CREATE TABLE IF NOT EXISTS`, então adicionar uma coluna em
 `core/schema.sql` só vale para banco novo. Em produção a tabela já existe, a
@@ -209,6 +209,15 @@ por coluna, e cada um só roda se `pragma_table_info` disser que a coluna
 falta. É idempotente e funciona igual no SQLite local e no Turso. Toda coluna
 nova entra nos dois lugares: no esquema, para banco novo, e na lista, para os
 que já existem.
+
+**E o índice da coluna vai junto com ela, na lista — nunca no esquema.** Isso
+derrubou a produção inteira em 8 de setembro de 2026: o esquema roda antes das
+migrações, então um `CREATE INDEX` sobre a coluna nova encontra uma tabela que
+ainda não a tem. Quem falha nesse ponto é `openDb()`, e aí não é uma rota que
+quebra — é tudo, com 500 até no `/boot`. Passa em banco novo, porque lá a
+coluna vem do `CREATE TABLE`, e passa no modo local, porque o driver manda o
+arquivo de uma vez só em vez de instrução por instrução.
+`tests/migracao.test.js` existe para recusar essa combinação antes do deploy.
 
 ### 4.11 O campo em foco represa o redesenho da tela inteira
 
@@ -373,7 +382,7 @@ campo no formulário.
 - Tela inicial com os três quadros laterais (validade longa, oportunidades,
   metas longas) fora do fluxo do dia; campo `kind` com migração idempotente
   para bancos que já existiam.
-- 103 testes automatizados passando.
+- 107 testes automatizados passando.
 - Auditoria completa em 5 de setembro de 2026: cinco defeitos corrigidos, sete
   confirmados e abertos, três levantados e refutados. Tudo em `OPEN_POINTS.md`
   seção 9.
