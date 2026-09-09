@@ -1955,29 +1955,29 @@ input[type="color"] {
   cursor: pointer;
 }
 
-
 /* ==========================================================================
    O trilho de cenas do quadro
    --------------------------------------------------------------------------
-   Uma fileira horizontal: empresas à esquerda, pessoas à direita, todos os
-   negócios sempre no centro. Só a cena central monta um quadro; as vizinhas
-   são lâminas de uma centena de pixels coladas na borda interna, com a marca
-   de quem elas são e o nome como marca-d'água.
+   Painéis flutuantes, empilhados em leque. O do centro é o quadro de verdade;
+   os dos lados ficam atrás dele, menores, saindo pelas bordas — e o vizinho
+   imediato sempre por cima dos mais distantes, senão a pilha vira uma mancha
+   sem ordem.
 
-   A cena vizinha não está desligada: está ao fundo. Isso é dito por
-   opacidade, e não por filter — filter cria bloco de contenção, e o modo
-   calmo já aplica saturate(0.45) no body. Opacidade também é a única
-   propriedade barata de mexer a cada quadro durante um arrasto.
+   O empilhamento é por posição absoluta e transform, e não por rolagem: a cena
+   de trás precisa passar POR BAIXO da da frente, e caixa que rola não
+   sobrepõe. Transform e opacity também são as duas propriedades que a placa de
+   vídeo compõe sozinha, o que mantém o arrasto suave a cada quadro.
 
-   Nada aqui usa o acento, gradiente, sombra colorida ou duração literal: o
-   acento é de ação e de foco, e toda duração vem de var(--dur*), para que
-   movimento reduzido e modo calmo continuem valendo de graça.
+   Nada aqui usa filter nem backdrop-filter: o modo calmo já aplica
+   saturate(0.45) no body, e filtro composto sobre elemento que se move fica
+   imprevisível. A sensação de vidro vem de transparência, sombra em três
+   camadas e um fio de luz na borda de cima.
    ========================================================================== */
 .trilho__barra {
   display: flex;
   align-items: center;
   gap: var(--sp-4);
-  margin-bottom: var(--sp-3);
+  margin-bottom: var(--sp-4);
   flex-wrap: wrap;
 }
 .trilho__rotulo {
@@ -1985,114 +1985,147 @@ input[type="color"] {
   text-transform: uppercase;
   letter-spacing: var(--tracking-wide);
   color: var(--text-3);
+  font-variant-numeric: tabular-nums;
 }
 .trilho__pontos {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 2px;
 }
-/* O ponto usa a cor da entidade, e --text-2 para a cena geral. Nunca o
-   acento: a cena ativa já se identifica por estar sem véu e centralizada. */
+
+/* O ponto visível tem 8px, mas a área de clique tem 40: alvo menor que isso
+   se erra, e errar interrompe o fio de quem está trabalhando. */
 .trilho__ponto {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 40px;
+  padding: 0;
+  background: none;
+  border: 0;
+}
+.trilho__ponto::after {
+  content: "";
   width: 8px;
   height: 8px;
-  padding: 0;
-  border: 1px solid currentColor;
   border-radius: 50%;
-  background: none;
+  border: 1px solid currentColor;
   opacity: 0.45;
-  transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+  transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease),
+    background-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
-.trilho__ponto:hover,
-.trilho__ponto:focus-visible {
+.trilho__ponto:hover::after,
+.trilho__ponto:focus-visible::after {
   opacity: 1;
+  transform: scale(1.25);
+  box-shadow: var(--brilho-fraco);
 }
-.trilho__ponto.is-on {
+.trilho__ponto.is-on::after {
   opacity: 1;
   background: currentColor;
   transform: scale(1.3);
 }
+.trilho__ponto:active::after {
+  transform: scale(0.96);
+}
 
 .trilho {
-  --espia: 104px;
-  display: flex;
-  align-items: stretch;
-  gap: var(--sp-3);
+  --espia: 190px;
+  --cena-w: max(280px, calc(100% - 2 * var(--espia)));
+  /* O painel de trás tem largura própria, e não a da cena inteira: com a
+     largura da cena, as bordas dele caem fora da janela ou atrás do painel
+     central, e o que sobra à vista é uma faixa sem forma nenhuma. Menor, ele
+     é um cartão — com borda, raio e sombra, saindo por trás do central. */
+  --painel-w: 220px;
+  position: relative;
   margin-inline: calc(-1 * var(--sp-5));
-  padding-inline: var(--espia);
-  overflow-x: auto;
-  overflow-y: hidden;
-  scroll-snap-type: x mandatory;
-  overscroll-behavior-x: contain;
+  padding-inline: var(--sp-5);
+  overflow: hidden;
   cursor: grab;
+  touch-action: pan-y;
 }
 .trilho.is-arrastando {
   cursor: grabbing;
-  scroll-snap-type: none;
   user-select: none;
 }
-/* O motor de snap briga com escrita direta de scrollLeft e puxa de volta. */
-.trilho.is-assentando {
-  scroll-snap-type: none;
+
+/* A cena central fica no fluxo e é ela que dá altura ao trilho. As outras são
+   absolutas por cima dela, e por isso a altura não salta quando a pilha
+   desliza. */
+.cena {
+  width: var(--cena-w);
+  margin-inline: auto;
+  contain: layout paint;
+  border-radius: var(--radius-xl);
+  transform-origin: center center;
+  transition: transform var(--dur-slow) var(--ease), opacity var(--dur-slow) var(--ease),
+    box-shadow var(--dur) var(--ease);
+}
+/* Durante o arrasto o transform vem de JavaScript a cada quadro: transição
+   aqui brigaria com ele e o painel andaria atrasado em relação ao cursor. */
+.trilho.is-arrastando .cena {
+  transition: none;
+  will-change: transform, opacity;
 }
 
-.cena {
-  flex: 0 0 100%;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  scroll-snap-align: center;
-  scroll-snap-stop: always;
+.cena.is-atual {
+  position: relative;
+  z-index: 100;
+  padding: var(--sp-2);
+  background: var(--painel-vidro);
+  border: 1px solid var(--border);
+  box-shadow: var(--painel-sombra-alta), var(--painel-brilho);
 }
 
 .cena--resumo {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: var(--painel-w);
+  height: 100%;
   display: grid;
-  grid-template-columns: var(--espia) 1fr var(--espia);
-  align-items: center;
-  background: color-mix(in srgb, var(--surface-1) 55%, transparent);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius);
-  opacity: var(--cena-perto);
+  place-items: center;
+  padding: var(--sp-5) var(--sp-4);
+  background: var(--painel-vidro-fundo);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--painel-sombra), var(--painel-brilho);
+  overflow: hidden;
   cursor: pointer;
-  transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
 }
-.cena--resumo[data-dist="2"] {
-  opacity: var(--cena-longe);
-}
+/* A faixa colorida da entidade fica na borda de FORA — a que sobra à vista.
+   Na de dentro ela ficaria atrás do painel central, colorindo o que ninguém
+   vê. O painel da esquerda mostra a borda esquerda; o da direita, a direita. */
 .cena--esq {
-  border-inline-end-width: 3px;
-  border-inline-end-style: solid;
-}
-.cena--dir {
   border-inline-start-width: 3px;
   border-inline-start-style: solid;
 }
-.cena--resumo:hover,
-.cena--resumo:focus-visible,
-.cena--resumo.is-atual {
-  opacity: 1;
-}
-.trilho.is-arrastando .cena--resumo {
-  opacity: 0.85;
+.cena--dir {
+  border-inline-end-width: 3px;
+  border-inline-end-style: solid;
 }
 
-/* A marca fica na coluna que sobra visível: a da direita na lâmina da
-   esquerda, a da esquerda na lâmina da direita. */
 .cena__marca {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: var(--sp-2);
+  text-align: center;
+  max-width: 100%;
 }
-.cena--esq .cena__marca {
-  grid-column: 3;
-}
-.cena--dir .cena__marca {
-  grid-column: 1;
+.cena__nome {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--text-2);
+  text-wrap: balance;
+  max-width: 12ch;
+  line-height: 1.25;
 }
 .cena__conta {
   font-size: var(--text-xs);
-  color: var(--text-3);
+  color: var(--text-faint);
   font-variant-numeric: tabular-nums;
 }
 .cena__glifo {
@@ -2104,30 +2137,74 @@ input[type="color"] {
   background: var(--surface-3);
   color: var(--text-3);
 }
-/* O nome só entra em cena quando a lâmina se aproxima do centro. Fora disso
-   ele está fora da janela, e é de propósito. */
-.cena__agua {
-  grid-column: 2;
-  justify-self: center;
-  font-family: var(--font-display);
-  font-size: var(--text-2xl);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-brand);
-  color: var(--text-faint);
+
+/* O convite: o painel esmaece sob um véu e o botão sobe. Chega pelo cursor,
+   pelo teclado ou por um duplo clique. Clique simples não entra, de propósito:
+   um arrasto que termina em cima de um painel não pode virar navegação. */
+.cena__veu {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--sp-4);
+  background: color-mix(in srgb, var(--surface-0) 74%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur) var(--ease);
+}
+.cena--resumo:hover .cena__veu,
+.cena--resumo:focus-within .cena__veu,
+.cena--resumo.is-convidando .cena__veu {
+  opacity: 1;
+  pointer-events: auto;
+}
+.cena__entrar {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 9px 13px;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: 1.3;
   text-align: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 100%;
+  text-wrap: balance;
+  box-shadow: var(--shadow-2);
+  transform: translateY(6px);
+  transition: transform var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+.cena--resumo:hover .cena__entrar,
+.cena--resumo:focus-within .cena__entrar,
+.cena--resumo.is-convidando .cena__entrar {
+  transform: none;
+}
+.cena__entrar:hover {
+  background: var(--accent-hover);
+}
+.cena__entrar:active {
+  transform: scale(0.96);
 }
 
-/* Nas cenas laterais o cabeçalho de ícones vira etiqueta: ali o escopo já foi
-   decidido pela posição na fileira, e clicar de novo não teria o que fazer. */
+/* O painel responde ao cursor antes de qualquer clique: sobe um degrau de
+   sombra e ganha o fio de acento. É o retorno que diz "isto é clicável". */
+.cena--resumo:hover,
+.cena--resumo:focus-within {
+  box-shadow: var(--painel-sombra-alta), var(--painel-brilho), var(--brilho-fraco);
+}
+/* No meio de um arrasto ninguém está escolhendo: o convite sai da frente. */
+.trilho.is-arrastando .cena__veu {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .cena__fixo {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
   margin-bottom: var(--sp-4);
+  padding-inline: var(--sp-2);
   font-size: var(--text-sm);
 }
 .cena__fixonome {
@@ -2144,10 +2221,11 @@ input[type="color"] {
   font-size: var(--text-xs);
   color: var(--text-faint);
   line-height: 1.4;
+  text-wrap: pretty;
 }
 
 .cena__mais {
-  padding: var(--sp-4) 2px;
+  padding: var(--sp-4);
 }
 .cena__maistitulo {
   font-family: var(--font-display);
@@ -2162,6 +2240,7 @@ input[type="color"] {
   color: var(--text-faint);
   margin: 4px 0 var(--sp-4);
   line-height: 1.4;
+  text-wrap: pretty;
 }
 .cena__maislista {
   display: grid;
@@ -2175,17 +2254,23 @@ input[type="color"] {
   gap: var(--sp-3);
   padding: var(--sp-2) var(--sp-3);
   border: 1px solid var(--border-soft);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
   background: var(--surface-2);
   color: var(--text-2);
   font-size: var(--text-sm);
   text-align: left;
-  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+  transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease), color var(--dur) var(--ease),
+    transform var(--dur-fast) var(--ease);
 }
 .cena__maisitem:hover {
   background: var(--surface-3);
-  border-color: var(--border);
+  border-color: transparent;
   color: var(--text-1);
+  box-shadow: var(--brilho-fraco);
+}
+.cena__maisitem:active {
+  transform: scale(0.96);
 }
 .cena__maisconta {
   margin-left: auto;
@@ -2194,20 +2279,30 @@ input[type="color"] {
   font-variant-numeric: tabular-nums;
 }
 
+/* O quadro dentro da cena central: as colunas herdam o raio interno, que é o
+   raio externo menos a folga de 8px. */
+.cena .board {
+  border-radius: var(--radius);
+}
+
 @media (max-width: 1200px) {
   .trilho {
-    --espia: 56px;
+    --espia: 128px;
+    --painel-w: 150px;
   }
 }
 
-/* Abaixo de 900px as lâminas somem e o trilho degrada para abas: os pontos
-   navegam e a cena ocupa a largura toda. Nunca dois eixos horizontais
+/* Abaixo de 900px os painéis laterais somem e o trilho degrada para abas: os
+   pontos navegam e a cena ocupa a largura toda. Nunca dois eixos horizontais
    aninhados — o .board já rola sozinho a 82vw nesta faixa. */
 @media (max-width: 900px) {
   .trilho {
     --espia: 0px;
+    --painel-w: 0px;
+    --cena-w: 100%;
     margin-inline: calc(-1 * var(--sp-4));
-    padding-inline: 0;
+    padding-inline: var(--sp-4);
+    cursor: default;
   }
   .cena--resumo {
     display: none;

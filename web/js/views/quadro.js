@@ -4,12 +4,17 @@
 // movimento de cartão, e a soma dessas decisões é o que torna um quadro de
 // Jira exaustivo de manter.
 //
-// A tela deixou de ser um quadro só. É uma fileira horizontal: as empresas à
-// esquerda, as pessoas à direita, "todos os negócios" sempre no centro. Só a
-// cena central é um quadro de verdade; as vizinhas são lâminas de uns cem
-// pixels coladas na borda, com a marca de quem elas são. Arrastar o fundo
-// desliza a fileira, e ao soltar ela assenta na cena mais próxima — o item
-// selecionado abre, os vizinhos ficam como ícone.
+// A tela deixou de ser um quadro só. É uma pilha de painéis flutuantes: as
+// empresas à esquerda, as pessoas à direita, "todos os negócios" sempre no
+// centro. Só o painel central é um quadro de verdade; os outros ficam atrás
+// dele, menores, saindo pelas bordas, com a marca de quem eles são — e o
+// vizinho imediato sempre por cima dos mais distantes daquele lado.
+//
+// Arrastar o fundo desliza a pilha um para um com o cursor; ao soltar, ela
+// assenta no painel mais próximo. Aproximar o cursor de um painel lateral abre
+// o convite: ele esmaece sob um véu e sobe um botão de entrar. Clique simples
+// não navega, porque um arrasto que termina em cima de um painel não pode
+// virar viagem que ninguém pediu.
 
 import { h, frag, avatar, fotoEmpresa } from "../dom.js";
 import {
@@ -40,21 +45,18 @@ import { criarRapida } from "../quickadd.js";
 // de um nó antigo sobrevive. E nada disto é dado de produto — é a mecânica de
 // um gesto, que não tem por que atravessar o resto do aplicativo.
 let trilhoEl = null;
-let centros = [];
+let cenasEl = [];
 let ids = [];
+// Onde a pilha está, em índice fracionário. Entre 2 e 3 quer dizer "no meio do
+// caminho entre a terceira e a quarta cena", e é isso que deixa o arrasto
+// contínuo em vez de saltar de uma para a outra.
+let posicao = 0;
 let escopoVisivel = "geral";
 let gesto = null;
 let tween = 0;
 let ocupadoDesde = 0;
 let arrastouAgora = false;
-let ocioso = 0;
-let rafScroll = 0;
 let observador = null;
-// Escrever scrollLeft dispara o evento scroll, e o evento scroll conclui a
-// navegação, e concluir a navegação chama emit(), e emit() remonta a view, e
-// remontar reposiciona o trilho escrevendo scrollLeft. Sem este contador o
-// laço não tem fim: a tela remonta a cada 120 ms para sempre.
-let programatico = 0;
 
 export function viewQuadro() {
   const fileira = escoposDoCarrossel();
@@ -74,7 +76,7 @@ export function viewQuadro() {
   const trilho = h(
     "div",
     { class: "trilho", role: "group", "aria-label": "Telas do quadro" },
-    fileira.map((d) => (d.id === atual ? cenaCheia(d) : lamina(d)))
+    fileira.map((d) => (d.id === atual ? cenaCheia(d) : painel(d)))
   );
 
   posicionarDepoisDoMonte(trilho, atual);
@@ -219,20 +221,34 @@ function cenaExcedente(d) {
   );
 }
 
-// A lâmina não é um <button> na raiz de propósito: um <button> cairia no
-// bail-out do gesto e mataria qualquer arrasto que começasse em cima dela.
-// A acessibilidade vem do papel, do tabindex e do teclado logo abaixo.
-function lamina(d) {
+// O painel de uma cena que não está no centro.
+//
+// A raiz não é um <button> de propósito: um <button> cairia no bail-out do
+// gesto e mataria qualquer arrasto que começasse em cima dele. O papel, o
+// tabindex e o teclado dão a acessibilidade; quem entra de verdade é o botão
+// do véu, que é um <button> como manda o figurino.
+//
+// Clique simples não navega. O painel responde ao cursor abrindo o convite —
+// véu mais botão — e a entrada acontece no botão, no duplo clique ou no
+// teclado. Um arrasto que termina em cima de um painel não pode virar
+// navegação que ninguém pediu.
+function painel(d) {
   const marca =
     d.tipo === "empresa"
-      ? fotoEmpresa(d.ref, 40)
+      ? fotoEmpresa(d.ref, 44)
       : d.tipo === "pessoa"
         ? avatar(d.ref, "avatar--lg")
         : h("span", { class: "cena__glifo", text: d.tipo === "mais" ? "…" : "▦" });
 
-  const borda = d.lado === "esq" ? "borderInlineEndColor" : "borderInlineStartColor";
+  // A borda que fica à vista é a de fora: a de dentro some atrás do painel
+  // central, e colorir o que ninguém vê não identifica nada.
+  const borda = d.lado === "esq" ? "borderInlineStartColor" : "borderInlineEndColor";
+  const entrar = () => {
+    if (arrastouAgora) return;
+    irParaCena(d.id);
+  };
 
-  return h(
+  const el = h(
     "div",
     {
       class: `cena cena--resumo cena--${d.lado === "esq" ? "esq" : "dir"}`,
@@ -241,22 +257,48 @@ function lamina(d) {
       tabindex: "0",
       "aria-label": `Ver o quadro de ${d.nome}, ${contagemDe(d)}`,
       style: { [borda]: d.cor || "var(--border-strong)" },
-      onClick: () => {
-        // Um arrasto que termina em cima de uma lâmina não pode navegar para
-        // ela: ninguém pediu isso, e o clique sintético do navegador chega
-        // logo depois do pointerup.
-        if (arrastouAgora) return;
-        irParaCena(d.id);
-      },
+      onDblclick: entrar,
       onKeydown: (e) => {
         if (e.key !== "Enter" && e.key !== " ") return;
         e.preventDefault();
-        irParaCena(d.id);
+        entrar();
       },
     },
-    h("div", { class: "cena__marca" }, marca, h("span", { class: "cena__conta", text: String(d.abertas) })),
-    h("span", { class: "cena__agua", text: d.nome })
+
+    h(
+      "div",
+      { class: "cena__marca" },
+      marca,
+      h("span", { class: "cena__nome", text: d.nome }),
+      h("span", { class: "cena__conta", text: contagemDe(d) })
+    ),
+
+    h(
+      "div",
+      { class: "cena__veu" },
+      h("button", {
+        class: "cena__entrar",
+        type: "button",
+        text: "Entrar em visualização",
+        // O painel inteiro já tem role de botão e aria-label; o de dentro
+        // repetiria o nome da cena para quem usa leitor de tela.
+        tabindex: "-1",
+        onClick: (e) => {
+          e.stopPropagation();
+          entrar();
+        },
+      })
+    )
   );
+
+  // Um clique simples abre o convite e o deixa aberto: sem isso, quem usa
+  // toque nunca veria o botão, porque toque não tem hover.
+  el.addEventListener("click", () => {
+    if (arrastouAgora) return;
+    el.classList.add("is-convidando");
+  });
+
+  return el;
 }
 
 // --- O cabeçalho de filtros da cena geral -----------------------------------
@@ -492,6 +534,108 @@ function escreverHash(id) {
   if (location.hash !== destino) history.replaceState(null, "", destino);
 }
 
+// --- A pilha: onde cada painel fica ----------------------------------------
+//
+// A cena central está no fluxo e é ela que dá altura ao trilho. As outras são
+// absolutas por cima, e cada uma recebe deslocamento, escala, opacidade e
+// ordem de empilhamento em função da distância até o centro. Como a distância
+// é fracionária, o leque se abre e fecha continuamente enquanto se arrasta,
+// sem nenhum salto entre uma cena e a seguinte.
+
+// Até onde o leque se abre. A partir daqui os painéis param de encolher e de
+// se afastar: acumular vinte camadas indistinguíveis não informa nada e ainda
+// custa um transform por quadro.
+const FUNDO = 3;
+
+function medidas() {
+  if (!trilhoEl) return null;
+  const largura = trilhoEl.clientWidth;
+  const central = cenasEl.find((c) => c.classList.contains("is-atual"));
+  const traseiro = cenasEl.find((c) => !c.classList.contains("is-atual"));
+  const painelW = traseiro?.offsetWidth || 0;
+  const centralW = central?.offsetWidth || largura;
+  if (!largura) return null;
+
+  return {
+    // Onde o cartão de trás repousa: encostado na borda, saindo por baixo do
+    // painel central o suficiente para se ver que há mais coisa atrás.
+    xLat: largura / 2 - painelW / 2 - 8,
+    // O quanto o quadro central precisa andar para sair inteiro de cena. Ele é
+    // muito maior que os cartões, então tem passo próprio: com o mesmo passo
+    // deles, ficaria plantado no meio da tela cobrindo quem está chegando.
+    xSai: centralW / 2 + painelW / 2 + 12,
+  };
+}
+
+// Quanto o painel vizinho desbota. Lido do CSS a cada aplicação, e não cravado
+// aqui: é assim que o modo calmo — que afunda mais os vizinhos — passa a valer
+// no meio da sessão, sem recarregar e sem este arquivo saber que ele existe.
+function veus() {
+  const cs = getComputedStyle(document.documentElement);
+  const perto = parseFloat(cs.getPropertyValue("--cena-perto"));
+  const longe = parseFloat(cs.getPropertyValue("--cena-longe"));
+  return {
+    perto: Number.isFinite(perto) ? perto : 0.92,
+    longe: Number.isFinite(longe) ? longe : 0.42,
+  };
+}
+
+// Interpola entre os três degraus: o centro, o vizinho imediato e o que está
+// dois atrás. Depois disso some de vez.
+function entre(k, centro, perto, longe) {
+  if (k <= 1) return centro + (perto - centro) * k;
+  if (k <= 2) return perto + (longe - perto) * (k - 1);
+  return Math.max(0.16, longe + (0.16 - longe) * Math.min(k - 2, 1));
+}
+
+function aplicarLayout() {
+  if (!trilhoEl?.isConnected) return;
+  const m = medidas();
+  if (!m) return;
+  const { perto, longe } = veus();
+
+  cenasEl.forEach((el, i) => {
+    const d = i - posicao;
+    const k = Math.min(Math.abs(d), FUNDO);
+    const sinal = Math.sign(d);
+    const central = el.classList.contains("is-atual");
+
+    // Os cartões de trás se afastam em passos curtos depois do primeiro: a
+    // pilha comprime nas pontas em vez de jogar os distantes para fora da
+    // tela, e é isso que faz uma pilha parecer uma pilha.
+    const x = central
+      ? d * m.xSai
+      : sinal * (k <= 1 ? Math.abs(d) * m.xLat : m.xLat + (k - 1) * 14);
+
+    // O cartão que chega ao centro cresce um pouco antes de virar quadro: é o
+    // aviso de que ele está prestes a assumir a tela.
+    const escala = central
+      ? 1
+      : 1 + 0.07 * (1 - Math.min(k, 1)) - 0.06 * Math.max(0, k - 1);
+
+    const opacidade = central
+      ? Math.max(0.25, 1 - 0.75 * Math.min(k, 1))
+      : entre(k, 1, perto, longe);
+
+    // A cena central está no fluxo e já nasce centrada pela margem automática.
+    // Os cartões são absolutos ancorados em left:50%, e sem o recuo de metade
+    // da própria largura ficariam todos com a borda esquerda no meio da tela.
+    const centrar = central ? "" : "translateX(-50%) ";
+    el.style.transform = `${centrar}translateX(${x.toFixed(2)}px) scale(${escala.toFixed(4)})`;
+    el.style.opacity = opacidade.toFixed(3);
+
+    // O vizinho imediato sempre por cima dos mais distantes daquele lado, e o
+    // quadro central cedendo a frente conforme sai: sem isso a pilha vira uma
+    // mancha em que não se distingue o que vem antes do quê.
+    el.style.zIndex = String(
+      central ? Math.round(100 - Math.min(k, 1) * 20) : Math.round(96 - k * 10)
+    );
+    // Cartão encoberto não recebe cursor: o convite de entrar só pode abrir em
+    // quem está de fato à vista.
+    el.style.pointerEvents = k > 1.6 ? "none" : "";
+  });
+}
+
 // --- Sobreviver ao mount() --------------------------------------------------
 
 // desenharAgora() remonta #view inteiro a cada emit() e a cada tique de seis
@@ -512,18 +656,20 @@ function posicionarDepoisDoMonte(el, id) {
     // Quando este quadro dispara, o mount() já rodou e o nó está no documento.
     if (!el.isConnected) return;
     ligar(el);
-    medirCentros();
-    // Reposicionamento por remonte não é movimento que alguém pediu: vai
-    // instantâneo, nunca com smooth.
-    aplicarPosicao(id);
+    // A posição vem da identidade da cena, nunca de um pixel guardado: o nó
+    // anterior foi destruído, e um índice sozinho muda de significado quando a
+    // fileira muda de composição.
+    posicao = Math.max(0, ids.indexOf(id));
+    aplicarLayout();
     observarTamanho(el);
   });
 }
 
 function ligar(el) {
   trilhoEl = el;
+  cenasEl = Array.from(el.querySelectorAll(".cena"));
+  ids = cenasEl.map((c) => c.dataset.escopo);
   el.addEventListener("pointerdown", aoApertar);
-  el.addEventListener("scroll", aoRolar, { passive: true });
   el.addEventListener("dragstart", (e) => {
     if (gesto?.arrastando) e.preventDefault();
   });
@@ -532,68 +678,21 @@ function ligar(el) {
 function observarTamanho(el) {
   observador?.disconnect();
   if (typeof ResizeObserver !== "function") return;
-  // Sem isto, redimensionar a janela deixa a fileira torta: os centros foram
-  // medidos numa largura que já não existe.
+  // Sem isto, redimensionar a janela deixa o leque torto: o passo foi medido
+  // numa largura que já não existe.
   observador = new ResizeObserver(() => {
-    if (!trilhoEl?.isConnected) return;
-    medirCentros();
-    if (!gesto && !tween) aplicarPosicao(escopoVisivel);
+    if (!trilhoEl?.isConnected || gesto?.arrastando) return;
+    aplicarLayout();
   });
   observador.observe(el);
-}
-
-function medirCentros() {
-  if (!trilhoEl) return;
-  const cenas = Array.from(trilhoEl.querySelectorAll(".cena"));
-  const base = trilhoEl.getBoundingClientRect().left - trilhoEl.scrollLeft;
-  centros = cenas.map((el) => {
-    const r = el.getBoundingClientRect();
-    return r.left - base + r.width / 2;
-  });
-  ids = cenas.map((el) => el.dataset.escopo);
-}
-
-function aplicarPosicao(id) {
-  const i = ids.indexOf(id);
-  if (i < 0 || !trilhoEl) return;
-  semSnap(() => {
-    trilhoEl.scrollLeft = centros[i] - trilhoEl.clientWidth / 2;
-  });
-  marcarDistancias(i);
-}
-
-// scroll-snap-type: x mandatory briga com escrita direta de scrollLeft — o
-// motor de snap puxa de volta. Desligar, escrever, religar no quadro seguinte.
-//
-// O inline volta sempre para vazio, e nunca para "o que estava antes": duas
-// chamadas sobrepostas — o reposicionamento pós-monte e o ResizeObserver, por
-// exemplo — fariam a segunda gravar "none" como valor original e o snap ficaria
-// desligado para o resto da sessão, sem erro nenhum.
-function semSnap(fn) {
-  if (!trilhoEl) return;
-  programatico += 1;
-  trilhoEl.style.scrollSnapType = "none";
-  fn();
-  requestAnimationFrame(() => {
-    programatico = Math.max(0, programatico - 1);
-    if (trilhoEl?.isConnected) trilhoEl.style.scrollSnapType = "";
-  });
-}
-
-function marcarDistancias(i) {
-  if (!trilhoEl) return;
-  Array.from(trilhoEl.querySelectorAll(".cena")).forEach((el, j) => {
-    if (j === i) return el.removeAttribute("data-dist");
-    el.dataset.dist = Math.abs(j - i) >= 2 ? "2" : "1";
-  });
 }
 
 // --- O gesto ----------------------------------------------------------------
 
 function aoApertar(e) {
-  // Só mouse. No toque quem navega é o scroll nativo com snap e os pontos —
-  // sem isso o gesto disputaria com o .board, que abaixo de 900px já rola
-  // sozinho a 82vw.
+  // Só mouse. No toque quem navega são os pontos e o convite de cada painel —
+  // sem isso o gesto disputaria com a rolagem vertical da página, que é o que
+  // mais se faz num telefone.
   if (e.pointerType !== "mouse" || e.button !== 0) return;
 
   // Sem este bail-out, o dragstart HTML5 do cartão é cancelado em silêncio e
@@ -604,7 +703,7 @@ function aoApertar(e) {
   gesto = {
     x0: e.clientX,
     y0: e.clientY,
-    scroll0: trilhoEl.scrollLeft,
+    posicao0: posicao,
     pointerId: e.pointerId,
     arrastando: false,
   };
@@ -630,17 +729,40 @@ function aoMover(e) {
       trilhoEl.setPointerCapture(gesto.pointerId);
     } catch {}
     trilhoEl.classList.add("is-arrastando");
+    // Quem estava com o convite aberto perde a vez: no meio de um arrasto
+    // ninguém está escolhendo para onde ir.
+    for (const c of cenasEl) c.classList.remove("is-convidando");
   }
 
-  // Um para um com o cursor. Sem inércia, sem mola, sem física.
-  trilhoEl.scrollLeft = gesto.scroll0 - dx;
+  const m = medidas();
+  if (!m?.xLat) return;
+
+  // O passo do gesto é o do cartão, e não o do quadro central: quem o olho
+  // segue durante a troca é o painel que está chegando, e é ele que precisa
+  // acompanhar a mão um para um. O quadro central sai mais rápido porque é
+  // muito maior — e sair da frente depressa é o que se espera dele.
+  //
+  // Sem inércia, sem mola, sem física.
+  const cru = gesto.posicao0 - dx / m.xLat;
+  // Passar do fim resiste em vez de travar: o leque estica um pouco e volta.
+  posicao = amortecer(cru);
+  aplicarLayout();
+  destacarMaisProxima();
+
   arrastouAgora = true;
   // Renovada a cada movimento: a trava de cinco segundos é de inatividade.
   // Gravada uma vez só, um arrasto longo expiraria no meio — o mount()
-  // destruiria o trilho, os ouvintes de window continuariam escrevendo
-  // scrollLeft num elemento fora do documento, e a fileira saltaria.
+  // destruiria o trilho, os ouvintes de window continuariam mexendo em nós
+  // que saíram do documento, e o leque saltaria de volta.
   ocupadoDesde = Date.now();
   e.preventDefault();
+}
+
+function amortecer(v) {
+  const fim = cenasEl.length - 1;
+  if (v < 0) return v * 0.32;
+  if (v > fim) return fim + (v - fim) * 0.32;
+  return v;
 }
 
 function aoSoltar() {
@@ -649,7 +771,8 @@ function aoSoltar() {
   if (!arrastou || !trilhoEl) return;
   trilhoEl.classList.remove("is-arrastando");
   // Depois do clique sintético que o navegador dispara no pointerup. É isto
-  // que impede um arrasto terminado em cima de uma lâmina de navegar para ela.
+  // que impede um arrasto terminado em cima de um painel de abrir o convite
+  // dele sem ninguém ter pedido.
   setTimeout(() => {
     arrastouAgora = false;
   }, 0);
@@ -668,25 +791,34 @@ function soltarOuvintes() {
   gesto = null;
 }
 
-function assentar() {
-  const i = maisProxima();
-  if (i < 0 || !trilhoEl) return;
-  deslizarPara(centros[i] - trilhoEl.clientWidth / 2, () => concluirNavegacao(ids[i]));
+function maisProxima() {
+  if (!cenasEl.length) return -1;
+  return Math.max(0, Math.min(cenasEl.length - 1, Math.round(posicao)));
 }
 
-function maisProxima() {
-  if (!trilhoEl || !centros.length) return -1;
-  const alvo = trilhoEl.scrollLeft + trilhoEl.clientWidth / 2;
-  let melhor = -1;
-  let dist = Infinity;
-  centros.forEach((c, i) => {
-    const d = Math.abs(c - alvo);
-    if (d < dist) {
-      dist = d;
-      melhor = i;
-    }
-  });
-  return melhor;
+// Durante o arrasto, a cena que chegou ao centro é marcada no nó vivo. É o que
+// faz o painel crescer enquanto a mão ainda está no botão: transição de CSS
+// não roda em nó recém-criado, e o render posterior só reaplica o valor final.
+function destacarMaisProxima() {
+  const i = maisProxima();
+  const id = ids[i];
+  if (!id || id === escopoVisivel) return;
+  escopoVisivel = id;
+
+  const rotulo = document.querySelector(".trilho__rotulo");
+  if (rotulo) rotulo.textContent = rotuloDaCena(escoposDoCarrossel(), id);
+
+  for (const p of document.querySelectorAll(".trilho__ponto")) {
+    const ligado = p.dataset.escopo === id;
+    p.classList.toggle("is-on", ligado);
+    p.setAttribute("aria-current", ligado ? "true" : "false");
+  }
+}
+
+function assentar() {
+  const i = maisProxima();
+  if (i < 0) return;
+  deslizarAte(i, () => concluirNavegacao(ids[i]));
 }
 
 // A duração é lida a cada movimento, nunca cacheada.
@@ -703,23 +835,20 @@ function duracaoDoMovimento() {
   return Number.isFinite(v) ? v : 260;
 }
 
-function deslizarPara(destino, aoChegar) {
-  if (!trilhoEl) return;
+function deslizarAte(destino, aoChegar) {
   cancelarTween();
 
   const ms = duracaoDoMovimento();
-  const inicio = trilhoEl.scrollLeft;
+  const inicio = posicao;
   const delta = destino - inicio;
 
-  if (!ms || Math.abs(delta) < 1) {
-    semSnap(() => {
-      trilhoEl.scrollLeft = destino;
-    });
+  if (!ms || Math.abs(delta) < 0.001) {
+    posicao = destino;
+    aplicarLayout();
     aoChegar?.();
     return;
   }
 
-  trilhoEl.classList.add("is-assentando");
   const inicioEm = performance.now();
   const passo = (agora) => {
     if (!trilhoEl?.isConnected) {
@@ -727,14 +856,14 @@ function deslizarPara(destino, aoChegar) {
       return;
     }
     const p = Math.min(1, (agora - inicioEm) / ms);
-    trilhoEl.scrollLeft = inicio + delta * (1 - (1 - p) ** 3);
+    posicao = inicio + delta * (1 - (1 - p) ** 3);
+    aplicarLayout();
     ocupadoDesde = Date.now();
     if (p < 1) {
       tween = requestAnimationFrame(passo);
       return;
     }
     tween = 0;
-    trilhoEl.classList.remove("is-assentando");
     aoChegar?.();
   };
   tween = requestAnimationFrame(passo);
@@ -744,55 +873,6 @@ function cancelarTween() {
   if (!tween) return;
   cancelAnimationFrame(tween);
   tween = 0;
-  trilhoEl?.classList.remove("is-assentando");
-}
-
-// Roda, trackpad, barra de rolagem e toque não passam pelo gesto de mouse:
-// eles rolam o trilho direto. Aqui a cena que chegou ao centro é trocada ao
-// vivo, e um timer curto conclui a navegação quando o movimento para.
-function aoRolar() {
-  // Scroll que nós mesmos causamos não é navegação de ninguém: é o
-  // reposicionamento por remonte, ou o próprio tween, que já sabe como
-  // terminar. Tratá-lo como gesto fecha o laço descrito lá em cima.
-  if (programatico || tween) return;
-  if (rafScroll) return;
-  rafScroll = requestAnimationFrame(() => {
-    rafScroll = 0;
-    if (!trilhoEl?.isConnected) return;
-
-    const i = maisProxima();
-    const id = ids[i];
-    if (id && id !== escopoVisivel) {
-      escopoVisivel = id;
-      trocarAoVivo(i, id);
-    }
-
-    clearTimeout(ocioso);
-    ocioso = setTimeout(() => {
-      if (gesto?.arrastando || tween) return;
-      concluirNavegacao(escopoVisivel);
-    }, 120);
-  });
-}
-
-// Transição CSS não roda em nó recém-criado. A classe é trocada no nó vivo
-// durante o gesto — é isso que faz a cena crescer enquanto se arrasta; o
-// render posterior apenas reaplica o valor final.
-function trocarAoVivo(i, id) {
-  if (!trilhoEl) return;
-  for (const el of trilhoEl.querySelectorAll(".cena")) {
-    el.classList.toggle("is-atual", el.dataset.escopo === id);
-  }
-  marcarDistancias(i);
-
-  const rotulo = document.querySelector(".trilho__rotulo");
-  if (rotulo) rotulo.textContent = rotuloDaCena(escoposDoCarrossel(), id);
-
-  for (const p of document.querySelectorAll(".trilho__ponto")) {
-    const ligado = p.dataset.escopo === id;
-    p.classList.toggle("is-on", ligado);
-    p.setAttribute("aria-current", ligado ? "true" : "false");
-  }
 }
 
 function concluirNavegacao(id) {

@@ -50,6 +50,10 @@
   --radius-sm: 6px;
   --radius: 10px;
   --radius-lg: 14px;
+  /* Raio concêntrico: a cena do trilho tem 8px de folga interna e guarda
+     colunas de --radius, então 10 + 8 = 18. Raio igual dentro e fora é o
+     detalhe que mais faz uma interface parecer montada às pressas. */
+  --radius-xl: 18px;
   --radius-pill: 999px;
 
   /* --- Movimento ---------------------------------------------------------- */
@@ -65,8 +69,8 @@
      saturate(0.45) no body — dois filtros compostos ficam imprevisíveis.
      Opacidade também é a única propriedade barata de mexer a cada quadro
      durante o arrasto. */
-  --cena-perto: 0.55; /* lâmina vizinha imediata                            */
-  --cena-longe: 0.32; /* duas ou mais de distância                          */
+  --cena-perto: 0.92; /* o vizinho imediato: visível e legível              */
+  --cena-longe: 0.42; /* dois de distância: presente, mas claramente atrás  */
 
   --z-sticky: 10;
   --z-drawer: 40;
@@ -114,6 +118,23 @@
   --shadow-2: 0 4px 16px rgba(0, 0, 0, 0.5);
   --shadow-3: 0 18px 48px rgba(0, 0, 0, 0.62);
 
+  /* Profundidade dos painéis do trilho. Três camadas transparentes em vez de
+     uma sombra só: contato, corpo e ambiente. É o que faz o painel parecer
+     acima da página em vez de desenhado nela — e sombra, diferente de borda,
+     se adapta ao que estiver por baixo. */
+  --painel-sombra: 0 1px 2px rgba(0, 0, 0, 0.42), 0 8px 20px rgba(0, 0, 0, 0.34),
+    0 24px 56px rgba(0, 0, 0, 0.28);
+  --painel-sombra-alta: 0 2px 4px rgba(0, 0, 0, 0.46), 0 16px 36px rgba(0, 0, 0, 0.44),
+    0 42px 96px rgba(0, 0, 0, 0.36);
+  /* Um degrau acima do fundo da página, e não igual a ele: sombra preta sobre
+     fundo preto não separa nada, e é a diferença de superfície que faz o painel
+     parecer estar acima. O de trás é o mais claro dos dois de propósito — ele
+     está mais longe da fonte de luz, que aqui é o alto da tela. */
+  --painel-vidro: color-mix(in srgb, var(--surface-2) 90%, transparent);
+  --painel-vidro-fundo: color-mix(in srgb, var(--surface-3) 94%, transparent);
+  /* O fio de luz na borda de cima, que é o que separa vidro de retângulo. */
+  --painel-brilho: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+
   --app-backdrop: radial-gradient(
       ellipse 120% 90% at 12% -10%,
       #0a2d47 0%,
@@ -157,6 +178,14 @@
   --shadow-1: 0 1px 2px rgba(8, 20, 104, 0.08);
   --shadow-2: 0 4px 14px rgba(8, 20, 104, 0.1);
   --shadow-3: 0 18px 44px rgba(8, 20, 104, 0.16);
+
+  --painel-sombra: 0 1px 2px rgba(8, 20, 104, 0.08), 0 8px 20px rgba(8, 20, 104, 0.1),
+    0 24px 56px rgba(8, 20, 104, 0.08);
+  --painel-sombra-alta: 0 2px 4px rgba(8, 20, 104, 0.1), 0 16px 36px rgba(8, 20, 104, 0.14),
+    0 42px 96px rgba(8, 20, 104, 0.12);
+  --painel-vidro: color-mix(in srgb, var(--surface-1) 94%, transparent);
+  --painel-vidro-fundo: color-mix(in srgb, var(--surface-3) 92%, transparent);
+  --painel-brilho: inset 0 1px 0 rgba(255, 255, 255, 0.7);
 
   --app-backdrop: linear-gradient(160deg, #ffffff 0%, #eef4f8 60%, #e6eef4 100%);
 
@@ -246,10 +275,10 @@
   --shadow-2: var(--shadow-1);
   --shadow-3: var(--shadow-1);
 
-  /* No modo calmo a lâmina do trilho afunda mais, e não menos: o propósito
-     do modo é ter menos coisa competindo pela atenção. */
-  --cena-perto: 0.38;
-  --cena-longe: 0.2;
+  /* No modo calmo o painel vizinho afunda mais, e não menos: o propósito do
+     modo é ter menos coisa competindo pela atenção. */
+  --cena-perto: 0.6;
+  --cena-longe: 0.24;
 }
 
 :root[data-calm="1"] body {
