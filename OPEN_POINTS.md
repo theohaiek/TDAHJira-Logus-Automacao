@@ -749,3 +749,46 @@ primeiro — esquecer um dos seis caminhos — é bem mais caro que este.
 **Reveja se:** o Voltar começar a incomodar de verdade no uso diário. A saída
 menos ruim seria um único ouvinte delegado para `a[href="#/hoje"]`, que cobre
 os três links de uma vez.
+
+### 14.10 O trilho de cenas: dois defeitos que só apareceram no navegador
+
+**Um laço de realimentação entre o scroll e o redesenho.** Escrever
+`scrollLeft` dispara o evento `scroll`; o evento `scroll` conclui a navegação;
+concluir a navegação chama `emit()`; `emit()` remonta a view; remontar
+reposiciona o trilho escrevendo `scrollLeft`. A tela remontava a cada 120 ms
+para sempre, e o sintoma era a cena certa no rótulo com a cena errada na tela.
+O conserto é um contador de escritas nossas: scroll causado por nós não é
+navegação de ninguém.
+
+**O `semSnap` reentrante travava o snap desligado.** Ele guardava o valor
+anterior de `scroll-snap-type` para restaurar depois. Com duas chamadas
+sobrepostas — o reposicionamento pós-monte e o `ResizeObserver`, por exemplo —
+a segunda gravava `"none"` como valor original, e o snap ficava desligado pelo
+resto da sessão sem erro nenhum. Agora o inline volta sempre para vazio: ele
+existe só durante a escrita direta de `scrollLeft`, e o valor de verdade mora
+na folha de estilo.
+
+Os dois são invisíveis para a suíte: o frontend não tem teste de comportamento,
+e nenhum dos dois quebra um `import`, que é o que `tests/modulos-web.test.js`
+pega. Foram achados ao usar.
+
+### 14.11 O que não deu para verificar no navegador desta máquina
+
+- **A faixa abaixo de 900px.** A janela do Chrome está maximizada e não
+  encolheu abaixo disso. A verificação foi pelo CSSOM: as três regras da media
+  query existem e dizem `--espia: 0px`, `padding-inline: 0` e
+  `.cena--resumo { display: none }` — sem lâmina, sem espia e sem um segundo
+  eixo horizontal aninhado.
+- **A animação do deslizamento.** A máquina tem `prefers-reduced-motion:
+  reduce` ligado no sistema, então `--dur-slow` vale `0ms` e o trilho assenta
+  sem quadro intermediário. Isso é a prova de que a leitura da duração a cada
+  movimento funciona — o movimento reduzido passou a valer de graça para um
+  movimento que é JavaScript —, mas quer dizer que a curva de saída
+  (`1 - (1-p)³`) nunca foi vista rodando aqui.
+
+### 14.12 Foto de pessoa continua fora, agora com um lugar a mais pedindo por ela
+
+A lâmina do trilho mostra a foto da empresa e as iniciais coloridas da pessoa.
+Fica visivelmente assimétrico, e é de propósito: ver [14.7](#147-foto-de-pessoa-ficou-de-fora-e-e-so-escopo).
+A mecânica serve inteira, e o custo de estendê-la é uma coluna e quatro
+chamadas.

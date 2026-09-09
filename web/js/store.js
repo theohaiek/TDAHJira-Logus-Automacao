@@ -32,6 +32,14 @@ export const state = {
   // da planilha pela razão inversa — filtro compartilhado faz mexer num lugar
   // alterar o outro em silêncio.
   quadro: { pessoas: [], empresas: [] },
+  // A cena do trilho é guardada por identidade, nunca por posição: um pixel de
+  // scrollLeft não sobrevive ao mount() que destrói o subtree inteiro, e um
+  // índice muda de significado quando a fileira muda de composição.
+  //
+  // Vive na sessão, e não em prefs nem no localStorage — mesma decisão já
+  // tomada para filtroProjeto. Sair e voltar pelo item de navegação devolve a
+  // cena geral, porque a tela principal é a de todos os negócios.
+  carrossel: { atual: "geral" },
 };
 
 export function subscribe(fn) {
@@ -311,8 +319,8 @@ export function filtroQuadroAtivo() {
 // Vários valores da mesma dimensão somam (ou uma pessoa, ou a outra); as duas
 // dimensões se cruzam (daquelas pessoas E daquela empresa). É o que se espera
 // de quem já usou um quadro com avatares no cabeçalho.
-export function aplicarFiltroQuadro(tarefas) {
-  const { pessoas, empresas } = state.quadro;
+export function aplicarFiltroQuadro(tarefas, escopo = state.quadro) {
+  const { pessoas, empresas } = escopo;
   if (!pessoas.length && !empresas.length) return tarefas;
 
   return tarefas.filter((t) => {
@@ -322,10 +330,168 @@ export function aplicarFiltroQuadro(tarefas) {
   });
 }
 
-export function porStatus(status) {
-  return aplicarFiltroQuadro(visiveis())
+export function porStatus(status, escopo = state.quadro) {
+  return aplicarFiltroQuadro(visiveis(), escopo)
     .filter((t) => t.status === status)
     .sort((a, b) => a.position - b.position);
+}
+
+// --- O trilho de cenas do quadro -------------------------------------------
+//
+// O quadro deixou de ser um quadro só: é uma fileira de cenas, com as empresas
+// à esquerda, as pessoas à direita e "todos os negócios" sempre no centro.
+
+// Cinco por lado, mais a cena atual quando ela cair fora do teto, mais a cena
+// "mais" quando sobrar gente. Máximo absoluto de quinze cenas; o caso típico
+// deste time é três.
+const TETO_LADO = 5;
+
+// O escopo de uma cena. NUNCA devolve null: parâmetro padrão em JavaScript só
+// vale para undefined, então um null chegando aqui viraria TypeError na
+// desestruturação de aplicarFiltroQuadro e deixaria o quadro em tela branca.
+export function escopoDeCena(id) {
+  const [tipo, cru] = String(id || "geral").split(":");
+  const n = Number(cru);
+  if (tipo === "empresa" && n) return { pessoas: [], empresas: [n] };
+  if (tipo === "pessoa" && n) return { pessoas: [n], empresas: [] };
+  // A cena geral é a única que obedece ao cabeçalho de ícones. As laterais
+  // não leem nem escrevem state.quadro: ali o escopo já foi decidido pela
+  // posição na fileira.
+  return state.quadro;
+}
+
+// O id existe de verdade? Id que não resolve cai na cena geral, e é isso que
+// impede um #/quadro/empresa/999 de deixar a tela vazia sem explicação.
+export function cenaValida(id) {
+  const [tipo, cru] = String(id || "geral").split(":");
+  const n = Number(cru);
+  if (tipo === "empresa") return empresa(n) ? `empresa:${n}` : "geral";
+  if (tipo === "pessoa") {
+    const u = usuario(n);
+    return u && u.active !== false ? `pessoa:${n}` : "geral";
+  }
+  if (tipo === "mais" && (cru === "empresas" || cru === "pessoas")) return `mais:${cru}`;
+  return "geral";
+}
+
+// A fileira inteira, já ordenada, em uma passada sobre visiveis().
+//
+// A ordem exibida é alfabética. A contagem de tarefas abertas decide quem
+// entra, nunca onde fica: ordem por contagem se reorganizaria sozinha assim
+// que alguém concluísse uma tarefa, e a fileira mudaria debaixo de quem está
+// olhando para ela.
+export function escoposDoCarrossel() {
+  const atual = state.carrossel.atual;
+  const abertas = visiveis().filter((t) => t.status !== "done");
+
+  const porEmpresa = new Map();
+  const porPessoa = new Map();
+  for (const t of abertas) {
+    if (t.companyId) porEmpresa.set(t.companyId, (porEmpresa.get(t.companyId) || 0) + 1);
+    if (t.assigneeId) porPessoa.set(t.assigneeId, (porPessoa.get(t.assigneeId) || 0) + 1);
+  }
+
+  const empresas = garantirAtual(
+    [...porEmpresa].map(([id, n]) => daEmpresa(empresa(id), n)).filter(Boolean),
+    atual,
+    "empresa"
+  );
+  const pessoas = garantirAtual(
+    [...porPessoa].map(([id, n]) => daPessoa(usuario(id), n)).filter(Boolean),
+    atual,
+    "pessoa"
+  );
+
+  const esq = recortar(empresas, atual);
+  const dir = recortar(pessoas, atual);
+
+  const fileira = [];
+  if (esq.excedente.length) fileira.push(cenaMais("empresas", "esq", esq.excedente));
+  for (const d of esq.cenas) fileira.push({ ...d, lado: "esq" });
+  fileira.push({
+    id: "geral",
+    tipo: "geral",
+    nome: "Todos os negócios",
+    cor: null,
+    avatar: null,
+    ref: null,
+    abertas: abertas.length,
+    lado: "centro",
+  });
+  for (const d of dir.cenas) fileira.push({ ...d, lado: "dir" });
+  if (dir.excedente.length) fileira.push(cenaMais("pessoas", "dir", dir.excedente));
+
+  return fileira;
+}
+
+function daEmpresa(c, abertas) {
+  if (!c) return null;
+  return {
+    id: `empresa:${c.id}`,
+    tipo: "empresa",
+    nome: c.name,
+    cor: c.color,
+    avatar: c.avatar ?? null,
+    ref: c,
+    abertas,
+  };
+}
+
+function daPessoa(u, abertas) {
+  // Quem saiu do time não vira cena: a fileira é de trabalho em aberto, e
+  // conta desativada não tem trabalho em aberto que interesse a alguém.
+  if (!u || u.active === false) return null;
+  return {
+    id: `pessoa:${u.id}`,
+    tipo: "pessoa",
+    nome: u.name,
+    cor: u.color,
+    avatar: null,
+    ref: u,
+    abertas,
+  };
+}
+
+// A cena em que se está permanece na fileira mesmo com zero tarefas abertas,
+// mostrando as cinco colunas vazias. Sem isto, concluir a última tarefa de
+// alguém faria a cena sumir debaixo de quem estava em cima dela.
+function garantirAtual(lista, atual, tipo) {
+  if (!atual.startsWith(`${tipo}:`)) return lista;
+  if (lista.some((d) => d.id === atual)) return lista;
+
+  const id = Number(atual.slice(tipo.length + 1));
+  const d = tipo === "empresa" ? daEmpresa(empresa(id), 0) : daPessoa(usuario(id), 0);
+  return d ? [...lista, d] : lista;
+}
+
+function recortar(lista, atual) {
+  const porContagem = [...lista].sort(
+    (a, b) => b.abertas - a.abertas || a.nome.localeCompare(b.nome, "pt-BR")
+  );
+  const dentro = porContagem.slice(0, TETO_LADO);
+  const fora = porContagem.slice(TETO_LADO);
+  const forcada = fora.find((d) => d.id === atual) || null;
+
+  return {
+    cenas: (forcada ? [...dentro, forcada] : dentro).sort((a, b) =>
+      a.nome.localeCompare(b.nome, "pt-BR")
+    ),
+    excedente: fora.filter((d) => d !== forcada),
+  };
+}
+
+function cenaMais(qual, lado, itens) {
+  return {
+    id: `mais:${qual}`,
+    tipo: "mais",
+    nome: qual === "empresas" ? "Mais empresas" : "Mais pessoas",
+    cor: null,
+    avatar: null,
+    ref: null,
+    abertas: itens.length,
+    lado,
+    itens: [...itens].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")),
+  };
 }
 
 export function limiteWip() {

@@ -13,9 +13,16 @@ import {
   entrada,
   esperando,
   salvarPrefs,
+  cenaValida,
 } from "./store.js";
 import { viewHoje } from "./views/hoje.js";
-import { viewQuadro } from "./views/quadro.js";
+import {
+  viewQuadro,
+  irParaCena,
+  voltarAoCentro,
+  andarCena,
+  carrosselOcupado,
+} from "./views/quadro.js";
 import { viewPlanilha } from "./views/planilha.js";
 import { viewFluxo } from "./views/fluxo.js";
 import { fecharTicket, ticketAberto, rerenderTicket } from "./ticket.js";
@@ -125,6 +132,20 @@ function rota() {
   }
 
   state.view = alvo === "hoje" ? "quadro" : alvo;
+
+  // Os segmentos 2 e 3 só valem para o quadro, e é onde mora a cena do trilho.
+  // Antes desta versão, .split("/")[0] descartava em silêncio tudo depois da
+  // primeira barra: escrever a cena no hash *parecia* funcionar — a barra de
+  // endereços mudava — e não restaurava nada ao recarregar.
+  if (state.view === "quadro") {
+    const cena = partes[1] ? `${partes[1]}:${partes[2] || ""}` : "geral";
+    const valida = cenaValida(cena);
+    state.carrossel.atual = valida;
+    // Id que não resolve cai no geral e corrige o endereço, em vez de deixar
+    // a barra apontando para uma cena que não existe.
+    if (valida === "geral" && partes[1]) history.replaceState(null, "", "#/quadro");
+  }
+
   desenhar();
   $("#view")?.scrollTo({ top: 0 });
 }
@@ -162,7 +183,10 @@ function editandoNaView() {
 function desenharAgora() {
   if (!state.carregado) return;
 
-  if (editandoNaView()) {
+  // O mesmo mecanismo que protege o campo em foco protege o gesto do trilho:
+  // remontar #view no meio de um arrasto destrói o elemento que está sendo
+  // arrastado. Estender o represamento que já existe, e não criar um segundo.
+  if (editandoNaView() || carrosselOcupado()) {
     redesenhoAdiado = true;
     return;
   }
@@ -293,7 +317,11 @@ function linhaEmpresa(c, abertas) {
         title: `Ver o quadro de ${c.name}`,
         onClick: () => {
           $("#rail").classList.remove("is-open");
-          irPara("quadro");
+          // Leva à cena dela no trilho, e não ao filtro do cabeçalho: são
+          // dois mecanismos para a mesma pergunta, e o trilho é o que a
+          // barra lateral consegue endereçar sem ambiguidade.
+          if (state.view !== "quadro") irPara("quadro");
+          irParaCena(`empresa:${c.id}`);
         },
       },
       fotoEmpresa(c, 56),
@@ -406,6 +434,11 @@ function ligarAtalhos() {
       if (popupAberto()) return;
       if (focoAtivo()) return fecharFoco(false);
       if (ticketAberto()) return fecharTicket();
+      // Última da cadeia: sem nada aberto por cima, Escape no quadro devolve
+      // a cena central. É a saída de "me perdi numa lateral do trilho".
+      if (state.view === "quadro" && state.carrossel.atual !== "geral") {
+        return voltarAoCentro();
+      }
       return;
     }
 
@@ -439,6 +472,21 @@ function ligarAtalhos() {
         if (t) abrirFoco(t.id);
         break;
       }
+      // Colchetes, e não as setas: ← e → continuam sendo exclusivamente do
+      // cartão focado, que é como se move uma tarefa de coluna sem mouse.
+      // No teclado ABNT2 os dois são tecla direta, ao lado do Enter.
+      case "[":
+        if (state.view === "quadro") {
+          e.preventDefault();
+          andarCena(-1);
+        }
+        break;
+      case "]":
+        if (state.view === "quadro") {
+          e.preventDefault();
+          andarCena(1);
+        }
+        break;
       case "?":
         mostrarAtalhos();
         break;
@@ -448,7 +496,7 @@ function ligarAtalhos() {
 
 function mostrarAtalhos() {
   toast(
-    "n nova · / buscar · f focar · 1–4 telas · Esc fecha · Ctrl+K comandos",
+    "n nova · / buscar · f focar · 1–4 telas · [ ] cenas do quadro · Esc fecha · Ctrl+K comandos",
     { ms: 9000 }
   );
 }

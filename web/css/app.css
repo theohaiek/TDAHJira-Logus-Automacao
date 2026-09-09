@@ -1954,3 +1954,262 @@ input[type="color"] {
   border-radius: var(--radius-sm);
   cursor: pointer;
 }
+
+
+/* ==========================================================================
+   O trilho de cenas do quadro
+   --------------------------------------------------------------------------
+   Uma fileira horizontal: empresas à esquerda, pessoas à direita, todos os
+   negócios sempre no centro. Só a cena central monta um quadro; as vizinhas
+   são lâminas de uma centena de pixels coladas na borda interna, com a marca
+   de quem elas são e o nome como marca-d'água.
+
+   A cena vizinha não está desligada: está ao fundo. Isso é dito por
+   opacidade, e não por filter — filter cria bloco de contenção, e o modo
+   calmo já aplica saturate(0.45) no body. Opacidade também é a única
+   propriedade barata de mexer a cada quadro durante um arrasto.
+
+   Nada aqui usa o acento, gradiente, sombra colorida ou duração literal: o
+   acento é de ação e de foco, e toda duração vem de var(--dur*), para que
+   movimento reduzido e modo calmo continuem valendo de graça.
+   ========================================================================== */
+.trilho__barra {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-3);
+  flex-wrap: wrap;
+}
+.trilho__rotulo {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--text-3);
+}
+.trilho__pontos {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+/* O ponto usa a cor da entidade, e --text-2 para a cena geral. Nunca o
+   acento: a cena ativa já se identifica por estar sem véu e centralizada. */
+.trilho__ponto {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  background: none;
+  opacity: 0.45;
+  transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.trilho__ponto:hover,
+.trilho__ponto:focus-visible {
+  opacity: 1;
+}
+.trilho__ponto.is-on {
+  opacity: 1;
+  background: currentColor;
+  transform: scale(1.3);
+}
+
+.trilho {
+  --espia: 104px;
+  display: flex;
+  align-items: stretch;
+  gap: var(--sp-3);
+  margin-inline: calc(-1 * var(--sp-5));
+  padding-inline: var(--espia);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  cursor: grab;
+}
+.trilho.is-arrastando {
+  cursor: grabbing;
+  scroll-snap-type: none;
+  user-select: none;
+}
+/* O motor de snap briga com escrita direta de scrollLeft e puxa de volta. */
+.trilho.is-assentando {
+  scroll-snap-type: none;
+}
+
+.cena {
+  flex: 0 0 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
+}
+
+.cena--resumo {
+  display: grid;
+  grid-template-columns: var(--espia) 1fr var(--espia);
+  align-items: center;
+  background: color-mix(in srgb, var(--surface-1) 55%, transparent);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  opacity: var(--cena-perto);
+  cursor: pointer;
+  transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.cena--resumo[data-dist="2"] {
+  opacity: var(--cena-longe);
+}
+.cena--esq {
+  border-inline-end-width: 3px;
+  border-inline-end-style: solid;
+}
+.cena--dir {
+  border-inline-start-width: 3px;
+  border-inline-start-style: solid;
+}
+.cena--resumo:hover,
+.cena--resumo:focus-visible,
+.cena--resumo.is-atual {
+  opacity: 1;
+}
+.trilho.is-arrastando .cena--resumo {
+  opacity: 0.85;
+}
+
+/* A marca fica na coluna que sobra visível: a da direita na lâmina da
+   esquerda, a da esquerda na lâmina da direita. */
+.cena__marca {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.cena--esq .cena__marca {
+  grid-column: 3;
+}
+.cena--dir .cena__marca {
+  grid-column: 1;
+}
+.cena__conta {
+  font-size: var(--text-xs);
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.cena__glifo {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  color: var(--text-3);
+}
+/* O nome só entra em cena quando a lâmina se aproxima do centro. Fora disso
+   ele está fora da janela, e é de propósito. */
+.cena__agua {
+  grid-column: 2;
+  justify-self: center;
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-brand);
+  color: var(--text-faint);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+/* Nas cenas laterais o cabeçalho de ícones vira etiqueta: ali o escopo já foi
+   decidido pela posição na fileira, e clicar de novo não teria o que fazer. */
+.cena__fixo {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-4);
+  font-size: var(--text-sm);
+}
+.cena__fixonome {
+  color: var(--text-1);
+  font-weight: 600;
+}
+.cena__fixoconta {
+  color: var(--text-faint);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+.cena__vazia {
+  padding: var(--sp-3) 2px;
+  font-size: var(--text-xs);
+  color: var(--text-faint);
+  line-height: 1.4;
+}
+
+.cena__mais {
+  padding: var(--sp-4) 2px;
+}
+.cena__maistitulo {
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-brand);
+  color: var(--text-2);
+}
+.cena__maisdica {
+  font-size: var(--text-xs);
+  color: var(--text-faint);
+  margin: 4px 0 var(--sp-4);
+  line-height: 1.4;
+}
+.cena__maislista {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-4);
+}
+.cena__maisitem {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: var(--text-sm);
+  text-align: left;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.cena__maisitem:hover {
+  background: var(--surface-3);
+  border-color: var(--border);
+  color: var(--text-1);
+}
+.cena__maisconta {
+  margin-left: auto;
+  font-size: var(--text-xs);
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 1200px) {
+  .trilho {
+    --espia: 56px;
+  }
+}
+
+/* Abaixo de 900px as lâminas somem e o trilho degrada para abas: os pontos
+   navegam e a cena ocupa a largura toda. Nunca dois eixos horizontais
+   aninhados — o .board já rola sozinho a 82vw nesta faixa. */
+@media (max-width: 900px) {
+  .trilho {
+    --espia: 0px;
+    margin-inline: calc(-1 * var(--sp-4));
+    padding-inline: 0;
+  }
+  .cena--resumo {
+    display: none;
+  }
+}
