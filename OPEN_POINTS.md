@@ -889,3 +889,59 @@ a do centro. Com o teto de quinze cenas e uma base pequena, é irrelevante — m
 é o primeiro lugar a olhar se o quadro começar a engasgar em base grande. A
 saída seria montar o quadro só nas cenas com distância até um, e moldura vazia
 nas demais; o estalo voltaria, mas longe do centro, onde não se vê.
+
+### 15.6 O trilho ganhou peso, e a preferência de movimento do sistema
+
+O deslize entre cenas estava seco de duas formas.
+
+**A primeira era a curva.** `1-(1-p)³` só desacelera, e movimento que só
+desacelera parece parar contra uma parede. A curva passou a ir um triz além do
+destino e voltar — chega a 1,054 do caminho por volta de 70% do tempo e assenta
+em 1,000 exato no último quadro. Sem o retorno, um movimento matematicamente
+correto ainda assim parece um estalo.
+
+**A segunda era a duração**, e essa é a decisão que vale registrar.
+`prefers-reduced-motion: reduce` está ligado na máquina em que isto foi testado
+— e provavelmente em muitas outras, porque o Windows liga junto com "reduzir
+animações" por desempenho, sem que ninguém saiba. Com a media query zerando
+`--dur-slow`, o trilho trocava de cena sem quadro intermediário nenhum: a tela
+saltava de uma visualização para outra sem dizer que tinha andado.
+
+`--dur-trilho` ficou **fora** da media query, e é o único movimento do produto
+que fica. O critério: todo o resto que se move aqui é enfeite — o pulso de
+conclusão, o painel do ticket deslizando, o realce que aparece e some. O
+deslize entre cenas não é. Ele é a resposta a um gesto que a pessoa está
+fazendo com a mão naquele instante, e quem chega numa cena sem ver o caminho
+perde a noção de onde estava.
+
+Quem quiser zerar tem onde: o **modo calmo**, no botão da barra de cima, zera o
+deslize junto com todo o resto. É o controle de movimento deste produto, é
+explícito, e está a um clique.
+
+**Foi tentado e desfeito:** ligar o modo calmo sozinho quando o sistema pede
+movimento reduzido. Funciona, mas o modo calmo dessatura a interface inteira em
+55% — quem só queria menos animação abriria o aplicativo com todas as cores
+lavadas, sem ter pedido isso. O remédio era maior que a doença.
+
+### 15.7 O arremesso atirava a pilha para longe
+
+Um movimento curto e rápido — o mais comum de todos — dava velocidade
+instantânea altíssima, porque o intervalo entre dois eventos de ponteiro é de
+poucos milissegundos. A pilha voava para o fim da fileira como se alguém
+tivesse dado um empurrão que ninguém deu.
+
+Duas correções: a velocidade passou a ser média móvel (três quartos do valor
+anterior, um quarto do novo), o que absorve o pico sem atrasar o
+reconhecimento de um movimento de verdade; e o arremesso avança **no máximo uma
+cena** além de onde a mão parou.
+
+### 15.8 O recorte da foto de empresa mudou de regra
+
+Era corte central quadrado, herdado de foto de rosto. Logotipo de empresa
+costuma ser bem mais largo do que alto, com o símbolo à esquerda e o nome
+escrito à direita — e o corte central pegava o meio do lettering, que a 40
+pixels não diz nada.
+
+Agora: razão maior que 1,8 corta o quadrado do **começo**; abaixo disso segue
+central. E entra fundo branco, porque logotipo costuma vir com transparência, e
+transparência sobre o tema escuro apaga o desenho.

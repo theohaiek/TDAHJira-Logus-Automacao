@@ -440,7 +440,12 @@ export function escoposDoCarrossel() {
 
   const fileira = [];
   if (esq.excedente.length) fileira.push(cenaMais("empresas", "esq", esq.excedente));
-  for (const d of esq.cenas) fileira.push({ ...d, lado: "esq" });
+  // As empresas entram invertidas para que a primeira delas fique colada no
+  // centro. Lendo do meio para fora — que é como se navega — encontra-se a
+  // primeira, depois a segunda, depois a terceira. Em ordem direta, a que
+  // encosta no centro seria a última do alfabeto, que não é a que alguém
+  // espera achar a um passo de distância.
+  for (const d of [...esq.cenas].reverse()) fileira.push({ ...d, lado: "esq" });
   fileira.push({
     id: "geral",
     tipo: "geral",

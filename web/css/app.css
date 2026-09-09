@@ -2067,7 +2067,7 @@ input[type="color"] {
   transform-origin: center center;
   /* Só transform e opacity, e nunca `all`: uma mudança de cor entrando na
      mesma transição derruba o quadro para o processador. */
-  transition: transform var(--dur-slow) var(--ease), opacity var(--dur-slow) var(--ease),
+  transition: transform var(--dur-trilho) var(--ease), opacity var(--dur-trilho) var(--ease),
     box-shadow var(--dur) var(--ease);
 }
 /* Durante o arrasto o transform vem de JavaScript a cada quadro: transição
@@ -2217,22 +2217,62 @@ input[type="color"] {
   opacity: 0;
 }
 
-.cena__fixo {
+/* O título da visualização, colado no alto enquanto o quadro rola por baixo.
+   O fundo esmaecido é o que o separa dos cartões que passam por trás — sem
+   ele, o título se mistura ao conteúdo assim que a rolagem começa. */
+.cena__titulo {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  margin: calc(-1 * var(--sp-2)) calc(-1 * var(--sp-2)) var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: color-mix(in srgb, var(--surface-1) 88%, transparent);
+  border-bottom: 1px solid var(--border-soft);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+}
+.cena__tituloalvo {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  margin-bottom: var(--sp-3);
-  padding-inline: var(--sp-2);
-  font-size: var(--text-sm);
+  min-width: 0;
 }
-.cena__fixonome {
+.cena__titulonome {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 400;
+  letter-spacing: 0.02em;
   color: var(--text-1);
-  font-weight: 600;
+  white-space: nowrap;
 }
-.cena__fixoconta {
-  color: var(--text-faint);
+/* A frase que diz o que aquela visualização é: na geral, que o filtro se
+   escolhe ali; nas outras, que ele já veio pronto pela posição na fileira. */
+.cena__titulomarca {
   font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--text-faint);
+  white-space: nowrap;
   font-variant-numeric: tabular-nums;
+}
+.cena__tituloglifo {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  color: var(--text-3);
+  font-size: var(--text-xs);
+}
+/* Na cena geral o cabeçalho de ícones entra na mesma faixa do título: é o
+   único lugar do trilho em que o filtro se escolhe. */
+.cena__titulo--geral .filtros {
+  margin-bottom: 0;
+  margin-left: auto;
 }
 .cena__vazia {
   padding: var(--sp-3) 2px;

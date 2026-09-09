@@ -605,25 +605,38 @@ async function reduzirFoto(arquivo) {
   const bitmap = await createImageBitmap(arquivo).catch(() => null);
   if (!bitmap) throw new Error("Não consegui ler esta imagem. Tente png, jpeg ou webp.");
 
-  // Corte central quadrado: a marca costuma estar no meio, e a foto vai
-  // aparecer pequena e redonda em quatro lugares diferentes.
   const lado = Math.min(bitmap.width, bitmap.height);
+
+  // Onde cortar o quadrado. Logotipo de empresa costuma ser bem mais largo do
+  // que alto, com o símbolo à esquerda e o nome escrito à direita; o corte
+  // central pegaria o meio do lettering, que a 40 pixels não diz nada. Numa
+  // imagem alongada, o começo é a aposta certa. Numa quase quadrada — uma foto,
+  // um selo —, o centro continua sendo.
+  const alongada = bitmap.width / bitmap.height > 1.8;
+  const recorteX = alongada ? 0 : (bitmap.width - lado) / 2;
+  const recorteY = (bitmap.height - lado) / 2;
+
   const tela = document.createElement("canvas");
   tela.width = FOTO_LADO;
   tela.height = FOTO_LADO;
-  tela
-    .getContext("2d")
-    .drawImage(
-      bitmap,
-      (bitmap.width - lado) / 2,
-      (bitmap.height - lado) / 2,
-      lado,
-      lado,
-      0,
-      0,
-      FOTO_LADO,
-      FOTO_LADO
-    );
+  const ctx = tela.getContext("2d");
+  // Logotipo costuma vir com fundo transparente, e transparência sobre o tema
+  // escuro apaga o desenho. O branco por baixo é o que a marca espera ter.
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, FOTO_LADO, FOTO_LADO);
+  // Uma folga em volta, para o símbolo não encostar na borda do círculo.
+  const folga = 6;
+  ctx.drawImage(
+    bitmap,
+    recorteX,
+    recorteY,
+    lado,
+    lado,
+    folga,
+    folga,
+    FOTO_LADO - folga * 2,
+    FOTO_LADO - folga * 2
+  );
   bitmap.close?.();
 
   // Navegador que não conhece webp devolve PNG em silêncio, sem erro nenhum —
@@ -800,6 +813,7 @@ async function ajustarWip() {
 function aplicarTemaSalvo() {
   const tema = localStorage.getItem("tdah-tema");
   if (tema) document.documentElement.dataset.theme = tema;
+
   const calmo = localStorage.getItem("tdah-calmo");
   if (calmo === "1") document.documentElement.dataset.calm = "1";
 }

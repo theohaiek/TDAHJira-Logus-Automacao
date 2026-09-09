@@ -167,13 +167,9 @@ function cena(d, atual) {
 
   const corpo =
     d.tipo === "mais"
-      ? cenaExcedente(d)
+      ? frag(tituloDaCena(d), cenaExcedente(d))
       : frag(
-          // O cabeçalho de ícones só existe na cena geral: nas laterais o
-          // escopo já foi decidido pela posição na fileira, e dois controles
-          // para a mesma pergunta na mesma tela é a ambiguidade que este
-          // produto evita.
-          d.tipo === "geral" ? filtros() : rotuloFixo(d),
+          tituloDaCena(d),
           h(
             "div",
             { class: "board" },
@@ -259,18 +255,46 @@ function entrarNaCena(id) {
   irParaCena(id);
 }
 
-// Nas cenas laterais o cabeçalho vira etiqueta, sem clique.
-function rotuloFixo(d) {
+// O título da visualização, colado no alto dela e sobre um fundo esmaecido.
+//
+// Toda cena tem um: sem ele, o que se vê são cinco colunas idênticas em cada
+// painel e nada dizendo de quem elas são. Fica grudado no topo enquanto o
+// quadro rola por baixo, porque a pergunta "de quem é este quadro" precisa ter
+// resposta em qualquer ponto da rolagem.
+//
+// O cabeçalho de ícones aparece só na cena geral, e é a única diferença de
+// comportamento entre ela e as outras: as laterais já são um filtro aplicado
+// pela própria posição na fileira, e oferecer um segundo filtro ali seria dar
+// dois controles para a mesma pergunta na mesma tela.
+function tituloDaCena(d) {
+  const marca =
+    d.tipo === "empresa"
+      ? fotoEmpresa(d.ref, 22)
+      : d.tipo === "pessoa"
+        ? avatar(d.ref, "avatar--sm")
+        : h("span", { class: "cena__tituloglifo", text: d.tipo === "mais" ? "…" : "▦" });
+
   return h(
     "div",
-    { class: "cena__fixo" },
-    d.tipo === "empresa" ? fotoEmpresa(d.ref, 20) : avatar(d.ref, "avatar--sm"),
-    h("span", { class: "cena__fixonome", text: d.nome }),
-    h("span", {
-      class: "cena__fixoconta",
-      text: d.abertas ? `${d.abertas} em aberto` : "nada aberto",
-    })
+    { class: `cena__titulo${d.tipo === "geral" ? " cena__titulo--geral" : ""}` },
+    h(
+      "div",
+      { class: "cena__tituloalvo" },
+      marca,
+      h("span", { class: "cena__titulonome", text: d.nome }),
+      h("span", { class: "cena__titulomarca", text: rotuloDoEscopo(d) })
+    ),
+    d.tipo === "geral" ? filtros() : null
   );
+}
+
+// A frase curta que diz o que aquela visualização é. Na geral, que ela é a
+// única em que o filtro se escolhe; nas outras, que o filtro já veio pronto.
+function rotuloDoEscopo(d) {
+  if (d.tipo === "geral") return "o filtro se escolhe aqui";
+  if (d.tipo === "mais") return `${d.abertas} fora do trilho`;
+  const quem = d.tipo === "empresa" ? "empresa" : "responsável";
+  return d.abertas ? `${quem} · ${d.abertas} em aberto` : `${quem} · nada aberto`;
 }
 
 function cenaExcedente(d) {
@@ -754,13 +778,14 @@ function aoMover(e) {
   if (!passo) return;
   const cru = gesto.posicao0 - dx / passo;
 
-  // Velocidade instantânea, para o arremesso: um empurrão curto e rápido troca
-  // de cena mesmo sem chegar à metade do caminho. Sem isto, trocar de cena
-  // exige arrastar a distância inteira toda vez, e é isso que faz um trilho
-  // parecer emperrado.
+  // Velocidade média, e não instantânea: dois eventos de ponteiro separados por
+  // um milissegundo dão uma velocidade absurda, e era ela que atirava a pilha
+  // para longe. A média de três quartos com um quarto absorve o pico sem
+  // atrasar o reconhecimento de um movimento de verdade.
   const agora = performance.now();
-  const dt = agora - (gesto.instante || agora);
-  if (dt > 0) gesto.velocidade = (cru - posicao) / dt;
+  const dt = Math.max(8, agora - (gesto.instante || agora - 16));
+  const bruta = (cru - posicao) / dt;
+  gesto.velocidade = (gesto.velocidade || 0) * 0.75 + bruta * 0.25;
   gesto.instante = agora;
   // Passar do fim resiste em vez de travar: o leque estica um pouco e volta.
   posicao = amortecer(cru);
@@ -821,17 +846,25 @@ function maisProxima() {
   return Math.max(0, Math.min(cenasEl.length - 1, Math.round(posicao)));
 }
 
-// Para onde a pilha assenta ao soltar. Perto do meio do caminho, quem decide é
-// a direção do arremesso; parado, é o vizinho mais próximo.
+// Para onde a pilha assenta ao soltar. Parada, vai para o vizinho mais
+// próximo; com impulso, completa a cena na direção do movimento.
+//
+// O impulso avança no máximo UMA cena além de onde a mão parou. Sem esse
+// limite, um movimento curto e rápido — que dá uma velocidade instantânea
+// altíssima, porque o intervalo entre dois eventos de ponteiro é de poucos
+// milissegundos — atirava a pilha para o fim da fileira, como se alguém
+// tivesse dado um empurrão que ninguém deu.
 function destinoAoSoltar(velocidade) {
   const teto = cenasEl.length - 1;
-  const arremesso = Math.abs(velocidade || 0) > 0.0016;
-  const alvo = arremesso
+  const base = Math.round(posicao);
+  const forte = Math.abs(velocidade || 0) > 0.0045;
+  const alvo = forte
     ? velocidade > 0
       ? Math.ceil(posicao)
       : Math.floor(posicao)
-    : Math.round(posicao);
-  return Math.max(0, Math.min(teto, alvo));
+    : base;
+  const umaSo = Math.max(base - 1, Math.min(base + 1, alvo));
+  return Math.max(0, Math.min(teto, umaSo));
 }
 
 // Durante o arrasto, a cena que chegou ao centro é marcada no nó vivo. É o que
@@ -859,18 +892,31 @@ function assentar(velocidade = 0) {
   deslizarAte(i, () => concluirNavegacao(ids[i]));
 }
 
-// A duração é lida a cada movimento, nunca cacheada.
+// A duração vem do CSS e é lida a cada movimento, nunca cacheada: é assim que
+// o modo calmo, ligado no meio da sessão, passa a valer sem recarregar.
 //
-// prefers-reduced-motion já zera --dur-slow em tokens.css, então a media query
-// passa a valer de graça para um movimento que é JavaScript. E o modo calmo
-// pode ser ligado no meio da sessão. Nunca crave milissegundos aqui: foi assim
-// que .celebrate e .focus__fill ficaram de fora do movimento reduzido.
+// O trilho tem token próprio, --dur-trilho, e não usa --dur-slow. Ele não é
+// enfeite: é o deslocamento que responde a um gesto, e responder rápido demais
+// dá a sensação de a tela ter pulado em vez de andado. O modo calmo zera; o
+// movimento reduzido do sistema encurta e tira o balanço, que é a parte que
+// incomoda quem pediu menos movimento. Nunca crave milissegundos aqui.
 function duracaoDoMovimento() {
   if (document.documentElement.dataset.calm === "1") return 0;
   const v = parseFloat(
-    getComputedStyle(document.documentElement).getPropertyValue("--dur-slow")
+    getComputedStyle(document.documentElement).getPropertyValue("--dur-trilho")
   );
-  return Number.isFinite(v) ? v : 260;
+  return Number.isFinite(v) ? v : 420;
+}
+
+// Vai um triz além do destino e volta. É o peso que falta a uma curva que só
+// desacelera: sem o retorno, a pilha parece parar contra uma parede, e é isso
+// que faz um movimento correto ainda assim parecer seco.
+//
+// Quem quer menos movimento liga o modo calmo, e ali a duração é zero — este
+// código nem chega a ser chamado.
+function curva(p) {
+  const forca = 1.28;
+  return 1 + (forca + 1) * (p - 1) ** 3 + forca * (p - 1) ** 2;
 }
 
 function deslizarAte(destino, aoChegar) {
@@ -894,13 +940,18 @@ function deslizarAte(destino, aoChegar) {
       return;
     }
     const p = Math.min(1, (agora - inicioEm) / ms);
-    posicao = inicio + delta * (1 - (1 - p) ** 3);
+    posicao = inicio + delta * curva(p);
     aplicarLayout();
     ocupadoDesde = Date.now();
     if (p < 1) {
       tween = requestAnimationFrame(passo);
       return;
     }
+    // O último quadro assenta no valor exato: a curva passa do destino no
+    // meio do caminho, e parar no ponto onde ela estava deixaria a pilha
+    // fora de lugar por uma fração de cena.
+    posicao = destino;
+    aplicarLayout();
     tween = 0;
     aoChegar?.();
   };
