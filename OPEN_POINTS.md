@@ -945,3 +945,54 @@ pixels não diz nada.
 Agora: razão maior que 1,8 corta o quadrado do **começo**; abaixo disso segue
 central. E entra fundo branco, porque logotipo costuma vir com transparência, e
 transparência sobre o tema escuro apaga o desenho.
+
+### 15.9 O assentamento era seco porque JavaScript e CSS animavam ao mesmo tempo
+
+A curva com balanço já estava certa e o movimento continuava chegando seco. A
+causa não era a curva: era o tween escrever o transform a cada quadro **com a
+transição do CSS ligada**. Cada escrita virava uma transição nova, o navegador
+reinterpolava do meio do caminho, e o resultado saía atrasado e sem o balanço,
+por mais correta que fosse a matemática.
+
+Agora o assentamento é da transição do CSS: a posição final é escrita uma vez e
+o navegador interpola sozinho, na placa de vídeo, com `--ease-trilho`
+(`cubic-bezier(0.32, 1.42, 0.52, 1)`). Medido no navegador, o valor computado
+passa do destino e volta — o balanço aparece de fato.
+
+O JavaScript continua escrevendo quadro a quadro **durante o arrasto**, e ali a
+transição fica desligada: no arrasto o painel tem de acompanhar a mão sem
+atraso nenhum.
+
+Dois detalhes que fazem isso funcionar:
+
+- **Um reflow entre os dois estados.** Remover a classe de arrasto e escrever a
+  posição no mesmo quadro conta como um estado só para o navegador, e não há
+  transição para animar. `void trilhoEl.offsetHeight` separa os dois.
+- **A classe `is-mudo`.** Reposicionamento por remonte e por mudança de tamanho
+  da janela não são movimento que alguém pediu: vão instantâneos, com a
+  transição desligada por um quadro.
+
+### 15.10 A cena central tem acento aceso o tempo todo
+
+É a única exceção à regra de que o acento é momentâneo (15.3), e ela se
+sustenta pelo mesmo motivo que a regra: **existe exatamente uma cena central na
+tela**. O reflexo não disputa com nada — ele diz onde é o aqui, que é o que o
+acento sempre disse.
+
+São três camadas: a borda com 70% de acento, um fio de um pixel por fora com
+55%, e dois halos vazando para fora, com 26% e 14%. Sem o fio, a borda só fica
+mais clara; sem os halos, não há reflexo, só contorno.
+
+### 15.11 A Clínica Leger não pôde ser criada daqui
+
+Ela é dado de produção, e criar dado de produção exige a sessão de quem
+administra — que eu não tenho, e não devo ter. As credenciais do Turso ficam no
+painel do banco, e o `ACESSOS.local.md` só diz onde elas estão.
+
+Pelo código também não: o `AGENTS.md` proíbe versionar nome real de cliente, e
+este repositório é público.
+
+A saída foi `CRIAR-LEGER.local.md`, fora do versionamento, com um bloco pronto
+para colar no console do navegador já autenticado. Ele faz o mesmo que o botão
+de foto faria — inclusive o recorte, que passou a pegar o símbolo à esquerda
+quando a imagem é bem mais larga que alta (15.8).

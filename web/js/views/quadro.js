@@ -693,7 +693,12 @@ function posicionarDepoisDoMonte(el, id) {
     // anterior foi destruído, e um índice sozinho muda de significado quando a
     // fileira muda de composição.
     posicao = Math.max(0, ids.indexOf(id));
+    // Sem animação: isto é reposicionamento por remonte, não movimento que
+    // alguém pediu. A classe sai no quadro seguinte, quando a posição já está
+    // escrita e não há o que interpolar.
+    el.classList.add("is-mudo");
     aplicarLayout();
+    requestAnimationFrame(() => el.classList.remove("is-mudo"));
     observarTamanho(el);
   });
 }
@@ -715,7 +720,9 @@ function observarTamanho(el) {
   // numa largura que já não existe.
   observador = new ResizeObserver(() => {
     if (!trilhoEl?.isConnected || gesto?.arrastando) return;
+    trilhoEl.classList.add("is-mudo");
     aplicarLayout();
+    requestAnimationFrame(() => trilhoEl?.classList.remove("is-mudo"));
   });
   observador.observe(el);
 }
@@ -908,59 +915,51 @@ function duracaoDoMovimento() {
   return Number.isFinite(v) ? v : 420;
 }
 
-// Vai um triz além do destino e volta. É o peso que falta a uma curva que só
-// desacelera: sem o retorno, a pilha parece parar contra uma parede, e é isso
-// que faz um movimento correto ainda assim parecer seco.
+// O assentamento é feito pela transição do CSS, e não quadro a quadro por
+// JavaScript.
 //
-// Quem quer menos movimento liga o modo calmo, e ali a duração é zero — este
-// código nem chega a ser chamado.
-function curva(p) {
-  const forca = 1.28;
-  return 1 + (forca + 1) * (p - 1) ** 3 + forca * (p - 1) ** 2;
-}
-
+// Escrever o transform a cada quadro COM a transição ligada é o pior dos dois
+// mundos: cada escrita vira uma transição nova, o navegador reinterpola do
+// meio do caminho e o resultado chega seco e atrasado, por mais correta que
+// seja a curva. Aqui a posição final é escrita uma vez e o navegador interpola
+// sozinho, na placa de vídeo, com a curva de --ease-trilho — que passa um triz
+// além do destino e volta, dando o peso que uma curva de só desacelerar não
+// tem.
+//
+// Durante o arrasto é o contrário: a transição fica desligada e o transform
+// vem de JavaScript, porque ali o painel tem de acompanhar a mão sem atraso.
 function deslizarAte(destino, aoChegar) {
   cancelarTween();
 
   const ms = duracaoDoMovimento();
-  const inicio = posicao;
-  const delta = destino - inicio;
-
-  if (!ms || Math.abs(delta) < 0.001) {
+  if (!ms || !trilhoEl?.isConnected) {
     posicao = destino;
     aplicarLayout();
     aoChegar?.();
     return;
   }
 
-  const inicioEm = performance.now();
-  const passo = (agora) => {
-    if (!trilhoEl?.isConnected) {
-      tween = 0;
-      return;
-    }
-    const p = Math.min(1, (agora - inicioEm) / ms);
-    posicao = inicio + delta * curva(p);
-    aplicarLayout();
-    ocupadoDesde = Date.now();
-    if (p < 1) {
-      tween = requestAnimationFrame(passo);
-      return;
-    }
-    // O último quadro assenta no valor exato: a curva passa do destino no
-    // meio do caminho, e parar no ponto onde ela estava deixaria a pilha
-    // fora de lugar por uma fração de cena.
-    posicao = destino;
-    aplicarLayout();
+  // A classe de arrasto já saiu; este reflow é o que separa os dois estados
+  // para o navegador. Sem ele, remover a classe e escrever a posição no mesmo
+  // quadro conta como um estado só, e não há transição nenhuma para animar.
+  void trilhoEl.offsetHeight;
+
+  posicao = destino;
+  aplicarLayout();
+  ocupadoDesde = Date.now();
+
+  // Uma folga sobre a duração: o fim da transição não precisa ser ao
+  // milissegundo, e concluir antes dela deixaria o mount() cortar o movimento
+  // pela metade.
+  tween = setTimeout(() => {
     tween = 0;
     aoChegar?.();
-  };
-  tween = requestAnimationFrame(passo);
+  }, ms + 40);
 }
 
 function cancelarTween() {
   if (!tween) return;
-  cancelAnimationFrame(tween);
+  clearTimeout(tween);
   tween = 0;
 }
 
