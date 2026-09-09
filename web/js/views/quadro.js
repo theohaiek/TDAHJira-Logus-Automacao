@@ -263,10 +263,14 @@ function entrarNaCena(id) {
 // quadro rola por baixo, porque a pergunta "de quem é este quadro" precisa ter
 // resposta em qualquer ponto da rolagem.
 //
-// O cabeçalho de ícones aparece só na cena geral, e é a única diferença de
-// comportamento entre ela e as outras: as laterais já são um filtro aplicado
-// pela própria posição na fileira, e oferecer um segundo filtro ali seria dar
-// dois controles para a mesma pergunta na mesma tela.
+// O cabeçalho de ícones aparece em toda cena que mostra um quadro, mas só com
+// a dimensão que ainda está em aberto: na cena de uma empresa escolhem-se as
+// pessoas, na de uma pessoa escolhem-se as empresas, e na geral as duas.
+//
+// Oferecer o filtro de empresa dentro da cena de uma empresa seria dar dois
+// controles para a mesma pergunta na mesma tela — que é o que se evita. Mas a
+// outra metade da pergunta continua aberta, e recusá-la obrigava a voltar ao
+// centro só para refinar.
 function tituloDaCena(d) {
   const marca =
     d.tipo === "empresa"
@@ -285,17 +289,18 @@ function tituloDaCena(d) {
       h("span", { class: "cena__titulonome", text: d.nome }),
       h("span", { class: "cena__titulomarca", text: rotuloDoEscopo(d) })
     ),
-    d.tipo === "geral" ? filtros() : null
+    d.tipo === "mais" ? null : filtros(d)
   );
 }
 
-// A frase curta que diz o que aquela visualização é. Na geral, que ela é a
-// única em que o filtro se escolhe; nas outras, que o filtro já veio pronto.
+// A frase curta embaixo do nome. Diz o tamanho do trabalho que há ali, e nas
+// cenas laterais também por qual dimensão ela já está recortada — o nome
+// sozinho não distingue a cena da pessoa Ana da cena da empresa Ana.
 function rotuloDoEscopo(d) {
-  if (d.tipo === "geral") return "o filtro se escolhe aqui";
+  if (d.tipo === "geral") return d.abertas ? `${d.abertas} em aberto` : "nada aberto";
   if (d.tipo === "mais") return `${d.abertas} fora do trilho`;
   const quem = d.tipo === "empresa" ? "empresa" : "responsável";
-  return d.abertas ? `${quem} · ${d.abertas} em aberto` : `${quem} · nada aberto`;
+  return d.abertas ? `${quem} · ${d.abertas} em aberto` : `${quem} · nada aberto ainda`;
 }
 
 function cenaExcedente(d) {
@@ -342,14 +347,28 @@ function cenaExcedente(d) {
 // Com uma exceção: quem já está ligado no filtro aparece mesmo sem tarefa
 // aberta, senão concluir a última tarefa de alguém filtrado faria o botão
 // sumir e não sobraria controle nenhum na tela para desligar o filtro.
-function filtros() {
-  const abertas = visiveis();
-  const pessoas = state.users.filter(
-    (u) => abertas.some((t) => t.assigneeId === u.id) || state.quadro.pessoas.includes(u.id)
+function filtros(d = { tipo: "geral" }) {
+  // A dimensão que a cena já fixou não aparece, e a que sobra só oferece quem
+  // tem trabalho dentro daquela cena: numa cena de empresa, listar o time
+  // inteiro seria oferecer filtros que não escondem nada.
+  const daCena = visiveis().filter(
+    (t) =>
+      (d.tipo !== "empresa" || t.companyId === d.ref?.id) &&
+      (d.tipo !== "pessoa" || t.assigneeId === d.ref?.id)
   );
-  const empresas = state.companies.filter(
-    (c) => abertas.some((t) => t.companyId === c.id) || state.quadro.empresas.includes(c.id)
-  );
+
+  const pessoas =
+    d.tipo === "pessoa"
+      ? []
+      : state.users.filter(
+          (u) => daCena.some((t) => t.assigneeId === u.id) || state.quadro.pessoas.includes(u.id)
+        );
+  const empresas =
+    d.tipo === "empresa"
+      ? []
+      : state.companies.filter(
+          (c) => daCena.some((t) => t.companyId === c.id) || state.quadro.empresas.includes(c.id)
+        );
 
   if (!pessoas.length && !empresas.length) return null;
 
@@ -404,6 +423,7 @@ function filtros() {
     filtroQuadroAtivo()
       ? h("button", {
           class: "filtros__limpar",
+          title: "Tirar todos os filtros do cabeçalho",
           text: "limpar",
           onClick: () => limparFiltroQuadro(),
         })

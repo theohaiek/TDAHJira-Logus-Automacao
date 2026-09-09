@@ -1071,3 +1071,68 @@ A janela do store caiu de 2500 ms para 1500 ms, um pouco acima da duração do
 pulso. Com a janela muito maior que a animação, um redesenho tardio remontava o
 cartão ainda marcado e a animação recomeçava — o realce piscava duas vezes, o
 que diz "mudou de novo" quando nada mudou.
+
+### 15.16 O realce durava um milissegundo
+
+A queixa foi literal: "dura 1ms, mal dá pra perceber". Medido no navegador, era
+verdade — `getAnimations()` devolvia `{declarada: "1.2s", duraçãoMedida: 0}`. A
+animação era criada e terminava no mesmo instante. Duas causas somadas:
+
+- **`steps(2, jump-none)`** no bloco de movimento reduzido. Era uma tentativa de
+  dar a quem pede menos movimento um realce que aparece e some sem pulsar. Com
+  dois degraus e a preferência ligada nesta máquina, o segundo degrau caía em
+  cima do primeiro.
+- **`box-shadow: none` no quadro final.** `none` não interpola com uma lista de
+  sombras: o navegador troca de um valor para o outro de uma vez. O que deveria
+  ser um apagar suave era um corte, e um corte no primeiro quadro é invisível.
+
+A correção não foi consertar os keyframes, foi trocar de mecanismo. O realce
+agora é transição, não animação: `.is-confirmada` acende, `.is-apagando` entra
+depois do pico e leva a sombra até `--brilho-zero` — o mesmo desenho, todo
+transparente, que interpola porque tem a mesma forma. Transição é o que o resto
+do trilho já usa, e é a mesma mecânica que eu conseguia medir funcionando
+enquanto os keyframes não davam medida nenhuma.
+
+Ficou em 640 ms aceso e 1600 ms apagando, com a janela do store em 2400 ms —
+sempre acima do ciclo inteiro, senão um redesenho tardio remonta o cartão ainda
+marcado e o realce recomeça.
+
+Verificado ao fim: `transitionDuration: "1.6s, 1.6s"` em `box-shadow,
+border-color`, e a sombra chegando a `rgba(0,0,0,0)` no fim do percurso.
+
+### 15.17 Empresa cadastrada que não aparecia no trilho
+
+Reproduzido criando uma empresa sem nenhuma tarefa: ela aparecia na barra
+lateral e não tinha painel nenhum na fileira. A causa era `escoposDoCarrossel`
+montar a lista de empresas a partir da contagem de tarefas abertas — quem não
+tinha tarefa não existia para o trilho.
+
+Empresa passou a entrar por cadastro, e não por contagem. Alguém cadastra uma
+empresa porque vai trabalhar para ela; uma empresa recém-cadastrada que não
+aparece em lugar nenhum parece um cadastro que não funcionou. A contagem
+continua decidindo *quem entra* quando há mais empresas do que cabe no trilho.
+
+Pessoa continua entrando só com trabalho em aberto, e é de propósito: o time
+inteiro na fileira seria uma parede de gente para atravessar.
+
+### 15.18 Filtro dentro das cenas laterais
+
+Antes, o cabeçalho de ícones só existia na cena geral, com o argumento de que
+as laterais já são um filtro aplicado pela posição na fileira. O argumento vale
+para metade da pergunta e não para a outra: quem abre a cena de um cliente quase
+sempre quer saber "o que está aberto aqui **e com quem**", e recusar a segunda
+metade obrigava a voltar ao centro só para refinar.
+
+Agora toda cena com quadro tem cabeçalho, e ele oferece só a dimensão que ainda
+está em aberto — na cena de uma empresa escolhem-se as pessoas, na de uma pessoa
+escolhem-se as empresas, na geral as duas. Oferecer o filtro de empresa dentro
+da cena de uma empresa seria dar dois controles para a mesma pergunta na mesma
+tela, que é o que se evita.
+
+Os ícones de uma cena lateral listam só quem tem trabalho *dentro dela*: numa
+cena de cliente, mostrar o time inteiro seria oferecer filtros que não escondem
+nada.
+
+O estado do filtro é um só, compartilhado entre as cenas. Ligar uma pessoa na
+cena do cliente e voltar ao centro mantém aquela pessoa ligada — é o mesmo
+recorte visto de outro ângulo, não dois recortes independentes.

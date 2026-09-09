@@ -95,7 +95,12 @@
   --brilho: 0 0 0 2px var(--accent),
     0 0 18px color-mix(in srgb, var(--accent) 62%, transparent),
     0 0 48px color-mix(in srgb, var(--accent) 34%, transparent);
-  --dur-brilho: 1200ms; /* a confirmação de salvamento, e só ela            */
+  /* O mesmo desenho, invisível. `box-shadow: none` NÃO interpola com uma lista
+     de sombras — o navegador troca de um para o outro de uma vez, e o que
+     deveria ser um apagar suave vira um salto. Terminar numa sombra
+     transparente do mesmo formato é o que faz o pulso desaparecer devagar. */
+  --brilho-zero: 0 0 0 0 transparent, 0 0 0 transparent, 0 0 0 transparent;
+  --dur-brilho: 1600ms; /* a confirmação de salvamento, e só ela            */
 
   --z-sticky: 10;
   --z-drawer: 40;
@@ -290,7 +295,7 @@
     --dur-slow: 0ms;
     /* A confirmação não pisca, mas continua existindo: ela vira um realce
        estático que aparece e some. Zerar aqui apagaria o retorno inteiro. */
-    --dur-brilho: 1200ms;
+    --dur-brilho: 1600ms;
   }
 }
 

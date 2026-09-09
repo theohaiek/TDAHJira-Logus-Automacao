@@ -2294,7 +2294,7 @@ input[type="color"] {
 }
 /* Na cena geral o cabeçalho de ícones entra na mesma faixa do título: é o
    único lugar do trilho em que o filtro se escolhe. */
-.cena__titulo--geral .filtros {
+.cena__titulo .filtros {
   margin-bottom: 0;
   margin-left: auto;
 }
@@ -2467,36 +2467,25 @@ input[type="color"] {
   box-shadow: var(--brilho-fraco);
 }
 
-/* A confirmação de salvamento: um pulso no cartão que acabou de ser criado ou
-   de mudar de coluna. Meio segundo de brilho e some.
+/* A confirmação de salvamento: o cartão que acabou de ser criado ou de mudar
+   de coluna acende em acento, fica aceso, e apaga.
 
-   É keyframes, e não transição, porque roda uma vez e tem começo, meio e fim —
-   transição serve para estado que vai e volta. E o realce de movimento
-   reduzido não desliga: ele só deixa de pulsar. Tirar o retorno inteiro de
-   quem pediu menos movimento seria tirar a informação junto com a animação. */
-/* Acende no primeiro quadro e fica aceso por mais de meio segundo antes de
-   apagar. Um pulso que já entra apagando não é visto por quem estava olhando
-   para o outro lado da tela — e quem move um cartão está olhando para onde ele
-   chegou, não para a borda dele. */
-@keyframes confirma {
-  0%,
-  55% {
-    box-shadow: var(--brilho);
-    border-color: var(--accent);
-  }
-  100% {
-    box-shadow: none;
-  }
-}
-/* A animação tem prioridade sobre o hover: quem move um cartão e deixa o mouse
-   em cima dele veria os dois brigando pela mesma propriedade, e o hover, sendo
-   mais fraco, apagaria a confirmação. */
+   É transição, e não keyframes. Havia aqui uma animação de keyframes e ela não
+   rodava: medida no navegador, começava e terminava no mesmo milissegundo. A
+   transição é mais simples de acertar — dois estados e um tempo entre eles —
+   e é a mesma mecânica que o resto do trilho já usa.
+
+   Movimento reduzido não tira esta: ela não desliza nem pisca. Tirá-la seria
+   tirar a informação de que o servidor recebeu, que é o que ela existe para
+   dizer. Quem quer menos movimento tem o modo calmo, que zera tudo. */
 .task.is-confirmada {
-  animation: confirma var(--dur-brilho) var(--ease);
+  box-shadow: var(--brilho);
+  border-color: var(--accent);
 }
-@media (prefers-reduced-motion: reduce) {
-  /* Sem piscar, mas sem sumir: o realce entra, fica, e sai de uma vez. */
-  .task.is-confirmada {
-    animation: confirma var(--dur-brilho) steps(2, jump-none);
-  }
+/* A classe de apagar entra depois do pico e leva o realce embora devagar. */
+.task.is-confirmada.is-apagando {
+  box-shadow: var(--brilho-zero);
+  border-color: var(--border-soft);
+  transition: box-shadow var(--dur-brilho) var(--ease),
+    border-color var(--dur-brilho) var(--ease);
 }

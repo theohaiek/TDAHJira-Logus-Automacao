@@ -99,11 +99,17 @@ export function taskCard(t, opcoes = {}) {
   // de novo ficaria com o realce aceso para sempre — e realce aceso o tempo
   // todo deixa de dizer "isto acabou de mudar".
   if (recemConfirmada(t.id)) {
+    const ms =
+      parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--dur-brilho")) ||
+      1600;
+
+    // Acende agora, fica aceso, e só então começa a apagar. Um realce que já
+    // entra sumindo não é visto por quem estava olhando para o outro lado da
+    // tela — e quem move um cartão está olhando para onde ele chegou.
     card.classList.add("is-confirmada");
-    const ms = parseFloat(
-      getComputedStyle(document.documentElement).getPropertyValue("--dur-brilho")
-    );
-    setTimeout(() => card.classList.remove("is-confirmada"), Number.isFinite(ms) ? ms : 900);
+    const pico = Math.round(ms * 0.4);
+    setTimeout(() => card.classList.add("is-apagando"), pico);
+    setTimeout(() => card.classList.remove("is-confirmada", "is-apagando"), pico + ms);
   }
 
   return card;

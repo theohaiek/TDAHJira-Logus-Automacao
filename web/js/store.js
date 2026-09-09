@@ -214,11 +214,11 @@ export async function criar(dados) {
 // redesenho, então nada que fosse guardado nele sobreviveria ao próprio
 // salvamento que deveria confirmar.
 const confirmadas = new Map();
-// Um pouco acima da duração do pulso, e não muito: se a janela for bem maior
-// que a animação, um redesenho tardio — o sync de seis segundos, por exemplo —
-// remonta o cartão ainda marcado e a animação recomeça do zero. O realce
-// piscaria duas vezes, o que diz "mudou de novo" quando nada mudou.
-const CONFIRMA_MS = 1500;
+// Um pouco acima da duração do realce, e não muito: se a janela for bem maior,
+// um redesenho tardio — o sync de seis segundos, por exemplo — remonta o cartão
+// ainda marcado e o realce recomeça do zero. Ele piscaria duas vezes, o que diz
+// "mudou de novo" quando nada mudou.
+const CONFIRMA_MS = 2400;
 
 export function confirmar(id) {
   confirmadas.set(Number(id), Date.now());
@@ -387,11 +387,17 @@ const TETO_LADO = 5;
 export function escopoDeCena(id) {
   const [tipo, cru] = String(id || "geral").split(":");
   const n = Number(cru);
-  if (tipo === "empresa" && n) return { pessoas: [], empresas: [n] };
-  if (tipo === "pessoa" && n) return { pessoas: [n], empresas: [] };
-  // A cena geral é a única que obedece ao cabeçalho de ícones. As laterais
-  // não leem nem escrevem state.quadro: ali o escopo já foi decidido pela
-  // posição na fileira.
+
+  // Na cena de uma empresa, a empresa é fixa e as pessoas ainda se escolhem: a
+  // pergunta "o que está aberto para este cliente" quase sempre tem uma
+  // segunda metade, que é "e com quem". O cabeçalho de ícones daquela cena só
+  // oferece quem tem trabalho ali dentro.
+  if (tipo === "empresa" && n) return { pessoas: state.quadro.pessoas, empresas: [n] };
+
+  // Na cena de uma pessoa, o inverso: a pessoa é fixa e a empresa se escolhe.
+  if (tipo === "pessoa" && n) return { pessoas: [n], empresas: state.quadro.empresas };
+
+  // A cena geral é a única sem nada fixo — as duas dimensões saem do cabeçalho.
   return state.quadro;
 }
 
@@ -426,8 +432,16 @@ export function escoposDoCarrossel() {
     if (t.assigneeId) porPessoa.set(t.assigneeId, (porPessoa.get(t.assigneeId) || 0) + 1);
   }
 
+  // Toda empresa cadastrada vira cena, mesmo sem nenhuma tarefa aberta.
+  //
+  // Pessoa é diferente e continua entrando só com trabalho em aberto: o time
+  // inteiro na fileira seria uma parede de gente para decidir. Empresa é
+  // cadastro deliberado — alguém a criou porque vai trabalhar para ela, e uma
+  // empresa recém-cadastrada que não aparece em lugar nenhum parece um
+  // cadastro que não funcionou. A contagem continua decidindo *quem entra*
+  // quando há mais empresas do que cabe.
   const empresas = garantirAtual(
-    [...porEmpresa].map(([id, n]) => daEmpresa(empresa(id), n)).filter(Boolean),
+    state.companies.map((c) => daEmpresa(c, porEmpresa.get(c.id) || 0)).filter(Boolean),
     atual,
     "empresa"
   );
