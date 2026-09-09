@@ -858,3 +858,34 @@ produto quer.
   que isso — um gesto muito longo, um campo em foco esquecido —, o pulso se
   perde. Perder a confirmação é bem menos grave do que travar o redesenho para
   garanti-la.
+
+### 15.5 A pilha de painéis, na segunda tentativa
+
+A primeira versão dos painéis flutuantes tinha o quadro no centro e cartões
+estreitos nos lados. Parecia mais barata e era pior de todas as formas: o
+painel trocava de estrutura **e de largura** ao virar central, o que se via
+como um estalo de formato a cada passagem; o gesto exigia arrastar mais de mil
+pixels para trocar de cena; e a "prévia" do lado não mostrava o quadro que
+estava prestes a ser aberto, que é justamente o que se quer espiar.
+
+Agora **todas as cenas são o mesmo quadro, do mesmo tamanho**. O que as separa
+é só a escala e a posição, e escala interpola sozinha — não há mais o que
+trocar no meio do caminho. Medido durante um arrasto: nenhuma cena muda de
+largura de layout em nenhum quadro do gesto.
+
+Três consequências que valem registrar:
+
+- **A altura do trilho é fixa** e o quadro rola por dentro de cada cena. Sem
+  isso, a altura mudaria a cada troca — uma cena tem três cartões, outra tem
+  doze — e a página inteira saltaria junto.
+- **A faixa lateral é repartida entre as camadas**, 62% para o vizinho
+  imediato e o resto para os de trás. Sem repartir, cada camada some inteira
+  atrás da anterior, que foi o defeito da primeira tentativa.
+- **O corpo dos painéis de trás é `inert`.** Sem isso o Tab entraria nos
+  cartões de uma prévia que ninguém está usando.
+
+**O custo aceito:** todas as cenas montam o quadro a cada redesenho, e não só
+a do centro. Com o teto de quinze cenas e uma base pequena, é irrelevante — mas
+é o primeiro lugar a olhar se o quadro começar a engasgar em base grande. A
+saída seria montar o quadro só nas cenas com distância até um, e moldura vazia
+nas demais; o estalo voltaria, mas longe do centro, onde não se vê.

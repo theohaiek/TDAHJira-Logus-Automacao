@@ -222,27 +222,12 @@ function desenharNav() {
     planilha: visiveis().length,
     fluxo: visiveis().filter((t) => t.status !== "done").length,
   };
-  const paraHoje = agora(99).length + esperando().length;
+  // O Hoje não está nesta lista nem em nenhuma: ele é uma ação da barra de
+  // cima. Aqui ficam as telas para onde se navega, e ele não é uma delas.
+  $("#hoje-conta").textContent = String(agora(99).length + esperando().length || "");
 
   mount(
     $("#nav"),
-    // O Hoje vem antes e por fora da lista de seções, com a cara de ação que
-    // ele é: quem clica não troca de tela, abre a pergunta do dia por cima do
-    // quadro. É o item mais importante da barra, e o único que carrega o
-    // acento — é para ele que a atenção deve ir ao abrir o aplicativo.
-    h(
-      "a",
-      {
-        class: "navitem navitem--hoje",
-        href: "#/hoje",
-        title: "O que eu faço agora (1)",
-        onClick: () => $("#rail").classList.remove("is-open"),
-      },
-      h("span", { class: "navitem__icon", text: "◉" }),
-      h("span", { text: "Hoje" }),
-      h("span", { class: "navitem__count", text: String(paraHoje || "") })
-    ),
-
     Object.entries(VIEWS).map(([chave, v]) =>
       h(
         "a",
@@ -527,6 +512,11 @@ function mostrarAtalhos() {
 // --- Botões da moldura ------------------------------------------------------
 
 function ligarBotoes() {
+  // Passa por rota(), como todos os outros caminhos até o Hoje: um botão que
+  // chamasse abrirHoje() direto seria o sétimo caminho, e o sétimo caminho é
+  // sempre o que alguém esquece de atualizar depois.
+  $("#hoje-btn").addEventListener("click", () => irPara("hoje"));
+
   $("#cmd-btn").addEventListener("click", () => abrirPaleta());
 
   $("#theme-btn").addEventListener("click", () => {

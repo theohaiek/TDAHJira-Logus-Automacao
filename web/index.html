@@ -88,6 +88,14 @@
             <div class="capture__hint" id="capture-hint" hidden></div>
           </div>
           <div class="topbar__actions">
+            <!-- O Hoje é uma ação, não uma seção: ele abre por cima do quadro
+                 e sai do caminho. Fica entre as ações da barra de cima, e não
+                 na lista de telas, porque clicar nele não troca de tela. -->
+            <button class="btn btn--hoje" id="hoje-btn" title="O que eu faço agora (1)">
+              <span aria-hidden="true">◉</span>
+              <span>Hoje</span>
+              <span class="btn__conta" id="hoje-conta"></span>
+            </button>
             <button class="icon-btn" id="cmd-btn" title="Buscar e comandos (Ctrl+K)" aria-label="Comandos">⌕</button>
             <button class="icon-btn" id="theme-btn" title="Alternar tema" aria-label="Alternar tema">◐</button>
             <button class="icon-btn" id="calm-btn" title="Modo calmo" aria-label="Modo calmo">◇</button>

@@ -1958,15 +1958,18 @@ input[type="color"] {
 /* ==========================================================================
    O trilho de cenas do quadro
    --------------------------------------------------------------------------
-   Painéis flutuantes, empilhados em leque. O do centro é o quadro de verdade;
-   os dos lados ficam atrás dele, menores, saindo pelas bordas — e o vizinho
-   imediato sempre por cima dos mais distantes, senão a pilha vira uma mancha
-   sem ordem.
+   Uma pilha de painéis flutuantes. Todos são o mesmo quadro, montados iguais e
+   do mesmo tamanho: o do centro em escala cheia, os de trás menores e recuados,
+   com o vizinho imediato sempre por cima dos mais distantes daquele lado.
 
-   O empilhamento é por posição absoluta e transform, e não por rolagem: a cena
-   de trás precisa passar POR BAIXO da da frente, e caixa que rola não
-   sobrepõe. Transform e opacity também são as duas propriedades que a placa de
-   vídeo compõe sozinha, o que mantém o arrasto suave a cada quadro.
+   Todos iguais é o ponto. A versão anterior tinha o quadro no centro e cartões
+   estreitos nos lados — e o painel trocava de estrutura e de largura no meio
+   do gesto, o que se via como um estalo de formato a cada passagem. Com todos
+   iguais, mover é só transformar: só a escala muda, e escala interpola sozinha.
+
+   A altura é fixa e o quadro rola por dentro de cada cena. Sem isso, a altura
+   do trilho mudaria a cada troca — uma cena tem três cartões, outra tem doze —
+   e a página inteira saltaria junto.
 
    Nada aqui usa filter nem backdrop-filter: o modo calmo já aplica
    saturate(0.45) no body, e filtro composto sobre elemento que se move fica
@@ -1977,7 +1980,7 @@ input[type="color"] {
   display: flex;
   align-items: center;
   gap: var(--sp-4);
-  margin-bottom: var(--sp-4);
+  margin-bottom: var(--sp-3);
   flex-wrap: wrap;
 }
 .trilho__rotulo {
@@ -1993,8 +1996,8 @@ input[type="color"] {
   gap: 2px;
 }
 
-/* O ponto visível tem 8px, mas a área de clique tem 40: alvo menor que isso
-   se erra, e errar interrompe o fio de quem está trabalhando. */
+/* O ponto visível tem 8px, mas a área de clique tem 40: alvo menor que isso se
+   erra, e errar interrompe o fio de quem está trabalhando. */
 .trilho__ponto {
   position: relative;
   display: inline-grid;
@@ -2031,14 +2034,13 @@ input[type="color"] {
 }
 
 .trilho {
-  --espia: 190px;
-  --cena-w: max(280px, calc(100% - 2 * var(--espia)));
-  /* O painel de trás tem largura própria, e não a da cena inteira: com a
-     largura da cena, as bordas dele caem fora da janela ou atrás do painel
-     central, e o que sobra à vista é uma faixa sem forma nenhuma. Menor, ele
-     é um cartão — com borda, raio e sombra, saindo por trás do central. */
-  --painel-w: 220px;
+  /* Quanto se vê do painel de trás de cada lado. */
+  --espia: 214px;
+  --cena-w: max(300px, calc(100% - 2 * var(--espia)));
   position: relative;
+  /* Altura fixa: é ela que impede a página de saltar quando a cena do centro
+     troca por uma com outro número de cartões. */
+  height: clamp(380px, calc(100vh - 268px), 1100px);
   margin-inline: calc(-1 * var(--sp-5));
   padding-inline: var(--sp-5);
   overflow: hidden;
@@ -2050,15 +2052,21 @@ input[type="color"] {
   user-select: none;
 }
 
-/* A cena central fica no fluxo e é ela que dá altura ao trilho. As outras são
-   absolutas por cima dela, e por isso a altura não salta quando a pilha
-   desliza. */
 .cena {
+  position: absolute;
+  top: 0;
+  left: 50%;
   width: var(--cena-w);
-  margin-inline: auto;
-  contain: layout paint;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
   border-radius: var(--radius-xl);
+  background: var(--painel-vidro);
+  border: 1px solid var(--border);
+  box-shadow: var(--painel-sombra), var(--painel-brilho);
   transform-origin: center center;
+  /* Só transform e opacity, e nunca `all`: uma mudança de cor entrando na
+     mesma transição derruba o quadro para o processador. */
   transition: transform var(--dur-slow) var(--ease), opacity var(--dur-slow) var(--ease),
     box-shadow var(--dur) var(--ease);
 }
@@ -2068,34 +2076,10 @@ input[type="color"] {
   transition: none;
   will-change: transform, opacity;
 }
-
 .cena.is-atual {
-  position: relative;
-  z-index: 100;
-  padding: var(--sp-2);
-  background: var(--painel-vidro);
-  border: 1px solid var(--border);
   box-shadow: var(--painel-sombra-alta), var(--painel-brilho);
+  border-color: var(--border-strong);
 }
-
-.cena--resumo {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  width: var(--painel-w);
-  height: 100%;
-  display: grid;
-  place-items: center;
-  padding: var(--sp-5) var(--sp-4);
-  background: var(--painel-vidro-fundo);
-  border: 1px solid var(--border-strong);
-  box-shadow: var(--painel-sombra), var(--painel-brilho);
-  overflow: hidden;
-  cursor: pointer;
-}
-/* A faixa colorida da entidade fica na borda de FORA — a que sobra à vista.
-   Na de dentro ela ficaria atrás do painel central, colorindo o que ninguém
-   vê. O painel da esquerda mostra a borda esquerda; o da direita, a direita. */
 .cena--esq {
   border-inline-start-width: 3px;
   border-inline-start-style: solid;
@@ -2105,65 +2089,97 @@ input[type="color"] {
   border-inline-end-style: solid;
 }
 
-.cena__marca {
+/* O quadro dentro do painel. Rola por dentro, e é a folga de 8px que dá o raio
+   concêntrico: 10 de dentro mais 8 de folga é o 18 de fora. */
+.cena__corpo {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: var(--sp-2);
+  border-radius: var(--radius-xl);
+}
+.cena__corpo .board {
+  min-height: 0;
+}
+
+/* O convite, sobre o painel de trás: um véu que apaga o quadro de prévia e um
+   cartão com a marca de quem ele é e o botão de entrar. Chega pelo cursor,
+   pelo teclado ou por um toque; a entrada é pelo botão ou pelo duplo clique.
+
+   Clique simples não navega, de propósito: um arrasto que termina em cima de
+   um painel não pode virar viagem que ninguém pediu. */
+.cena__veu {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  align-items: center;
+  /* O cartão fica na faixa que sobra à vista, e não no meio do painel: o meio
+     dele está atrás do painel da frente, e o nome ficaria escondido justamente
+     na hora de dizer de quem é aquela prévia. */
+  justify-items: center;
+  padding: var(--sp-4) var(--sp-3);
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--surface-0) 58%, transparent);
+  transition: background-color var(--dur) var(--ease);
+}
+.cena:not(.is-atual):hover > .cena__veu,
+.cena:not(.is-atual):focus-visible > .cena__veu,
+.cena:not(.is-atual).is-convidando > .cena__veu {
+  background: color-mix(in srgb, var(--surface-0) 78%, transparent);
+}
+
+.cena--esq .cena__veu {
+  justify-items: start;
+}
+.cena--dir .cena__veu {
+  justify-items: end;
+}
+/* Na cena do centro não há véu; esta regra existe para o caso de ela chegar
+   ao centro ainda com a classe de lado, entre um quadro e outro do gesto. */
+.cena.is-atual .cena__veu {
+  display: none;
+}
+
+.cena__cartao {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--sp-2);
+  /* Cabe na fatia do primeiro vizinho, que é 62% da faixa. */
+  width: min(168px, calc(var(--espia) * 0.66));
   text-align: center;
-  max-width: 100%;
 }
 .cena__nome {
   font-family: var(--font-display);
-  font-size: var(--text-lg);
+  font-size: var(--text-base);
   text-transform: uppercase;
   letter-spacing: var(--tracking-wide);
-  color: var(--text-2);
+  color: var(--text-1);
   text-wrap: balance;
-  max-width: 12ch;
   line-height: 1.25;
 }
 .cena__conta {
   font-size: var(--text-xs);
-  color: var(--text-faint);
+  color: var(--text-3);
   font-variant-numeric: tabular-nums;
 }
 .cena__glifo {
   display: inline-grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   background: var(--surface-3);
   color: var(--text-3);
 }
 
-/* O convite: o painel esmaece sob um véu e o botão sobe. Chega pelo cursor,
-   pelo teclado ou por um duplo clique. Clique simples não entra, de propósito:
-   um arrasto que termina em cima de um painel não pode virar navegação. */
-.cena__veu {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: var(--sp-4);
-  background: color-mix(in srgb, var(--surface-0) 74%, transparent);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity var(--dur) var(--ease);
-}
-.cena--resumo:hover .cena__veu,
-.cena--resumo:focus-within .cena__veu,
-.cena--resumo.is-convidando .cena__veu {
-  opacity: 1;
-  pointer-events: auto;
-}
+/* O botão só sobe quando o painel é escolhido com o cursor ou com o dedo: no
+   repouso ele fica recolhido, para o véu mostrar a prévia do quadro. */
 .cena__entrar {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-2);
-  padding: 9px 13px;
-  border-radius: var(--radius);
+  margin-top: var(--sp-2);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
   background: var(--accent);
   color: var(--on-accent);
   font-size: var(--text-xs);
@@ -2172,12 +2188,15 @@ input[type="color"] {
   text-align: center;
   text-wrap: balance;
   box-shadow: var(--shadow-2);
-  transform: translateY(6px);
-  transition: transform var(--dur) var(--ease), background-color var(--dur) var(--ease);
+  opacity: 0;
+  transform: translateY(6px) scale(0.96);
+  transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease),
+    background-color var(--dur) var(--ease);
 }
-.cena--resumo:hover .cena__entrar,
-.cena--resumo:focus-within .cena__entrar,
-.cena--resumo.is-convidando .cena__entrar {
+.cena:not(.is-atual):hover .cena__entrar,
+.cena:not(.is-atual):focus-visible .cena__entrar,
+.cena:not(.is-atual).is-convidando .cena__entrar {
+  opacity: 1;
   transform: none;
 }
 .cena__entrar:hover {
@@ -2187,23 +2206,22 @@ input[type="color"] {
   transform: scale(0.96);
 }
 
-/* O painel responde ao cursor antes de qualquer clique: sobe um degrau de
-   sombra e ganha o fio de acento. É o retorno que diz "isto é clicável". */
-.cena--resumo:hover,
-.cena--resumo:focus-within {
+/* O painel de trás responde ao cursor antes de qualquer clique: sobe um degrau
+   de sombra e ganha o fio de acento. */
+.cena:not(.is-atual):hover,
+.cena:not(.is-atual):focus-visible {
   box-shadow: var(--painel-sombra-alta), var(--painel-brilho), var(--brilho-fraco);
 }
 /* No meio de um arrasto ninguém está escolhendo: o convite sai da frente. */
-.trilho.is-arrastando .cena__veu {
+.trilho.is-arrastando .cena__entrar {
   opacity: 0;
-  pointer-events: none;
 }
 
 .cena__fixo {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  margin-bottom: var(--sp-4);
+  margin-bottom: var(--sp-3);
   padding-inline: var(--sp-2);
   font-size: var(--text-sm);
 }
@@ -2279,32 +2297,24 @@ input[type="color"] {
   font-variant-numeric: tabular-nums;
 }
 
-/* O quadro dentro da cena central: as colunas herdam o raio interno, que é o
-   raio externo menos a folga de 8px. */
-.cena .board {
-  border-radius: var(--radius);
-}
-
 @media (max-width: 1200px) {
   .trilho {
-    --espia: 128px;
-    --painel-w: 150px;
+    --espia: 116px;
   }
 }
 
-/* Abaixo de 900px os painéis laterais somem e o trilho degrada para abas: os
-   pontos navegam e a cena ocupa a largura toda. Nunca dois eixos horizontais
+/* Abaixo de 900px a pilha some e o trilho degrada para abas: os pontos
+   navegam e a cena ocupa a largura toda. Nunca dois eixos horizontais
    aninhados — o .board já rola sozinho a 82vw nesta faixa. */
 @media (max-width: 900px) {
   .trilho {
     --espia: 0px;
-    --painel-w: 0px;
     --cena-w: 100%;
     margin-inline: calc(-1 * var(--sp-4));
     padding-inline: var(--sp-4);
     cursor: default;
   }
-  .cena--resumo {
+  .cena:not(.is-atual) {
     display: none;
   }
 }
@@ -2326,24 +2336,29 @@ input[type="color"] {
 
 /* O Hoje é a ação mais importante da barra, e a única que carrega o acento:
    é a pergunta que este produto existe para responder. */
-.navitem--hoje {
-  margin-bottom: var(--sp-2);
+.btn--hoje {
+  background: var(--accent-dim);
+  border-color: transparent;
   color: var(--accent);
   font-weight: 600;
+  margin-right: var(--sp-2);
 }
-.navitem--hoje .navitem__icon {
-  opacity: 1;
-}
-.navitem--hoje .navitem__count {
-  color: var(--accent);
-}
-.navitem--hoje:hover {
+.btn--hoje:hover {
   background: var(--accent-dim);
+  border-color: transparent;
   color: var(--accent-hover);
   box-shadow: var(--brilho-fraco);
 }
-.navitem--hoje:active {
-  transform: scale(0.98);
+.btn--hoje:active {
+  transform: scale(0.96);
+}
+.btn__conta {
+  font-size: var(--text-xs);
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+.btn__conta:empty {
+  display: none;
 }
 
 /* O retorno ao cursor nos itens que levam a algum lugar. */

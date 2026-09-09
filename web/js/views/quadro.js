@@ -76,7 +76,7 @@ export function viewQuadro() {
   const trilho = h(
     "div",
     { class: "trilho", role: "group", "aria-label": "Telas do quadro" },
-    fileira.map((d) => (d.id === atual ? cenaCheia(d) : painel(d)))
+    fileira.map((d) => cena(d, atual))
   );
 
   posicionarDepoisDoMonte(trilho, atual);
@@ -148,14 +148,24 @@ function rotuloDaCena(fileira, id) {
 
 // --- As cenas ---------------------------------------------------------------
 
-function cenaCheia(d) {
+// Toda cena é o mesmo quadro, montado igual. A do centro está em escala cheia
+// e as outras atrás, menores — e é só isso que as separa.
+//
+// A versão anterior montava o quadro só no centro e cartões pequenos nos
+// lados. Parecia mais barato e era pior de todas as formas: o painel trocava
+// de estrutura e de largura no meio do gesto, o que aparecia como um estalo
+// de formato a cada troca de cena; e a "prévia" do lado não mostrava o quadro
+// que estava prestes a ser aberto, que é justamente o que se quer espiar.
+//
+// Montando todas iguais, mover é só transformar — e transformar é a única
+// coisa que a placa de vídeo faz sozinha, sem recalcular layout nenhum.
+function cena(d, atual) {
   const wip = limiteWip();
   const emCurso = emAndamento().length;
   const escopo = escopoDeCena(d.id);
+  const ehAtual = d.id === atual;
 
-  return h(
-    "div",
-    { class: "cena is-atual", dataset: { escopo: d.id } },
+  const corpo =
     d.tipo === "mais"
       ? cenaExcedente(d)
       : frag(
@@ -169,8 +179,84 @@ function cenaCheia(d) {
             { class: "board" },
             STATUS_ORDER.map((s) => coluna(s, wip, emCurso, escopo, d))
           )
-        )
+        );
+
+  const el = h(
+    "div",
+    {
+      class: `cena cena--${d.lado}${ehAtual ? " is-atual" : ""}`,
+      dataset: { escopo: d.id },
+      // O painel de trás é um alvo inteiro, e o de frente é o quadro em uso.
+      ...(ehAtual
+        ? { "aria-label": `Quadro de ${d.nome}` }
+        : {
+            role: "button",
+            tabindex: "0",
+            "aria-label": `Ver o quadro de ${d.nome}, ${contagemDe(d)}`,
+            onDblclick: () => entrarNaCena(d.id),
+            onKeydown: (e) => {
+              if (e.key !== "Enter" && e.key !== " ") return;
+              e.preventDefault();
+              entrarNaCena(d.id);
+            },
+          }),
+    },
+    // inert tira o subtree do foco e do ponteiro de uma vez: sem ele, o Tab
+    // entraria nos cartões da prévia, que é um quadro que ninguém está usando.
+    h("div", { class: "cena__corpo", inert: !ehAtual }, corpo),
+    ehAtual ? null : veuDaCena(d)
   );
+
+  if (!ehAtual) {
+    // Um toque simples abre o convite e o deixa aberto: sem isso, quem usa
+    // toque nunca veria o botão, porque toque não tem cursor a aproximar.
+    el.addEventListener("click", () => {
+      if (arrastouAgora) return;
+      el.classList.add("is-convidando");
+    });
+  }
+
+  return el;
+}
+
+// A faixa que identifica de quem é o painel de trás, e o convite para entrar
+// nele. Fica sobre o quadro, porque o quadro ali é prévia, não ferramenta.
+function veuDaCena(d) {
+  const marca =
+    d.tipo === "empresa"
+      ? fotoEmpresa(d.ref, 34)
+      : d.tipo === "pessoa"
+        ? avatar(d.ref, "avatar--lg")
+        : h("span", { class: "cena__glifo", text: d.tipo === "mais" ? "…" : "▦" });
+
+  return h(
+    "div",
+    { class: "cena__veu" },
+    h(
+      "div",
+      { class: "cena__cartao" },
+      marca,
+      h("span", { class: "cena__nome", text: d.nome }),
+      h("span", { class: "cena__conta", text: contagemDe(d) }),
+      h("button", {
+        class: "cena__entrar",
+        type: "button",
+        text: "Entrar em visualização",
+        // O painel inteiro já tem papel de botão e rótulo; o de dentro
+        // repetiria o nome da cena para quem usa leitor de tela.
+        tabindex: "-1",
+        onClick: (e) => {
+          e.stopPropagation();
+          entrarNaCena(d.id);
+        },
+      })
+    )
+  );
+}
+
+function entrarNaCena(id) {
+  if (arrastouAgora) return;
+  irParaCena(id);
 }
 
 // Nas cenas laterais o cabeçalho vira etiqueta, sem clique.
@@ -219,86 +305,6 @@ function cenaExcedente(d) {
         })
       : null
   );
-}
-
-// O painel de uma cena que não está no centro.
-//
-// A raiz não é um <button> de propósito: um <button> cairia no bail-out do
-// gesto e mataria qualquer arrasto que começasse em cima dele. O papel, o
-// tabindex e o teclado dão a acessibilidade; quem entra de verdade é o botão
-// do véu, que é um <button> como manda o figurino.
-//
-// Clique simples não navega. O painel responde ao cursor abrindo o convite —
-// véu mais botão — e a entrada acontece no botão, no duplo clique ou no
-// teclado. Um arrasto que termina em cima de um painel não pode virar
-// navegação que ninguém pediu.
-function painel(d) {
-  const marca =
-    d.tipo === "empresa"
-      ? fotoEmpresa(d.ref, 44)
-      : d.tipo === "pessoa"
-        ? avatar(d.ref, "avatar--lg")
-        : h("span", { class: "cena__glifo", text: d.tipo === "mais" ? "…" : "▦" });
-
-  // A borda que fica à vista é a de fora: a de dentro some atrás do painel
-  // central, e colorir o que ninguém vê não identifica nada.
-  const borda = d.lado === "esq" ? "borderInlineStartColor" : "borderInlineEndColor";
-  const entrar = () => {
-    if (arrastouAgora) return;
-    irParaCena(d.id);
-  };
-
-  const el = h(
-    "div",
-    {
-      class: `cena cena--resumo cena--${d.lado === "esq" ? "esq" : "dir"}`,
-      dataset: { escopo: d.id },
-      role: "button",
-      tabindex: "0",
-      "aria-label": `Ver o quadro de ${d.nome}, ${contagemDe(d)}`,
-      style: { [borda]: d.cor || "var(--border-strong)" },
-      onDblclick: entrar,
-      onKeydown: (e) => {
-        if (e.key !== "Enter" && e.key !== " ") return;
-        e.preventDefault();
-        entrar();
-      },
-    },
-
-    h(
-      "div",
-      { class: "cena__marca" },
-      marca,
-      h("span", { class: "cena__nome", text: d.nome }),
-      h("span", { class: "cena__conta", text: contagemDe(d) })
-    ),
-
-    h(
-      "div",
-      { class: "cena__veu" },
-      h("button", {
-        class: "cena__entrar",
-        type: "button",
-        text: "Entrar em visualização",
-        // O painel inteiro já tem role de botão e aria-label; o de dentro
-        // repetiria o nome da cena para quem usa leitor de tela.
-        tabindex: "-1",
-        onClick: (e) => {
-          e.stopPropagation();
-          entrar();
-        },
-      })
-    )
-  );
-
-  // Um clique simples abre o convite e o deixa aberto: sem isso, quem usa
-  // toque nunca veria o botão, porque toque não tem hover.
-  el.addEventListener("click", () => {
-    if (arrastouAgora) return;
-    el.classList.add("is-convidando");
-  });
-
-  return el;
 }
 
 // --- O cabeçalho de filtros da cena geral -----------------------------------
@@ -549,24 +555,42 @@ function escreverHash(id) {
 // custa um transform por quadro.
 const FUNDO = 3;
 
+// Como a faixa que sobra de cada lado é repartida entre as camadas de trás.
+//
+// O primeiro vizinho fica com a maior fatia porque é o que se quer ler; os de
+// trás aparecem como abas cada vez mais estreitas, e é isso que faz a pilha
+// parecer uma pilha em vez de uma mancha. Sem repartir, cada camada some
+// inteira atrás da anterior — que foi o defeito da primeira tentativa.
+const FATIAS = [0.62, 0.24, 0.14];
+
 function medidas() {
   if (!trilhoEl) return null;
   const largura = trilhoEl.clientWidth;
-  const central = cenasEl.find((c) => c.classList.contains("is-atual"));
-  const traseiro = cenasEl.find((c) => !c.classList.contains("is-atual"));
-  const painelW = traseiro?.offsetWidth || 0;
-  const centralW = central?.offsetWidth || largura;
-  if (!largura) return null;
+  const cenaW = cenasEl[0]?.offsetWidth || 0;
+  if (!largura || !cenaW) return null;
+  return { largura, cenaW, espia: Math.max(0, (largura - cenaW) / 2 - 6) };
+}
 
-  return {
-    // Onde o cartão de trás repousa: encostado na borda, saindo por baixo do
-    // painel central o suficiente para se ver que há mais coisa atrás.
-    xLat: largura / 2 - painelW / 2 - 8,
-    // O quanto o quadro central precisa andar para sair inteiro de cena. Ele é
-    // muito maior que os cartões, então tem passo próprio: com o mesmo passo
-    // deles, ficaria plantado no meio da tela cobrindo quem está chegando.
-    xSai: centralW / 2 + painelW / 2 + 12,
-  };
+function escalaEm(k) {
+  return 1 - 0.14 * Math.min(k, 1) - 0.07 * Math.max(0, k - 1);
+}
+
+// Onde termina o painel a distância k, medido do centro. Cada camada avança a
+// sua fatia da faixa, e k fracionário avança a fatia proporcionalmente — é o
+// que mantém o leque abrindo e fechando sem degraus durante o arrasto.
+function bordaEm(k, m) {
+  let acum = 0;
+  const inteiro = Math.floor(k);
+  for (let i = 0; i < inteiro && i < FATIAS.length; i++) acum += FATIAS[i] * m.espia;
+  if (inteiro < FATIAS.length) acum += (k - inteiro) * FATIAS[inteiro] * m.espia;
+  return m.cenaW / 2 + acum;
+}
+
+// A posição sai da borda que se quer ver, e não do quanto o painel deveria
+// andar. Deslocá-lo por "meia tela" o joga para fora da janela, e o que sobra
+// à vista é o meio dele: uma faixa sem canto, sem borda e sem forma.
+function posicaoEm(k, m) {
+  return Math.max(0, bordaEm(k, m) - (m.cenaW * escalaEm(k)) / 2);
 }
 
 // Quanto o painel vizinho desbota. Lido do CSS a cada aplicação, e não cravado
@@ -600,39 +624,22 @@ function aplicarLayout() {
     const d = i - posicao;
     const k = Math.min(Math.abs(d), FUNDO);
     const sinal = Math.sign(d);
-    const central = el.classList.contains("is-atual");
 
-    // Os cartões de trás se afastam em passos curtos depois do primeiro: a
-    // pilha comprime nas pontas em vez de jogar os distantes para fora da
-    // tela, e é isso que faz uma pilha parecer uma pilha.
-    const x = central
-      ? d * m.xSai
-      : sinal * (k <= 1 ? Math.abs(d) * m.xLat : m.xLat + (k - 1) * 14);
+    // Tudo sai da mesma conta, para todas as cenas: não existe mais um painel
+    // com regra própria. Era a regra própria que produzia o estalo de formato
+    // — dois elementos de tamanhos diferentes trocando de papel no meio do
+    // caminho. Agora só muda a escala, e escala interpola sozinha.
+    const x = sinal * posicaoEm(k, m);
+    const escala = escalaEm(k);
+    const opacidade = entre(k, 1, perto, longe);
 
-    // O cartão que chega ao centro cresce um pouco antes de virar quadro: é o
-    // aviso de que ele está prestes a assumir a tela.
-    const escala = central
-      ? 1
-      : 1 + 0.07 * (1 - Math.min(k, 1)) - 0.06 * Math.max(0, k - 1);
-
-    const opacidade = central
-      ? Math.max(0.25, 1 - 0.75 * Math.min(k, 1))
-      : entre(k, 1, perto, longe);
-
-    // A cena central está no fluxo e já nasce centrada pela margem automática.
-    // Os cartões são absolutos ancorados em left:50%, e sem o recuo de metade
-    // da própria largura ficariam todos com a borda esquerda no meio da tela.
-    const centrar = central ? "" : "translateX(-50%) ";
-    el.style.transform = `${centrar}translateX(${x.toFixed(2)}px) scale(${escala.toFixed(4)})`;
+    el.style.transform = `translate(-50%, 0) translateX(${x.toFixed(2)}px) scale(${escala.toFixed(4)})`;
     el.style.opacity = opacidade.toFixed(3);
 
-    // O vizinho imediato sempre por cima dos mais distantes daquele lado, e o
-    // quadro central cedendo a frente conforme sai: sem isso a pilha vira uma
-    // mancha em que não se distingue o que vem antes do quê.
-    el.style.zIndex = String(
-      central ? Math.round(100 - Math.min(k, 1) * 20) : Math.round(96 - k * 10)
-    );
-    // Cartão encoberto não recebe cursor: o convite de entrar só pode abrir em
+    // O vizinho imediato sempre por cima dos mais distantes daquele lado: sem
+    // isto a pilha vira uma mancha em que não se distingue o que vem antes.
+    el.style.zIndex = String(Math.round(100 - k * 10));
+    // Painel encoberto não recebe cursor: o convite de entrar só pode abrir em
     // quem está de fato à vista.
     el.style.pointerEvents = k > 1.6 ? "none" : "";
   });
@@ -737,15 +744,24 @@ function aoMover(e) {
   }
 
   const m = medidas();
-  if (!m?.xLat) return;
+  if (!m) return;
 
-  // O passo do gesto é o do cartão, e não o do quadro central: quem o olho
-  // segue durante a troca é o painel que está chegando, e é ele que precisa
-  // acompanhar a mão um para um. O quadro central sai mais rápido porque é
-  // muito maior — e sair da frente depressa é o que se espera dele.
-  //
-  // Sem inércia, sem mola, sem física.
-  const cru = gesto.posicao0 - dx / m.xLat;
+  // O passo é a distância que o painel percorre para trocar de camada — a
+  // mesma que a conta de posição usa. Assim o painel acompanha a mão um para
+  // um: arrastar cem pixels move a pilha cem pixels, e não uma fração
+  // arbitrária deles.
+  const passo = passoDoGesto(m);
+  if (!passo) return;
+  const cru = gesto.posicao0 - dx / passo;
+
+  // Velocidade instantânea, para o arremesso: um empurrão curto e rápido troca
+  // de cena mesmo sem chegar à metade do caminho. Sem isto, trocar de cena
+  // exige arrastar a distância inteira toda vez, e é isso que faz um trilho
+  // parecer emperrado.
+  const agora = performance.now();
+  const dt = agora - (gesto.instante || agora);
+  if (dt > 0) gesto.velocidade = (cru - posicao) / dt;
+  gesto.instante = agora;
   // Passar do fim resiste em vez de travar: o leque estica um pouco e volta.
   posicao = amortecer(cru);
   aplicarLayout();
@@ -769,6 +785,7 @@ function amortecer(v) {
 
 function aoSoltar() {
   const arrastou = !!gesto?.arrastando;
+  const velocidade = gesto?.velocidade || 0;
   soltarOuvintes();
   if (!arrastou || !trilhoEl) return;
   trilhoEl.classList.remove("is-arrastando");
@@ -778,7 +795,7 @@ function aoSoltar() {
   setTimeout(() => {
     arrastouAgora = false;
   }, 0);
-  assentar();
+  assentar(velocidade);
 }
 
 function soltarOuvintes() {
@@ -793,9 +810,28 @@ function soltarOuvintes() {
   gesto = null;
 }
 
+// A distância que a pilha percorre para avançar uma cena. É a mesma que o
+// layout usa, então o painel anda junto com a mão.
+function passoDoGesto(m) {
+  return Math.max(60, posicaoEm(1, m));
+}
+
 function maisProxima() {
   if (!cenasEl.length) return -1;
   return Math.max(0, Math.min(cenasEl.length - 1, Math.round(posicao)));
+}
+
+// Para onde a pilha assenta ao soltar. Perto do meio do caminho, quem decide é
+// a direção do arremesso; parado, é o vizinho mais próximo.
+function destinoAoSoltar(velocidade) {
+  const teto = cenasEl.length - 1;
+  const arremesso = Math.abs(velocidade || 0) > 0.0016;
+  const alvo = arremesso
+    ? velocidade > 0
+      ? Math.ceil(posicao)
+      : Math.floor(posicao)
+    : Math.round(posicao);
+  return Math.max(0, Math.min(teto, alvo));
 }
 
 // Durante o arrasto, a cena que chegou ao centro é marcada no nó vivo. É o que
@@ -817,9 +853,9 @@ function destacarMaisProxima() {
   }
 }
 
-function assentar() {
-  const i = maisProxima();
-  if (i < 0) return;
+function assentar(velocidade = 0) {
+  if (!cenasEl.length) return;
+  const i = destinoAoSoltar(velocidade);
   deslizarAte(i, () => concluirNavegacao(ids[i]));
 }
 
