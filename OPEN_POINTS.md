@@ -1034,3 +1034,40 @@ vale `--z-palette`, que é 70. O quadro ganhava.
 se ordenando entre si, e lá fora o trilho inteiro conta como uma camada só, na
 ordem natural do documento. O `<dialog>` do Hoje nunca teve o problema porque
 vive na camada de topo do navegador, acima de qualquer `z-index`.
+
+### 15.14 O tremor ao mover um ticket
+
+Arrastar um cartão de coluna fazia a tela inteira tremer. A causa: o
+posicionamento do trilho era feito num `requestAnimationFrame` **depois** do
+`mount()`, e nesse quadro de atraso as cenas estavam no documento **sem
+transform nenhum** — todas empilhadas na âncora de `left: 50%`, fora de lugar.
+
+Como o `mount()` acontece a cada movimento de cartão, a cada criação e a cada
+tique de seis segundos, o quadro fora de lugar aparecia o tempo todo.
+
+Agora `posicionarTrilho()` é chamada por `app.js` logo depois do `mount()`, de
+forma síncrona, no mesmo turno. O navegador nunca chega a pintar o estado
+intermediário. Medido: duas montagens do trilho, **zero** com cena sem
+transform.
+
+É a única view que precisa disso, e é por ser a única cujo layout mora em
+JavaScript em vez de CSS.
+
+### 15.15 O pulso de confirmação existia e não era visto
+
+Verificado no navegador: a animação era criada, com a curva e a duração certas.
+Três coisas o tornavam invisível na prática.
+
+- **O tremor de 15.14.** Uma tela que salta a cada movimento consome a atenção
+  que o pulso queria ter.
+- **O pulso já entrava apagando.** Com o pico em 0% e a queda começando ali, ele
+  estava fraco quando o olho chegava. Agora acende no primeiro quadro e fica
+  aceso por 55% do tempo antes de apagar — quem move um cartão está olhando
+  para onde ele chegou, não para a borda dele.
+- **O brilho era discreto.** Passou a ter contorno de dois pixels em acento
+  sólido, mais halos de 18 e 48 pixels, e a borda do cartão em acento junto.
+
+A janela do store caiu de 2500 ms para 1500 ms, um pouco acima da duração do
+pulso. Com a janela muito maior que a animação, um redesenho tardio remontava o
+cartão ainda marcado e a animação recomeçava — o realce piscava duas vezes, o
+que diz "mudou de novo" quando nada mudou.

@@ -214,9 +214,11 @@ export async function criar(dados) {
 // redesenho, então nada que fosse guardado nele sobreviveria ao próprio
 // salvamento que deveria confirmar.
 const confirmadas = new Map();
-// Folga suficiente para o redesenho chegar mesmo quando ele foi represado
-// por um campo em foco ou por um gesto do trilho em curso.
-const CONFIRMA_MS = 2500;
+// Um pouco acima da duração do pulso, e não muito: se a janela for bem maior
+// que a animação, um redesenho tardio — o sync de seis segundos, por exemplo —
+// remonta o cartão ainda marcado e a animação recomeça do zero. O realce
+// piscaria duas vezes, o que diz "mudou de novo" quando nada mudou.
+const CONFIRMA_MS = 1500;
 
 export function confirmar(id) {
   confirmadas.set(Number(id), Date.now());

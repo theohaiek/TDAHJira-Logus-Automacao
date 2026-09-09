@@ -89,9 +89,13 @@
      com frequência. */
   --brilho-fraco: 0 0 0 1px color-mix(in srgb, var(--accent) 34%, transparent),
     0 0 14px color-mix(in srgb, var(--accent) 16%, transparent);
-  --brilho: 0 0 0 1px color-mix(in srgb, var(--accent) 62%, transparent),
-    0 0 22px color-mix(in srgb, var(--accent) 34%, transparent);
-  --dur-brilho: 900ms; /* a confirmação de salvamento, e só ela             */
+  /* A confirmação precisa ser vista de canto de olho, do outro lado da tela:
+     quem move um cartão está olhando para onde ele chegou, não para a borda
+     dele. Por isso o contorno tem dois pixels e o halo vai longe. */
+  --brilho: 0 0 0 2px var(--accent),
+    0 0 18px color-mix(in srgb, var(--accent) 62%, transparent),
+    0 0 48px color-mix(in srgb, var(--accent) 34%, transparent);
+  --dur-brilho: 1200ms; /* a confirmação de salvamento, e só ela            */
 
   --z-sticky: 10;
   --z-drawer: 40;
@@ -286,7 +290,7 @@
     --dur-slow: 0ms;
     /* A confirmação não pisca, mas continua existindo: ela vira um realce
        estático que aparece e some. Zerar aqui apagaria o retorno inteiro. */
-    --dur-brilho: 900ms;
+    --dur-brilho: 1200ms;
   }
 }
 

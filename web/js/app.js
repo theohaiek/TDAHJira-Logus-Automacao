@@ -22,6 +22,7 @@ import {
   voltarAoCentro,
   andarCena,
   carrosselOcupado,
+  posicionarTrilho,
 } from "./views/quadro.js";
 import { viewPlanilha } from "./views/planilha.js";
 import { viewFluxo } from "./views/fluxo.js";
@@ -209,6 +210,14 @@ function desenharAgora() {
   const rolagem = alvo.scrollTop;
   mount(alvo, view.render());
   alvo.scrollTop = rolagem;
+
+  // O trilho se posiciona AQUI, no mesmo turno do mount e antes de o navegador
+  // pintar. Num requestAnimationFrame, como era antes, sobrava um quadro em
+  // que as cenas estavam no documento sem transform — todas empilhadas fora de
+  // lugar. Como este mount roda a cada movimento de cartão, isso aparecia como
+  // um tremor na tela inteira. É a única view que precisa disto, e é por ela
+  // ser a única cujo layout mora em JavaScript.
+  if (state.view === "quadro") posicionarTrilho();
 
   if (ticketAberto()) rerenderTicket();
   // A lista do dia muda enquanto se lê. Sem isto, o popup congela no instante

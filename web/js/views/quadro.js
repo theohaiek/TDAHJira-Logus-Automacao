@@ -82,8 +82,6 @@ export function viewQuadro() {
     fileira.map((d) => cena(d, atual))
   );
 
-  posicionarDepoisDoMonte(trilho, atual);
-
   return frag(cabecalho(daVez), barra(fileira, atual), trilho);
 }
 
@@ -692,23 +690,36 @@ export function carrosselOcupado() {
   return true;
 }
 
-function posicionarDepoisDoMonte(el, id) {
-  requestAnimationFrame(() => {
-    // Quando este quadro dispara, o mount() já rodou e o nó está no documento.
-    if (!el.isConnected) return;
-    ligar(el);
-    // A posição vem da identidade da cena, nunca de um pixel guardado: o nó
-    // anterior foi destruído, e um índice sozinho muda de significado quando a
-    // fileira muda de composição.
-    posicao = Math.max(0, ids.indexOf(id));
-    // Sem animação: isto é reposicionamento por remonte, não movimento que
-    // alguém pediu. A classe sai no quadro seguinte, quando a posição já está
-    // escrita e não há o que interpolar.
-    el.classList.add("is-mudo");
-    aplicarLayout();
-    requestAnimationFrame(() => el.classList.remove("is-mudo"));
-    observarTamanho(el);
-  });
+// Chamada por app.js logo depois do mount(), de forma síncrona.
+//
+// Isto era um requestAnimationFrame, e o quadro de atraso era visível: entre
+// o mount() e o quadro seguinte, as cenas ficavam no documento SEM transform
+// nenhum — todas empilhadas na âncora de left:50%, fora de lugar. Como o
+// mount() acontece a cada movimento de cartão e a cada tique de seis segundos,
+// isso aparecia como um tremor na tela inteira toda vez que alguém arrastava
+// um ticket de coluna.
+//
+// Síncrono, o navegador nunca chega a pintar o estado intermediário: o DOM
+// entra e sai posicionado no mesmo turno.
+export function posicionarTrilho() {
+  const el = document.querySelector(".trilho");
+  if (!el?.isConnected) {
+    trilhoEl = null;
+    return;
+  }
+
+  ligar(el);
+  // A posição vem da identidade da cena, nunca de um pixel guardado: o nó
+  // anterior foi destruído, e um índice sozinho muda de significado quando a
+  // fileira muda de composição.
+  posicao = Math.max(0, ids.indexOf(state.carrossel.atual));
+  // Sem animação: isto é reposicionamento por remonte, não movimento que
+  // alguém pediu. A classe sai no quadro seguinte, quando a posição já está
+  // escrita e não há mais o que interpolar.
+  el.classList.add("is-mudo");
+  aplicarLayout();
+  requestAnimationFrame(() => el.classList.remove("is-mudo"));
+  observarTamanho(el);
 }
 
 function ligar(el) {
