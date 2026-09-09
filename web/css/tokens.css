@@ -72,6 +72,18 @@
   --cena-perto: 0.92; /* o vizinho imediato: visível e legível              */
   --cena-longe: 0.42; /* dois de distância: presente, mas claramente atrás  */
 
+  /* --- O brilho de acento -------------------------------------------------- */
+  /* O acento tem três papéis, e os três são momentâneos: ação primária, foco
+     de teclado e resposta imediata ao que se acabou de fazer. Ele nunca fica
+     ligado sozinho na tela — some quando o cursor sai e quando a confirmação
+     termina. É por isso que ele continua significando "é aqui" mesmo aparecendo
+     com frequência. */
+  --brilho-fraco: 0 0 0 1px color-mix(in srgb, var(--accent) 34%, transparent),
+    0 0 14px color-mix(in srgb, var(--accent) 16%, transparent);
+  --brilho: 0 0 0 1px color-mix(in srgb, var(--accent) 62%, transparent),
+    0 0 22px color-mix(in srgb, var(--accent) 34%, transparent);
+  --dur-brilho: 900ms; /* a confirmação de salvamento, e só ela             */
+
   --z-sticky: 10;
   --z-drawer: 40;
   --z-modal: 50;
@@ -263,6 +275,9 @@
     --dur-fast: 0ms;
     --dur: 0ms;
     --dur-slow: 0ms;
+    /* A confirmação não pisca, mas continua existindo: ela vira um realce
+       estático que aparece e some. Zerar aqui apagaria o retorno inteiro. */
+    --dur-brilho: 900ms;
   }
 }
 

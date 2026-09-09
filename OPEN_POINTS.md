@@ -792,3 +792,69 @@ A lâmina do trilho mostra a foto da empresa e as iniciais coloridas da pessoa.
 Fica visivelmente assimétrico, e é de propósito: ver [14.7](#147-foto-de-pessoa-ficou-de-fora-e-e-so-escopo).
 A mecânica serve inteira, e o custo de estendê-la é uma coluna e quatro
 chamadas.
+
+---
+
+## 15. O retorno da primeira leitura, ainda em 8 de setembro de 2026
+
+Quatro apontamentos ao ver a 1.1 em produção. Os três primeiros eram defeitos
+de execução; o quarto foi correção de rota.
+
+### 15.1 Os painéis do trilho não pareciam painéis
+
+A cena vizinha era uma faixa de cem pixels colada na borda. A causa não era de
+cor, era geométrica: com a largura da cena inteira, as bordas do painel vizinho
+caem fora da janela ou atrás do painel central, e nunca sobra uma borda para
+ver. Faixa sem borda e sem forma não parece painel nenhum, e a tela continuava
+com a mesma cara de antes.
+
+O painel de trás passou a ter largura própria — um cartão de 220px, com borda,
+raio e sombra em três camadas. E o empilhamento saiu da rolagem para posição
+absoluta com `transform`: caixa que rola não sobrepõe, e o pedido era
+justamente que o vizinho imediato ficasse **acima** dos mais distantes daquele
+lado.
+
+Isso apagou de uma vez três defeitos anteriores: o laço de realimentação entre
+`scroll` e redesenho (14.10), o `semSnap` reentrante e a briga com o motor de
+snap. Nenhum deles existe mais, porque não há mais rolagem.
+
+### 15.2 O Hoje ainda figurava como seção
+
+Ele abria como pop-up desde a 1.1, mas continuava listado entre Quadro,
+Planilha e Fluxo — com a mesma cara de "tela para onde se navega", que é
+exatamente o que ele deixou de ser. Saiu de `VIEWS` e virou uma ação própria,
+acima da navegação e em acento: é a pergunta que este produto existe para
+responder, e o único item da barra que carrega o ciano.
+
+`rota()` continua sendo o ponto de entrada único — só que agora trata o `hoje`
+pelo endereço, antes de consultar `VIEWS`, e não por estar nela.
+
+### 15.3 O acento tinha ido longe demais
+
+A doutrina de dois papéis (14.1) resolveu o excesso e criou o oposto: a
+interface parou de responder. Passar o mouse não devolvia nada, e mover um
+cartão de coluna não confirmava que o servidor recebeu.
+
+Entrou o terceiro papel — **resposta imediata à interação** —, com a regra que
+o separa dos outros: o acento é momentâneo. Chega com o cursor e sai com ele;
+aparece quando o servidor confirma e some meio segundo depois. Estado
+persistente continua sem acento, porque se o que está ligado e o que está sob o
+cursor brilhassem igual, o brilho pararia de dizer qual é qual.
+
+A confirmação de salvamento mora em `store.js`, e não no nó do cartão: `mount()`
+recria o cartão a cada redesenho, e é justamente o redesenho do salvamento que
+precisa mostrar a confirmação. Ela vale para criação e para mudança de estado —
+não para cada tecla digitada num campo, que faria o cartão piscar sem parar. E
+piscar sem parar não confirma nada; vira ruído, que é o oposto do que este
+produto quer.
+
+### 15.4 O que continua em aberto
+
+- **A empresa mock é local.** O ambiente de teste ganhou duas empresas com foto
+  para o painel da esquerda existir; a produção continua com zero empresas
+  cadastradas, e o trilho lá mostra só o centro e as pessoas. Cadastrar é pelo
+  `+` da barra lateral.
+- **A janela de confirmação é de 2,5 s.** Se o redesenho for represado por mais
+  que isso — um gesto muito longo, um campo em foco esquecido —, o pulso se
+  perde. Perder a confirmação é bem menos grave do que travar o redesenho para
+  garanti-la.

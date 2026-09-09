@@ -34,8 +34,12 @@ import { abrirHoje, abrirHojeSePrimeiraVezNoDia, redesenharHoje, popupAberto } f
 import { toast, erro } from "./toast.js";
 import { pedir } from "./dialog.js";
 
+// O Hoje não está aqui, e é de propósito. Ele não é uma tela: é a pergunta
+// "o que eu faço agora" chegando por cima do quadro e saindo do caminho
+// depois. Enquanto ele figurava nesta lista, aparecia na barra lateral como
+// mais uma seção para onde se navega — que é exatamente o que ele deixou de
+// ser. Agora ele é uma ação, com botão próprio acima da navegação.
 const VIEWS = {
-  hoje: { titulo: "Hoje", icone: "◉", render: viewHoje },
   quadro: { titulo: "Quadro", icone: "▦", render: viewQuadro },
   planilha: { titulo: "Planilha", icone: "▤", render: viewPlanilha },
   fluxo: { titulo: "Fluxo", icone: "◈", render: viewFluxo },
@@ -117,21 +121,22 @@ function telaLogin() {
 function rota() {
   // O quadro é onde o trabalho acontece, e é o que faz sentido ver ao chegar.
   const partes = (location.hash.replace(/^#\/?/, "") || "quadro").split("/");
-  const alvo = VIEWS[partes[0]] ? partes[0] : "quadro";
 
-  // O Hoje não é mais uma tela: é a pergunta "o que eu faço agora" chegando
-  // por cima do quadro e saindo do caminho depois. Tratar aqui, e não em cada
-  // botão, é o que garante que os seis caminhos até ele — item de navegação,
-  // atalho 1, paleta, link Entrada, o logotipo da barra lateral e a URL
-  // digitada à mão — se comportem igual. Tratar um por um seria esquecer um.
-  if (alvo === "hoje") {
+  // O Hoje é tratado antes de tudo, e por endereço, não por estar em VIEWS:
+  // ele não é uma tela, é a pergunta "o que eu faço agora" chegando por cima
+  // do quadro e saindo do caminho depois. Tratar aqui, e não em cada botão,
+  // é o que garante que todos os caminhos até ele — o botão da barra lateral,
+  // o atalho 1, a paleta, o link Entrada, o logotipo e a URL digitada à mão —
+  // se comportem igual. Tratar um por um seria esquecer um.
+  if (partes[0] === "hoje") {
     abrirHoje();
     // replaceState, e não location.hash: trocar o hash aqui dispararia esta
     // mesma função de novo e empilharia uma entrada de histórico por abertura.
     history.replaceState(null, "", "#/quadro");
+    partes[0] = "quadro";
   }
 
-  state.view = alvo === "hoje" ? "quadro" : alvo;
+  state.view = VIEWS[partes[0]] ? partes[0] : "quadro";
 
   // Os segmentos 2 e 3 só valem para o quadro, e é onde mora a cena do trilho.
   // Antes desta versão, .split("/")[0] descartava em silêncio tudo depois da
@@ -213,14 +218,31 @@ function desenharAgora() {
 
 function desenharNav() {
   const contagens = {
-    hoje: agora(99).length + esperando().length,
     quadro: visiveis().filter((t) => t.status !== "done").length,
     planilha: visiveis().length,
     fluxo: visiveis().filter((t) => t.status !== "done").length,
   };
+  const paraHoje = agora(99).length + esperando().length;
 
   mount(
     $("#nav"),
+    // O Hoje vem antes e por fora da lista de seções, com a cara de ação que
+    // ele é: quem clica não troca de tela, abre a pergunta do dia por cima do
+    // quadro. É o item mais importante da barra, e o único que carrega o
+    // acento — é para ele que a atenção deve ir ao abrir o aplicativo.
+    h(
+      "a",
+      {
+        class: "navitem navitem--hoje",
+        href: "#/hoje",
+        title: "O que eu faço agora (1)",
+        onClick: () => $("#rail").classList.remove("is-open"),
+      },
+      h("span", { class: "navitem__icon", text: "◉" }),
+      h("span", { text: "Hoje" }),
+      h("span", { class: "navitem__count", text: String(paraHoje || "") })
+    ),
+
     Object.entries(VIEWS).map(([chave, v]) =>
       h(
         "a",
@@ -234,6 +256,7 @@ function desenharNav() {
         h("span", { class: "navitem__count", text: String(contagens[chave] || "") })
       )
     ),
+
     entrada().length
       ? h(
           "a",

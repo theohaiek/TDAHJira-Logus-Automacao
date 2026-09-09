@@ -34,7 +34,7 @@ import {
 import { taskCard } from "../taskcard.js";
 import { STATUS_LABEL, STATUS_ORDER, STATUS_COLOR } from "../format.js";
 import { api } from "../api.js";
-import { mesclarTarefa, emit } from "../store.js";
+import { mesclarTarefa, emit, confirmar } from "../store.js";
 import { erro, comemorar } from "../toast.js";
 import { criarRapida } from "../quickadd.js";
 
@@ -404,6 +404,7 @@ function coluna(status, wip, emCurso, escopo, cena) {
         try {
           const r = await api.moveTask(t.id, { status: destino });
           mesclarTarefa(r.task);
+          confirmar(t.id);
           emit();
           if (destino === "done") comemorar();
           // Devolve o foco ao mesmo cartão, já na coluna nova.
@@ -489,6 +490,7 @@ function coluna(status, wip, emCurso, escopo, cena) {
     try {
       const r = await api.moveTask(id, { status, beforeId, afterId });
       mesclarTarefa(r.task);
+      confirmar(id);
       emit();
       if (status === "done") comemorar();
     } catch (err) {

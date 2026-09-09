@@ -178,6 +178,10 @@ export async function patch(id, mudanca) {
   try {
     const r = await api.patchTask(id, mudanca);
     mesclarTarefa(r.task);
+    // Só mudança de estado confirma: um campo de texto salvo a cada tecla
+    // faria o cartão piscar sem parar, e piscar sem parar não é confirmação
+    // de nada — vira ruído, que é o oposto do que este produto quer.
+    if (mudanca.status !== undefined) confirmar(id);
     emit();
     return r.task;
   } catch (err) {
@@ -195,8 +199,37 @@ export async function patch(id, mudanca) {
 export async function criar(dados) {
   const r = await api.createTask(dados);
   mesclarTarefa(r.task);
+  confirmar(r.task.id);
   emit();
   return r.task;
+}
+
+// --- A confirmação de salvamento -------------------------------------------
+//
+// O que acabou de ser criado ou movido pulsa por um instante no cartão. Sem
+// isso, mudar o estado de uma tarefa não devolve nada: o cartão salta de
+// coluna e fica a dúvida de se aquilo chegou ao servidor.
+//
+// A marca vive aqui, e não no nó: mount() destrói e recria o cartão a cada
+// redesenho, então nada que fosse guardado nele sobreviveria ao próprio
+// salvamento que deveria confirmar.
+const confirmadas = new Map();
+// Folga suficiente para o redesenho chegar mesmo quando ele foi represado
+// por um campo em foco ou por um gesto do trilho em curso.
+const CONFIRMA_MS = 2500;
+
+export function confirmar(id) {
+  confirmadas.set(Number(id), Date.now());
+}
+
+export function recemConfirmada(id) {
+  const quando = confirmadas.get(Number(id));
+  if (!quando) return false;
+  if (Date.now() - quando > CONFIRMA_MS) {
+    confirmadas.delete(Number(id));
+    return false;
+  }
+  return true;
 }
 
 // --- Consultas de produto --------------------------------------------------

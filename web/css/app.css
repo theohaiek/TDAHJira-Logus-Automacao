@@ -2308,3 +2308,109 @@ input[type="color"] {
     display: none;
   }
 }
+
+/* ==========================================================================
+   O acento em movimento: retorno ao cursor e confirmação de salvamento
+   --------------------------------------------------------------------------
+   O ciano tem três papéis, e nenhum deles é decorativo: ação primária, foco de
+   teclado e resposta imediata ao que se acabou de fazer. Os dois últimos são
+   momentâneos — aparecem quando o cursor chega e quando o servidor confirma, e
+   somem sozinhos. É por isso que ele continua significando "é aqui" mesmo
+   aparecendo com frequência: ele nunca fica aceso sozinho na tela.
+
+   Estado persistente continua sem acento: item selecionado, filtro ligado e
+   título de coluna se distinguem por superfície, contorno e peso. Se o que
+   está ligado e o que está sob o cursor brilhassem igual, o brilho pararia de
+   informar qual dos dois é qual.
+   ========================================================================== */
+
+/* O Hoje é a ação mais importante da barra, e a única que carrega o acento:
+   é a pergunta que este produto existe para responder. */
+.navitem--hoje {
+  margin-bottom: var(--sp-2);
+  color: var(--accent);
+  font-weight: 600;
+}
+.navitem--hoje .navitem__icon {
+  opacity: 1;
+}
+.navitem--hoje .navitem__count {
+  color: var(--accent);
+}
+.navitem--hoje:hover {
+  background: var(--accent-dim);
+  color: var(--accent-hover);
+  box-shadow: var(--brilho-fraco);
+}
+.navitem--hoje:active {
+  transform: scale(0.98);
+}
+
+/* O retorno ao cursor nos itens que levam a algum lugar. */
+.navitem,
+.projitem,
+.empitem__ir,
+.col__add,
+.mini-board__more,
+.mini-item__title,
+.sheet .rowopen {
+  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
+}
+.navitem:hover,
+.projitem:hover,
+.empitem:hover,
+.mini-board__more:hover {
+  box-shadow: var(--brilho-fraco);
+}
+.col__add:hover {
+  color: var(--accent);
+  border-color: transparent;
+  box-shadow: var(--brilho-fraco);
+}
+
+/* O cartão de tarefa é a peça mais tocada do produto. Sob o cursor ele levanta
+   e ganha o fio de acento; a borda de estado continua do lado esquerdo, porque
+   é ela que diz em que coluna a tarefa está. */
+.task {
+  transition: border-color var(--dur) var(--ease), background-color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease), transform var(--dur-fast) var(--ease);
+}
+.task:hover {
+  background: var(--surface-3);
+  border-color: var(--border);
+  box-shadow: var(--brilho-fraco);
+}
+.board .task:active {
+  transform: scale(0.99);
+}
+.task__check:hover {
+  box-shadow: var(--brilho-fraco);
+}
+
+/* A confirmação de salvamento: um pulso no cartão que acabou de ser criado ou
+   de mudar de coluna. Meio segundo de brilho e some.
+
+   É keyframes, e não transição, porque roda uma vez e tem começo, meio e fim —
+   transição serve para estado que vai e volta. E o realce de movimento
+   reduzido não desliga: ele só deixa de pulsar. Tirar o retorno inteiro de
+   quem pediu menos movimento seria tirar a informação junto com a animação. */
+@keyframes confirma {
+  0% {
+    box-shadow: var(--brilho);
+  }
+  55% {
+    box-shadow: var(--brilho);
+  }
+  100% {
+    box-shadow: none;
+  }
+}
+.task.is-confirmada {
+  animation: confirma var(--dur-brilho) var(--ease);
+}
+@media (prefers-reduced-motion: reduce) {
+  .task.is-confirmada {
+    animation: confirma var(--dur-brilho) steps(2, jump-none);
+  }
+}

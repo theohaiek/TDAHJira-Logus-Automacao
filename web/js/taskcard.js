@@ -16,7 +16,7 @@ import {
   agingTexto,
   blocos,
 } from "./format.js";
-import { usuario, projeto, empresa, patch } from "./store.js";
+import { usuario, projeto, empresa, patch, recemConfirmada } from "./store.js";
 import { avatar } from "./dom.js";
 import { comemorar, erro } from "./toast.js";
 import { abrirTicket } from "./ticket.js";
@@ -89,6 +89,21 @@ export function taskCard(t, opcoes = {}) {
       card.classList.add("is-dragging");
     });
     card.addEventListener("dragend", () => card.classList.remove("is-dragging"));
+  }
+
+  // O pulso de confirmação do que acabou de ser criado ou movido. A marca vem
+  // do store, e não do nó: mount() recria este cartão a cada redesenho, e é
+  // justamente o redesenho do salvamento que precisa mostrar a confirmação.
+  //
+  // A classe sai depois de rodar. Sem isso, um cartão que não fosse redesenhado
+  // de novo ficaria com o realce aceso para sempre — e realce aceso o tempo
+  // todo deixa de dizer "isto acabou de mudar".
+  if (recemConfirmada(t.id)) {
+    card.classList.add("is-confirmada");
+    const ms = parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue("--dur-brilho")
+    );
+    setTimeout(() => card.classList.remove("is-confirmada"), Number.isFinite(ms) ? ms : 900);
   }
 
   return card;

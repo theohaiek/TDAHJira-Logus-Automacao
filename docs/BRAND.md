@@ -37,16 +37,33 @@ Valores extraídos por leitura direta dos pixels dos arquivos.
 | Azul profundo | `#033552` | Topo do gradiente de fundo |
 | Quase preto | `#020515` | Base do gradiente de fundo |
 
-O ciano gelo é a **cor de ação** da interface, e vale para **dois** papéis:
-a ação primária (o botão que a tela quer que se clique) e o foco de teclado.
-Nada mais.
+O ciano gelo é a **cor de ação** da interface, e vale para **três** papéis:
+a ação primária (o botão que a tela quer que se clique), o foco de teclado e a
+resposta imediata à interação — o que está sob o cursor agora, e o que acabou
+de ser salvo.
 
-A versão anterior deste parágrafo dava a ela quatro papéis — ação, foco,
+O que separa os três de tudo o mais é que **nenhum deles fica ligado sozinho na
+tela**. O acento chega quando o cursor chega e sai quando ele sai; aparece
+quando o servidor confirma e some meio segundo depois. É por isso que ele
+continua dizendo "é aqui" mesmo aparecendo com frequência: nunca há dois
+acentos acesos disputando a mesma atenção.
+
+Estado **persistente** continua sem acento — item selecionado, filtro ligado,
+título de coluna, coluna alvo de arraste. Se o que está ligado e o que está sob
+o cursor brilhassem igual, o brilho pararia de informar qual dos dois é qual.
+
+Duas versões atrás este parágrafo dava a ela quatro papéis — ação, foco,
 seleção e o estado "Fazendo" — e o código foi ainda mais longe: os cinco
 títulos de coluna, o item de navegação ativo, o filtro ligado, a coluna alvo
 de arraste, os rótulos em versalete, as setas decorativas e o herói da tela
 inicial diziam "é aqui" ao mesmo tempo. Quando tudo diz "é aqui", nenhum diz.
 Espalhá-la por elemento decorativo tira dela justamente a função que ela tem.
+
+A correção foi longe demais na direção oposta: sobrou tão pouco acento que a
+interface parou de responder a quem a usa. Passar o mouse não devolvia nada, e
+mover um cartão de coluna não confirmava que o servidor tinha recebido. Daí o
+terceiro papel — que não desfaz a regra, e sim a completa: **o acento é
+momentâneo**. Ele responde e sai. O que ele nunca faz é ficar.
 
 O que sobrou de fora do acento é resolvido por três mecanismos que já
 existiam e eram subusados: **superfície** (`--surface-3` para hover,
