@@ -1214,3 +1214,22 @@ Este repositório escreve corpo de commit com parágrafos. Vinte deles abertos
 davam nove mil pixels de rolagem para achar a data de um — que é justamente o
 que a pessoa foi ver. O corpo entrou num `<details>` fechado, que entrega o
 abrir, o fechar, o estado e o teclado sem uma linha de JavaScript.
+
+### 16.5 O acento gelo não era ciano
+
+O acento do produto tem 68% de saturação: é gelo, e de perto lê como
+quase-branco. Isso serve para o que ele faz na maior parte da tela — num quadro
+de sessenta cartões, sessenta gritos não marcam nada. Nas três peças que
+respondem "onde eu estou", porém, ele simplesmente não aparecia como cor.
+
+Entrou um segundo acento, `--accent-vivo`, com quase toda a saturação
+disponível: `#3ae7fb` no escuro. No claro ele não sobe de brilho — ciano claro
+sobre branco some —, sobe de saturação e desce de luminosidade, que é o que dá
+a mesma sensação de cor viva com contraste de leitura.
+
+Não é o acento do produto com outro brilho: é outra cor, com três lugares de
+uso. Espalhá-la desfaz exatamente o contraste que ela existe para criar.
+
+O rótulo de versão perdeu a opacidade de 78% junto. Opacidade em cima de cor
+viva devolve o mesmo lavado que se estava tentando tirar; o recuo agora vem de
+tamanho e peso, não de transparência.

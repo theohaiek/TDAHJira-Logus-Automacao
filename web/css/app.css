@@ -127,14 +127,14 @@
    O item de projeto segue em superfície neutra, e essa diferença é a hierarquia:
    um diz em que tela você está, o outro diz que recorte está aplicado nela. */
 .navitem.is-active {
-  background: var(--accent-dim);
-  color: var(--accent);
+  background: color-mix(in srgb, var(--accent-vivo) 15%, transparent);
+  color: var(--accent-vivo);
   font-weight: 600;
-  box-shadow: inset 2px 0 0 var(--accent);
+  box-shadow: inset 2px 0 0 var(--accent-vivo);
 }
 .navitem.is-active:hover {
-  background: var(--accent-dim);
-  color: var(--accent-hover);
+  background: color-mix(in srgb, var(--accent-vivo) 22%, transparent);
+  color: var(--accent-vivo);
 }
 .navitem.is-active .navitem__icon {
   opacity: 1;
@@ -152,7 +152,7 @@
   font-variant-numeric: tabular-nums;
 }
 .navitem.is-active .navitem__count {
-  color: color-mix(in srgb, var(--accent) 72%, transparent);
+  color: color-mix(in srgb, var(--accent-vivo) 76%, transparent);
 }
 
 .rail__projects {
@@ -308,8 +308,9 @@
   font-size: var(--text-2xl);
   font-weight: 400;
   letter-spacing: 0.02em;
-  color: var(--accent);
-  text-shadow: 0 0 26px color-mix(in srgb, var(--accent) 30%, transparent);
+  color: var(--accent-vivo);
+  text-shadow: 0 0 10px color-mix(in srgb, var(--accent-vivo) 34%, transparent),
+    0 0 34px color-mix(in srgb, var(--accent-vivo) 22%, transparent);
 }
 .page-head p {
   color: var(--text-3);
@@ -2526,19 +2527,18 @@ input[type="color"] {
   width: 100%;
   padding: 2px var(--sp-2) 6px;
   border-radius: var(--radius-sm);
-  color: var(--accent);
+  color: var(--accent-vivo);
   font-family: var(--font-mono);
   font-size: 11px;
+  font-weight: 500;
   letter-spacing: 0.04em;
   text-align: left;
-  opacity: 0.78;
-  transition: opacity var(--dur) var(--ease), color var(--dur) var(--ease),
-    text-shadow var(--dur) var(--ease);
+  text-shadow: 0 0 14px color-mix(in srgb, var(--accent-vivo) 28%, transparent);
+  transition: background var(--dur) var(--ease), text-shadow var(--dur) var(--ease);
 }
 .rail__versao:hover {
-  opacity: 1;
-  color: var(--accent-hover);
-  text-shadow: 0 0 16px color-mix(in srgb, var(--accent) 46%, transparent);
+  background: color-mix(in srgb, var(--accent-vivo) 12%, transparent);
+  text-shadow: 0 0 18px color-mix(in srgb, var(--accent-vivo) 55%, transparent);
 }
 .rail__versao:active {
   transform: scale(0.96);

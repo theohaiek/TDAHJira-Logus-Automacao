@@ -137,6 +137,16 @@
 
   --accent: #a2e4f0;
   --accent-hover: #c4eff8;
+  /* O acento tem 68% de saturação: é gelo, e de perto lê como quase-branco.
+     Isso serve para o que ele faz na maior parte do produto, que é marcar sem
+     gritar — num quadro de sessenta cartões, sessenta gritos não marcam nada.
+
+     Mas três peças precisam gritar, e são as que respondem "onde eu estou":
+     a seção selecionada, o nome da tela e o rótulo de versão. Para elas existe
+     este segundo acento, com quase toda a saturação disponível. Não é o acento
+     do produto com outro brilho — é outra cor, e usá-la fora dessas três peças
+     desfaz justamente o contraste que ela existe para criar. */
+  --accent-vivo: #3ae7fb;
   /* Derivado do próprio acento, como o resto do arquivo promete: um valor
      cravado à mão envelhece sozinho quando o acento muda. */
   --accent-dim: color-mix(in srgb, var(--accent) 13%, transparent);
@@ -200,6 +210,10 @@
 
   --accent: #0d5f7d;
   --accent-hover: #0a4d66;
+  /* No claro o vivo não pode subir de brilho: ciano claro sobre branco some.
+     Sobe de saturação e desce de luminosidade — 84% contra os 79% do acento —,
+     que é o que dá a mesma sensação de cor viva com contraste de leitura. */
+  --accent-vivo: #0e7f9e;
   --accent-dim: color-mix(in srgb, var(--accent) 10%, transparent);
   --on-accent: #ffffff;
 
