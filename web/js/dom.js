@@ -88,6 +88,35 @@ export function avatar(user, size = "") {
   );
 }
 
+// Os avatares de quem faz, empilhados como um baralho aberto.
+//
+// O teto existe porque o lugar é um canto de cartão: com quatro pessoas ou
+// mais, mostrar todas encolhe o título. Então aparecem as primeiras e um
+// contador — que é o mesmo acordo dos selos do cartão, onde o que não cabe
+// vira "+2" com a lista no title.
+export function avatares(users, { size = "avatar--sm", teto = 3 } = {}) {
+  if (!users?.length) return avatar(null, size);
+
+  const cabem = users.slice(0, teto);
+  const sobra = users.slice(teto);
+
+  return h(
+    "span",
+    {
+      class: "avatares",
+      title: users.map((u) => u.name).join(", "),
+    },
+    cabem.map((u) => avatar(u, size)),
+    sobra.length
+      ? h("span", {
+          class: `avatar avatar--mais ${size}`,
+          text: `+${sobra.length}`,
+          title: sobra.map((u) => u.name).join(", "),
+        })
+      : null
+  );
+}
+
 // A marca visual de uma empresa, no tamanho que o lugar pede.
 //
 // Empresa sem foto não ganha placeholder cinza: ganha o mesmo ponto colorido

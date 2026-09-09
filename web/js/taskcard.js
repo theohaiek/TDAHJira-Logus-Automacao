@@ -16,15 +16,17 @@ import {
   agingTexto,
   blocos,
 } from "./format.js";
-import { usuario, projeto, empresa, patch, recemConfirmada } from "./store.js";
-import { avatar } from "./dom.js";
+import { quemFaz, projeto, empresa, patch, recemConfirmada } from "./store.js";
+import { avatares } from "./dom.js";
 import { comemorar, erro } from "./toast.js";
 import { abrirTicket } from "./ticket.js";
 
 export function taskCard(t, opcoes = {}) {
   const { mostrarProjeto = true, mostrarPasso = true, arrastavel = false } = opcoes;
   const feito = t.status === "done";
-  const responsavel = usuario(t.assigneeId);
+  // Todos os responsáveis, e não só o primeiro: uma tarefa dividida entre
+  // duas pessoas que mostra um rosto só faz a segunda parecer não envolvida.
+  const responsaveis = quemFaz(t);
   const proj = mostrarProjeto ? projeto(t.projectId) : null;
   const cliente = empresa(t.companyId);
 
@@ -78,7 +80,7 @@ export function taskCard(t, opcoes = {}) {
     h(
       "div",
       { class: "task__right" },
-      responsavel ? avatar(responsavel, "avatar--sm") : null
+      responsaveis.length ? avatares(responsaveis) : null
     )
   );
 

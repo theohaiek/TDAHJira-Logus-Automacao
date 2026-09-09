@@ -33,6 +33,7 @@ import {
   escopoDeCena,
   cenaValida,
   projeto,
+  ehResponsavel,
 } from "../store.js";
 import { taskCard } from "../taskcard.js";
 import { STATUS_LABEL, STATUS_ORDER, STATUS_COLOR } from "../format.js";
@@ -354,14 +355,14 @@ function filtros(d = { tipo: "geral" }) {
   const daCena = visiveis().filter(
     (t) =>
       (d.tipo !== "empresa" || t.companyId === d.ref?.id) &&
-      (d.tipo !== "pessoa" || t.assigneeId === d.ref?.id)
+      (d.tipo !== "pessoa" || ehResponsavel(t, d.ref?.id))
   );
 
   const pessoas =
     d.tipo === "pessoa"
       ? []
       : state.users.filter(
-          (u) => daCena.some((t) => t.assigneeId === u.id) || state.quadro.pessoas.includes(u.id)
+          (u) => daCena.some((t) => ehResponsavel(t, u.id)) || state.quadro.pessoas.includes(u.id)
         );
   const empresas =
     d.tipo === "empresa"
@@ -554,7 +555,7 @@ function coluna(status, wip, emCurso, escopo, cena) {
 
 function presetDaCena(cena) {
   if (cena?.tipo === "empresa") return { companyId: cena.ref.id };
-  if (cena?.tipo === "pessoa") return { assigneeId: cena.ref.id };
+  if (cena?.tipo === "pessoa") return { assigneeIds: [cena.ref.id] };
   return {};
 }
 

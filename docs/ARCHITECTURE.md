@@ -185,6 +185,6 @@ web/                    interface
     versao.js           o rótulo de versão, a linha do tempo e o limpa-cache
     views/              hoje, quadro, planilha, fluxo
 
-tests/                  113 testes, sem dependência externa
+tests/                  125 testes, sem dependência externa
 data/                   banco e anexos no modo autônomo (fora do versionamento)
 ```

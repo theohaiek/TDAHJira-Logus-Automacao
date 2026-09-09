@@ -153,6 +153,11 @@ function frase(estado, v) {
   if (estado.fase === "atualizando") {
     return h("span", { text: "Versão nova encontrada. Recarregando…" });
   }
+  if (estado.fase === "recarregando") {
+    return h("span", {
+      text: "Cache limpo. Recarregando para pegar os arquivos direto do servidor…",
+    });
+  }
   // Em dia. Vale distinguir "conferi e está igual" de "conferi e o servidor nem
   // sabe em que commit está": a segunda não é garantia de nada.
   if (!v?.atual?.sha) {
@@ -240,22 +245,23 @@ async function verificar() {
 
   verificando = false;
 
-  if (mudou) {
-    // O rótulo não muda aqui de propósito: enquanto a página velha está na
-    // tela, ele tem que continuar dizendo qual página é essa.
-    if (caixa?.open) abrirVersao({ fase: "atualizando", dados: novo });
-    toast("Versão nova. Recarregando…", { ms: 1200 });
-    // O reload vem depois de revalidar: sem isso ele reencontraria no cache
-    // exatamente os arquivos velhos que motivaram o clique.
-    setTimeout(() => location.reload(), 400);
-    return;
-  }
+  // Recarrega dos dois jeitos, e a diferença é só o que se diz antes.
+  //
+  // Houve uma versão que só recarregava quando o commit mudava, e ela errava
+  // no caso mais comum: o commit do servidor é o novo, o JavaScript da aba é
+  // o novo, e o CSS ainda é o velho — porque a borda da hospedagem serviu o
+  // arquivo antigo por mais alguns segundos depois do deploy. O commit
+  // comparava igual, a limpeza acontecia, e a folha velha continuava pintando
+  // a tela. Quem clica aqui está pedindo a página que o servidor tem agora, e
+  // limpar o cache sem recarregar não entrega isso.
+  //
+  // O estado da tela não se perde: o que existe mora no servidor.
+  if (caixa?.open) abrirVersao({ fase: mudou ? "atualizando" : "recarregando", dados: novo });
+  toast(mudou ? "Versão nova. Recarregando…" : "Cache limpo. Recarregando…", { ms: 1600 });
 
-  aoCarregar = novo;
-  pintarRotulo(novo);
-
-  if (caixa?.open) abrirVersao({ fase: "emdia", dados: novo });
-  else toast("Cache limpo. Você já está na versão mais recente.");
+  // O reload vem depois de revalidar: sem isso ele reencontraria no cache
+  // exatamente os arquivos velhos que motivaram o clique.
+  setTimeout(() => location.reload(), 700);
 }
 
 // Tudo que o navegador guarda por conta própria e que este aplicativo não

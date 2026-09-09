@@ -20,6 +20,8 @@ import {
   visiveis,
   doQuadro,
   patch,
+  responsaveis,
+  ehResponsavel,
 } from "../store.js";
 import { taskCard, listaTarefas, alternarConclusao } from "../taskcard.js";
 import {
@@ -321,7 +323,7 @@ function escolherPorMim() {
     (t) =>
       t.status !== "done" &&
       t.status !== "waiting" &&
-      (!t.assigneeId || t.assigneeId === state.me?.id)
+      (!responsaveis(t).length || ehResponsavel(t, state.me?.id))
   );
 
   if (!candidatas.length) {

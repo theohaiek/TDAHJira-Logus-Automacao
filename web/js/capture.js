@@ -70,7 +70,15 @@ export function parseCaptura(texto, { projects = [], users = [], companies = [],
       users.find((x) => norm(x.username) === alvo) ||
       users.find((x) => norm(x.name).startsWith(alvo));
     if (!u) return false;
-    dados.assigneeId = u.id;
+    // Somar, e não substituir: "@ana @bruno" na mesma linha é a forma mais
+    // curta de dizer que os dois fazem, e a leitura da esquerda para a direita
+    // já dá a ordem em que eles entram.
+    //
+    // Os dois campos saem daqui pela mesma razão que o servidor devolve os
+    // dois: quem lê o resultado da captura para mostrar uma prévia quer um
+    // nome, quem grava quer a lista.
+    dados.assigneeIds = [...(dados.assigneeIds || []), u.id];
+    dados.assigneeId = dados.assigneeIds[0];
     tokens.push({ tipo: "responsável", texto: u.name, cor: u.color });
     return true;
   });

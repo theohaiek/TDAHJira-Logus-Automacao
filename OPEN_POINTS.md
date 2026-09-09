@@ -1233,3 +1233,93 @@ uso. Espalhá-la desfaz exatamente o contraste que ela existe para criar.
 O rótulo de versão perdeu a opacidade de 78% junto. Opacidade em cima de cor
 viva devolve o mesmo lavado que se estava tentando tirar; o recuo agora vem de
 tamanho e peso, não de transparência.
+
+## 17. Mais de um responsável por tarefa, em 9 de setembro de 2026
+
+### 17.1 O modelo, e a coluna que ficou
+
+O trabalho compartilhado existia e o produto não sabia representá-lo: uma
+tarefa de duas pessoas mostrava um rosto só, e a segunda parecia não envolvida.
+Entrou a tabela `task_assignees`, com posição — a ordem faz parte do valor,
+porque o primeiro é quem aparece quando não cabe mostrar todos.
+
+`tasks.assignee_id` continua existindo, e isso é deliberado. Ela guarda o
+primeiro da lista e serve ao índice `idx_tasks_assignee` e às perguntas do
+produto que só precisam de um nome. Não é uma segunda verdade porque **quem
+escreve é uma função só**, `gravarResponsaveis()`, que mexe na tabela e na
+coluna no mesmo lugar. Ler de dois lugares é barato; escrever de dois é que
+seria o erro — e foi por isso que `assigneeId` saiu de `FIELDS`, onde o laço
+genérico de campos também a escreveria.
+
+O teste `conferirAcordo()` existe para vigiar exatamente essa junta: o dia em
+que a coluna e a tabela discordarem é o dia em que o cartão mostra um rosto e o
+ticket mostra outro.
+
+### 17.2 A tabela nova pôde ir para o esquema
+
+Diferente de coluna, tabela nova cabe em `core/schema.sql`: o esquema roda
+inteiro antes de `MIGRACOES`, e `CREATE TABLE IF NOT EXISTS` não depende de
+nada que nasça depois. O índice sobre ela também vai junto, porque a tabela
+nasce no mesmo arquivo — a regra que derrubou a produção em 8 de setembro é
+sobre índice em **coluna** migrada, e ela continua valendo.
+
+O que a tabela nova precisou e a migração de coluna não dá é a cópia inicial:
+todo banco em uso tem responsável em `assignee_id` e a tabela nasce vazia. O
+`INSERT OR IGNORE ... SELECT` roda em toda subida, e é de propósito. A chave
+primária faz a segunda passagem não escrever nada, e no modo hospedado duas
+instâncias frias sobem juntas depois de um deploy. Uma marca em `settings` para
+rodar uma vez só economizaria uma consulta e traria de volta a pergunta "e se a
+marca ficou gravada e a cópia não terminou?".
+
+### 17.3 O contrato de entrada tem três formas
+
+`assigneeIds` ausente significa "o patch não fala de responsável"; `[]`
+significa "tire todos". A diferença entre as duas é o que impede uma mudança de
+prazo de esvaziar a tarefa.
+
+`assigneeId` sozinho continua aceito e **substitui a lista inteira**. É o que a
+célula da planilha manda, e deixar a lista intacta faria a tela mostrar um
+responsável enquanto o banco guarda três.
+
+### 17.4 Onde a interface mudou, e onde não mudou
+
+- **Cartão**: os avatares empilham como baralho aberto, com anel da cor da
+  superfície entre eles — sem o anel, duas cores próximas viram uma mancha só.
+  Teto de três e um contador, o mesmo acordo dos selos.
+- **Ticket**: cada pessoa virou um botão que liga e desliga. Um `<select
+  multiple>` resolveria em três linhas e é intragável: exige Ctrl para somar,
+  não mostra rosto e desmarca tudo com um clique errado.
+- **Planilha**: a célula continua sendo um seletor de um nome só, e troca **o
+  primeiro** responsável sem mexer nos outros; os demais aparecem ao lado, sem
+  seletor. A planilha é para varrer muita linha depressa — somar gente é gesto
+  de decisão, e decisão acontece no ticket.
+- **Filtro por pessoa**: basta uma das pessoas filtradas estar na tarefa.
+  Filtrar por Ana e ver sumir o que ela divide com Bruno esconderia justamente
+  o trabalho compartilhado.
+- **Contagem das cenas**: a tarefa conta para cada responsável, e a soma das
+  cenas passa do total. É o certo: a cena de cada pessoa mostra tudo que passa
+  pela mão dela.
+- **Limite de trabalho em curso**: uma tarefa de três pessoas está em andamento
+  para as três.
+- **Captura rápida**: `@ana @bruno` na mesma linha soma, e a ordem de leitura é
+  a ordem de entrada.
+
+### 17.5 A trilha não precisou de evento novo
+
+O evento continua sendo `assignee`, e o valor virou a lista separada por
+vírgula. Um evento gravado antes desta mudança tem um id só ali — que é uma
+lista de um. A trilha inteira, inclusive a que já estava no banco, lê pelo mesmo
+caminho, e nenhum registro histórico precisou ser reescrito.
+
+### 17.6 O botão de versão passou a recarregar sempre
+
+Ele só recarregava quando o commit mudava, e errava no caso mais comum: o
+commit do servidor é o novo, o JavaScript da aba é o novo, e o CSS ainda é o
+velho — porque a borda da hospedagem serviu o arquivo antigo por mais alguns
+segundos depois do deploy. O commit comparava igual, a limpeza acontecia, e a
+folha velha continuava pintando a tela.
+
+Agora recarrega dos dois jeitos, e a diferença é só o que se diz antes. Quem
+clica ali está pedindo a página que o servidor tem agora, e limpar o cache sem
+recarregar não entrega isso. O estado da tela não se perde: o que existe mora
+no servidor.

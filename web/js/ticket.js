@@ -5,9 +5,21 @@
 // o que é, em que pé está, quem faz, em que passos se divide, o que já se
 // disse a respeito, e por onde andou.
 
-import { h, frag, mount, avatar, autoGrow, fotoEmpresa, $ } from "./dom.js";
+import { h, frag, mount, avatar, avatares, autoGrow, fotoEmpresa, $ } from "./dom.js";
 import { api } from "./api.js";
-import { state, tarefa, usuario, empresa, patch, mesclarTarefa, emit, removerTarefa } from "./store.js";
+import {
+  state,
+  tarefa,
+  usuario,
+  quemFaz,
+  responsaveis,
+  nomesDoEvento,
+  empresa,
+  patch,
+  mesclarTarefa,
+  emit,
+  removerTarefa,
+} from "./store.js";
 import {
   STATUS_LABEL,
   STATUS_ORDER,
@@ -166,7 +178,6 @@ function render() {
 
   if (!t) return mount(alvo, h("div", { class: "empty" }, "Carregando…"));
 
-  const responsavel = usuario(t.assigneeId);
   const parado = diasParado(t);
 
   mount(
@@ -227,7 +238,7 @@ function render() {
       ),
 
       barraEstado(t),
-      propriedades(t, responsavel),
+      propriedades(t),
       secaoDescricao(t),
       secaoPassos(t),
       secaoConversa(t),
@@ -281,7 +292,7 @@ function barraEstado(t) {
 
 // --- Propriedades ----------------------------------------------------------
 
-function propriedades(t, responsavel) {
+function propriedades(t) {
   const linha = (rotulo, ...conteudo) =>
     frag(h("span", { class: "props__label", text: rotulo }), h("div", null, ...conteudo));
 
@@ -289,14 +300,7 @@ function propriedades(t, responsavel) {
     "div",
     { class: "props" },
 
-    linha(
-      "Quem faz",
-      select(
-        t.assigneeId ? String(t.assigneeId) : "",
-        [["", "Ninguém ainda"], ...state.users.map((u) => [String(u.id), u.name])],
-        (v) => salvar({ assigneeId: v ? Number(v) : null })
-      )
-    ),
+    linha("Quem faz", seletorQuemFaz(t)),
 
     linha(
       "Projeto",
@@ -422,6 +426,57 @@ function duracao(blocos) {
   if (h >= 7) return "um dia";
   if (h >= 3.5) return "meio dia";
   return `~${Number.isInteger(h) ? h : h.toFixed(1).replace(".", ",")} h`;
+}
+
+// Quem faz, agora que são vários.
+//
+// Um <select multiple> resolveria em três linhas e é intragável de usar: exige
+// segurar Ctrl para somar, não mostra rosto nenhum, e desmarca tudo com um
+// clique errado. Aqui cada pessoa é um botão que liga e desliga sozinho — o
+// mesmo gesto do cabeçalho de filtros do quadro, que já está na mão de quem usa.
+//
+// Salva a lista inteira a cada clique, e não uma diferença. A escrita no
+// servidor é "estes são os responsáveis", então mandar o conjunto é o que
+// impede dois cliques rápidos de se atropelarem e deixarem a lista pela metade.
+function seletorQuemFaz(t) {
+  const atuais = responsaveis(t);
+
+  // Quem saiu do time só aparece se ainda estiver na tarefa: a lista serve
+  // para escolher entre quem trabalha aqui, mas esconder alguém que está
+  // atribuído tiraria a única forma de tirá-lo.
+  const gente = state.users.filter((u) => u.active !== false || atuais.includes(u.id));
+
+  return h(
+    "div",
+    { class: "quemfaz", role: "group", "aria-label": "Quem faz" },
+
+    gente.map((u) => {
+      const ligado = atuais.includes(u.id);
+      return h(
+        "button",
+        {
+          class: `quemfaz__btn${ligado ? " is-on" : ""}`,
+          "aria-pressed": ligado ? "true" : "false",
+          title: ligado ? `Tirar ${u.name}` : `Pôr ${u.name} nesta tarefa`,
+          onClick: () =>
+            salvar({
+              assigneeIds: ligado ? atuais.filter((id) => id !== u.id) : [...atuais, u.id],
+            }),
+        },
+        avatar(u, "avatar--sm"),
+        h("span", { text: u.name })
+      );
+    }),
+
+    atuais.length
+      ? h("button", {
+          class: "quemfaz__limpar",
+          text: "ninguém",
+          title: "Tirar todo mundo desta tarefa",
+          onClick: () => salvar({ assigneeIds: [] }),
+        })
+      : null
+  );
 }
 
 function select(valor, opcoes, aoMudar) {
@@ -965,7 +1020,7 @@ function formatar(destino, texto) {
 const NARRA = {
   created: () => "criou a tarefa",
   status: (e) => `moveu de ${STATUS_LABEL[e.from] || "—"} para ${STATUS_LABEL[e.to] || e.to}`,
-  assignee: (e) => (e.to ? `passou para ${usuario(e.to)?.name || "outra pessoa"}` : "tirou o responsável"),
+  assignee: (e) => (e.to ? `passou para ${nomesDoEvento(e.to)}` : "tirou o responsável"),
   priority: (e) => `prioridade: ${PRIORITY_LABEL[e.to] || e.to}`,
   kind: (e) => `moveu para ${KIND_LABEL[e.to] || e.to}`,
   energy: (e) => `energia: ${ENERGY_LABEL[e.to] || e.to || "—"}`,

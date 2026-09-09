@@ -7,8 +7,17 @@
 // A diferença para uma planilha de verdade é que cada edição aqui vira uma
 // linha na trilha. Ganha-se o histórico sem pagar o preço do formulário.
 
-import { h, frag, debounce } from "../dom.js";
-import { state, visiveis, patch, usuario, projeto, emit } from "../store.js";
+import { h, frag, debounce, avatares } from "../dom.js";
+import {
+  state,
+  visiveis,
+  patch,
+  usuario,
+  quemFaz,
+  responsaveis,
+  projeto,
+  emit,
+} from "../store.js";
 import {
   STATUS_LABEL,
   STATUS_ORDER,
@@ -234,11 +243,23 @@ function linha(t, misturado) {
     h(
       "td",
       null,
+      // A planilha é para varrer muita linha depressa, então a célula continua
+      // sendo um seletor de um nome só: ela troca o primeiro responsável e não
+      // mexe nos outros. Somar gente é gesto de decisão, e decisão acontece no
+      // ticket, onde os rostos cabem.
       campoSelect(
         t.assigneeId ? String(t.assigneeId) : "",
         [["", "—"], ...state.users.map((u) => [String(u.id), u.name])],
-        (v) => salvar(t.id, { assigneeId: v ? Number(v) : null })
-      )
+        (v) =>
+          salvar(t.id, {
+            assigneeIds: v
+              ? [Number(v), ...responsaveis(t).filter((id) => id !== Number(v))]
+              : [],
+          })
+      ),
+      // Os demais responsáveis aparecem ao lado, sem seletor: a célula diz
+      // quem lidera e a fileira de rostos diz que não está sozinho.
+      responsaveis(t).length > 1 ? avatares(quemFaz(t).slice(1), { teto: 2 }) : null
     ),
 
     h(
@@ -380,7 +401,7 @@ function exportarCsv(linhas) {
     ["Tipo", (t) => KIND_LABEL[t.kind || "task"] || t.kind || ""],
     ["Estado", (t) => STATUS_LABEL[t.status]],
     ["Projeto", (t) => projeto(t.projectId)?.name || ""],
-    ["Quem", (t) => usuario(t.assigneeId)?.name || ""],
+    ["Quem", (t) => quemFaz(t).map((u) => u.name).join("; ")],
     ["Prioridade", (t) => PRIORITY_LABEL[t.priority]],
     ["Energia", (t) => (t.energy ? ENERGY_LABEL[t.energy] : "")],
     ["Blocos", (t) => t.size || ""],
@@ -443,8 +464,10 @@ function filtrar(lista, f) {
   return lista.filter((t) => {
     if (f.status && t.status !== f.status) return false;
     if (f.rapido === "paradas" && (t.status === "done" || diasParado(t) < 3)) return false;
-    if (f.pessoa === "ninguem" && t.assigneeId) return false;
-    if (f.pessoa && f.pessoa !== "ninguem" && String(t.assigneeId) !== f.pessoa) return false;
+    if (f.pessoa === "ninguem" && responsaveis(t).length) return false;
+    if (f.pessoa && f.pessoa !== "ninguem" && !responsaveis(t).includes(Number(f.pessoa))) {
+      return false;
+    }
     if (termo) {
       const alvo = `${t.key} ${t.title} ${t.description} ${t.waitingFor || ""}`.toLowerCase();
       if (!alvo.includes(termo)) return false;
@@ -488,6 +511,9 @@ function ordenador(f) {
       y = KIND_LABEL[b.kind || "task"] || "";
     }
     if (f.ordem === "assigneeId") {
+      // Ordena pelo primeiro nome de cada lista: agrupar por "quem lidera" é o
+      // que faz a coluna servir para varrer, e uma chave composta de três nomes
+      // espalharia a mesma pessoa por três lugares da tabela.
       x = usuario(a.assigneeId)?.name || "";
       y = usuario(b.assigneeId)?.name || "";
     }

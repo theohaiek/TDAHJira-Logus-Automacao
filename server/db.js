@@ -192,6 +192,7 @@ async function aplicarEsquema() {
   const sql = readFileSync(join(ROOT, "core", "schema.sql"), "utf8");
   await driver.exec(sql);
   await aplicarMigracoes();
+  await povoarResponsaveis();
 }
 
 // Colunas acrescentadas depois da primeira versão.
@@ -236,6 +237,23 @@ async function aplicarMigracoes() {
       if (!(await temColuna(m.tabela, m.coluna))) throw err;
     }
   }
+}
+
+// A tabela task_assignees nasce vazia, e todo banco que já estava em uso tem
+// responsável guardado em tasks.assignee_id. Sem esta cópia, quem já tinha
+// tarefa atribuída abriria o produto com todas elas sem ninguém.
+//
+// Roda em toda subida, e é de propósito: INSERT OR IGNORE contra a chave
+// primária faz a segunda passagem não escrever nada, e no modo hospedado duas
+// instâncias frias sobem juntas depois de um deploy. Guardar uma marca em
+// settings para rodar uma vez só economizaria uma consulta e traria de volta a
+// pergunta "e se a marca ficou gravada e a cópia não terminou?".
+async function povoarResponsaveis() {
+  await driver.executa(
+    "INSERT OR IGNORE INTO task_assignees (task_id, user_id, position) " +
+      "SELECT id, assignee_id, 0 FROM tasks WHERE assignee_id IS NOT NULL",
+    []
+  );
 }
 
 async function temColuna(tabela, coluna) {

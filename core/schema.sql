@@ -146,6 +146,26 @@ CREATE TABLE IF NOT EXISTS steps (
 );
 CREATE INDEX IF NOT EXISTS idx_steps_task ON steps(task_id, position);
 
+-- --- Quem faz ---------------------------------------------------------------
+-- Uma tarefa pode ter mais de um responsável. A ordem importa: o primeiro é
+-- quem o cartão mostra quando não cabe mostrar todos, e é o que a coluna
+-- tasks.assignee_id guarda.
+--
+-- Essa coluna continua existindo, e não é uma segunda verdade: ela é escrita
+-- por uma função só, a mesma que escreve esta tabela, e serve ao índice
+-- idx_tasks_assignee e às consultas que perguntam por um responsável só. Ler
+-- de dois lugares é barato; escrever de dois é que seria o erro.
+CREATE TABLE IF NOT EXISTS task_assignees (
+  task_id  INTEGER NOT NULL REFERENCES tasks(id)  ON DELETE CASCADE,
+  user_id  INTEGER NOT NULL REFERENCES users(id)  ON DELETE CASCADE,
+  position REAL    NOT NULL DEFAULT 0,
+  PRIMARY KEY (task_id, user_id)
+);
+
+-- Para a pergunta inversa: o que é desta pessoa. Sem ele, filtrar por alguém
+-- que não é o primeiro responsável varre a tabela inteira.
+CREATE INDEX IF NOT EXISTS idx_task_assignees_user ON task_assignees(user_id);
+
 -- --- Etiquetas -------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS labels (
   id    INTEGER PRIMARY KEY AUTOINCREMENT,

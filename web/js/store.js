@@ -155,6 +155,45 @@ export function usuario(id) {
   return state.users.find((u) => u.id === Number(id)) || null;
 }
 
+// Quem faz a tarefa, sempre como lista.
+//
+// O servidor manda assigneeIds, e manda assigneeId junto — o primeiro da
+// lista. As duas coisas existem porque metade do produto pergunta "quem está
+// com isto" e a outra metade pergunta "quem está nisto", e nenhuma das duas
+// deveria ter que saber da outra. Toda tela lê por aqui: uma tarefa que
+// chegue de uma resposta antiga, sem a lista, ainda responde pelo primeiro.
+export function responsaveis(t) {
+  if (Array.isArray(t?.assigneeIds) && t.assigneeIds.length) return t.assigneeIds;
+  return t?.assigneeId ? [t.assigneeId] : [];
+}
+
+export function ehResponsavel(t, userId) {
+  if (!userId) return false;
+  return responsaveis(t).includes(Number(userId));
+}
+
+// Os objetos de pessoa, na ordem, sem os que já saíram do time.
+export function quemFaz(t) {
+  return responsaveis(t)
+    .map((id) => usuario(id))
+    .filter(Boolean);
+}
+
+// O evento de responsável guarda a lista como ids separados por vírgula. Um
+// evento gravado antes de a tarefa poder ter mais de um dono tem um id só ali,
+// que é uma lista de um — então a trilha inteira, inclusive a que já estava no
+// banco, lê por este mesmo caminho.
+export function nomesDoEvento(valor) {
+  const nomes = String(valor || "")
+    .split(",")
+    .map((id) => usuario(id.trim())?.name)
+    .filter(Boolean);
+
+  if (!nomes.length) return "outra pessoa";
+  if (nomes.length === 1) return nomes[0];
+  return `${nomes.slice(0, -1).join(", ")} e ${nomes[nomes.length - 1]}`;
+}
+
 export function projeto(id) {
   return state.projects.find((p) => p.id === Number(id)) || null;
 }
@@ -259,11 +298,16 @@ export function doQuadro(kind) {
 }
 
 export function minhas() {
-  return visiveis().filter((t) => !state.me || t.assigneeId === state.me.id || !t.assigneeId);
+  return visiveis().filter(
+    (t) => !state.me || ehResponsavel(t, state.me.id) || !responsaveis(t).length
+  );
 }
 
 export function emAndamento(userId = state.me?.id) {
-  return visiveis().filter((t) => t.status === "doing" && t.assigneeId === userId);
+  // Uma tarefa de três pessoas está em andamento para as três: o limite de
+  // trabalho em curso conta o que cada uma tem na mão, não o que cada uma
+  // puxou sozinha.
+  return visiveis().filter((t) => t.status === "doing" && ehResponsavel(t, userId));
 }
 
 // O núcleo do produto: a lista curta do que fazer agora.
@@ -272,7 +316,7 @@ export function emAndamento(userId = state.me?.id) {
 // sentido pegar neste instante": o que já está em andamento vem primeiro,
 // porque terminar vale mais do que começar.
 export function agora(limite = 3) {
-  const meu = (t) => !t.assigneeId || t.assigneeId === state.me?.id;
+  const meu = (t) => !responsaveis(t).length || ehResponsavel(t, state.me?.id);
   const lista = visiveis().filter((t) => t.status !== "done" && t.status !== "waiting");
 
   const pontua = (t) => {
@@ -287,7 +331,7 @@ export function agora(limite = 3) {
       else if (d <= 2) p += 120;
       else if (d <= 7) p += 40;
     }
-    if (t.assigneeId === state.me?.id) p += 60;
+    if (ehResponsavel(t, state.me?.id)) p += 60;
     if (t.status === "inbox") p -= 200;
     if (t.priority === "quando_der") p -= 150;
     // Tarefa leve empata para cima: começar por algo curto destrava o resto.
@@ -359,7 +403,10 @@ export function aplicarFiltroQuadro(tarefas, escopo = state.quadro) {
   if (!pessoas.length && !empresas.length) return tarefas;
 
   return tarefas.filter((t) => {
-    if (pessoas.length && !pessoas.includes(Number(t.assigneeId))) return false;
+    // Basta uma das pessoas filtradas estar na tarefa: filtrar por Ana e ver
+    // sumir o que ela divide com Bruno seria esconder justamente o trabalho
+    // compartilhado, que é o que mais precisa ser visto.
+    if (pessoas.length && !responsaveis(t).some((id) => pessoas.includes(Number(id)))) return false;
     if (empresas.length && !empresas.includes(Number(t.companyId))) return false;
     return true;
   });
@@ -429,7 +476,9 @@ export function escoposDoCarrossel() {
   const porPessoa = new Map();
   for (const t of abertas) {
     if (t.companyId) porEmpresa.set(t.companyId, (porEmpresa.get(t.companyId) || 0) + 1);
-    if (t.assigneeId) porPessoa.set(t.assigneeId, (porPessoa.get(t.assigneeId) || 0) + 1);
+    // A tarefa conta para cada responsável: a cena de cada pessoa mostra tudo
+    // que passa pela mão dela, e a soma das cenas passa do total de propósito.
+    for (const uid of responsaveis(t)) porPessoa.set(uid, (porPessoa.get(uid) || 0) + 1);
   }
 
   // Toda empresa cadastrada vira cena, mesmo sem nenhuma tarefa aberta.

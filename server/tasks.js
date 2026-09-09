@@ -23,7 +23,10 @@ const FIELDS = {
   priority: { col: "priority", type: "enum", values: PRIORITIES },
   energy: { col: "energy", type: "enum", values: ENERGIES, nullable: true },
   size: { col: "size", type: "int", nullable: true, min: 1, max: 40 },
-  assigneeId: { col: "assignee_id", type: "int", nullable: true },
+  // assigneeId não está aqui de propósito. Responsável deixou de ser um campo
+  // como os outros quando virou lista: quem escreve é gravarResponsaveis(),
+  // que mexe na tabela e na coluna de uma vez. Mantê-lo aqui faria duas
+  // funções escreverem a mesma coluna, que é o começo de toda divergência.
   projectId: { col: "project_id", type: "int", nullable: true },
   companyId: { col: "company_id", type: "int", nullable: true },
   parentId: { col: "parent_id", type: "int", nullable: true },
@@ -42,7 +45,6 @@ const EVENT_FOR = {
   priority: "priority",
   energy: "energy",
   size: "size",
-  assigneeId: "assignee",
   projectId: "project",
   companyId: "company",
   parentId: "parent",
@@ -91,9 +93,9 @@ async function decorate(rows) {
   const ids = rows.map((r) => r.id);
   const marks = ids.map(() => "?").join(",");
 
-  // As quatro consultas são independentes; pedir em paralelo importa quando
+  // As cinco consultas são independentes; pedir em paralelo importa quando
   // cada uma é uma ida à rede, como no modo hospedado.
-  const [steps, labels, comments, files] = await Promise.all([
+  const [steps, labels, comments, files, quemFaz] = await Promise.all([
     all(`SELECT * FROM steps WHERE task_id IN (${marks}) ORDER BY position, id`, ids),
     all(`SELECT task_id, label_id FROM task_labels WHERE task_id IN (${marks})`, ids),
     all(
@@ -102,6 +104,11 @@ async function decorate(rows) {
     ),
     all(
       `SELECT task_id, COUNT(*) AS n FROM attachments WHERE task_id IN (${marks}) GROUP BY task_id`,
+      ids
+    ),
+    all(
+      `SELECT task_id, user_id FROM task_assignees WHERE task_id IN (${marks})
+        ORDER BY position, user_id`,
       ids
     ),
   ]);
@@ -116,11 +123,15 @@ async function decorate(rows) {
   };
   const stepMap = byTask(steps);
   const labelMap = byTask(labels);
+  const quemMap = byTask(quemFaz);
   const commentMap = new Map(comments.map((c) => [c.task_id, c.n]));
   const fileMap = new Map(files.map((c) => [c.task_id, c.n]));
 
   return rows.map((r) => {
     const t = shape(r);
+    // A ordem vem do ORDER BY, e é a mesma que a interface mostra: o primeiro
+    // da lista é quem aparece sozinho quando não cabe mostrar todos.
+    t.assigneeIds = (quemMap.get(r.id) || []).map((q) => q.user_id);
     t.steps = (stepMap.get(r.id) || []).map((s) => ({
       id: s.id,
       text: s.text,
@@ -153,7 +164,13 @@ function shape(r) {
     priority: r.priority,
     energy: r.energy,
     size: r.size,
+    // O primeiro responsável, que é o que a coluna guarda. Continua no
+    // contrato porque meia dúzia de perguntas do produto — "o que é meu",
+    // "quem está com isto" — só precisam de um, e porque nem toda leitura
+    // passa por decorate(): shape() sozinho devolve assigneeIds vazio, e um
+    // cartão sem ninguém seria mentira.
     assigneeId: r.assignee_id,
+    assigneeIds: r.assignee_id ? [r.assignee_id] : [],
     reporterId: r.reporter_id,
     parentId: r.parent_id,
     dueOn: r.due_on,
@@ -172,6 +189,90 @@ function shape(r) {
     commentCount: 0,
     attachmentCount: 0,
   };
+}
+
+// --- Quem faz ---------------------------------------------------------------
+
+// A única função que escreve responsável. Escreve os dois lugares — a tabela
+// task_assignees, que é a lista, e a coluna tasks.assignee_id, que guarda o
+// primeiro — porque manter os dois em acordo é responsabilidade de quem
+// escreve, não de quem lê. Espalhar essa escrita foi o que a tirou de FIELDS.
+async function gravarResponsaveis(taskId, brutos, actorId, antes) {
+  const ids = normalizarResponsaveis(brutos);
+
+  // Mesma razão do resto do arquivo: no modo local um id inexistente vira
+  // violação de chave estrangeira, ou seja, 500 sem explicação; no hospedado a
+  // checagem nem roda e a tarefa fica com um responsável fantasma.
+  for (const uid of ids) await exigirLinha("users", uid, "Pessoa inexistente.");
+
+  const antesTxt = (antes || []).join(",");
+  const depoisTxt = ids.join(",");
+  if (antesTxt === depoisTxt) return false;
+
+  // Apagar e reinserir, em vez de calcular a diferença: a lista tem dois ou
+  // três nomes, a ordem faz parte do valor, e um diff que preserva posição é
+  // mais código para manter do que a escrita inteira custa.
+  await run("DELETE FROM task_assignees WHERE task_id = ?", [taskId]);
+  for (const [i, uid] of ids.entries()) {
+    await run("INSERT INTO task_assignees (task_id, user_id, position) VALUES (?,?,?)", [
+      taskId,
+      uid,
+      i * 1000,
+    ]);
+  }
+  await run("UPDATE tasks SET assignee_id = ? WHERE id = ?", [ids[0] ?? null, taskId]);
+
+  // O evento continua sendo "assignee", e o valor é a lista separada por
+  // vírgula. Um evento antigo tem um id só ali, que é uma lista de um — então
+  // a trilha inteira, inclusive a que já estava gravada, lê pelo mesmo caminho.
+  await logEvent({
+    taskId,
+    actorId,
+    kind: "assignee",
+    field: "assigneeIds",
+    from: antesTxt || null,
+    to: depoisTxt || null,
+  });
+  return true;
+}
+
+// Aceita lista, número solto, nulo e string — a captura rápida manda de um
+// jeito, a planilha de outro, e o painel do ticket de um terceiro. Devolve
+// sempre inteiros positivos, sem repetição, na ordem em que chegaram.
+function normalizarResponsaveis(bruto) {
+  const lista =
+    bruto === null || bruto === undefined || bruto === ""
+      ? []
+      : Array.isArray(bruto)
+        ? bruto
+        : [bruto];
+
+  const vistos = new Set();
+  const ids = [];
+  for (const v of lista) {
+    const n = Number(v);
+    if (!Number.isInteger(n) || n <= 0 || vistos.has(n)) continue;
+    vistos.add(n);
+    ids.push(n);
+  }
+  return ids;
+}
+
+// `null` significa "o patch não fala de responsável"; `[]` significa "tire
+// todos". A diferença entre as duas é o que faz um PATCH de prazo não apagar
+// quem estava na tarefa.
+function responsaveisDoPatch(patch) {
+  if ("assigneeIds" in patch) return normalizarResponsaveis(patch.assigneeIds);
+  if ("assigneeId" in patch) return normalizarResponsaveis(patch.assigneeId);
+  return null;
+}
+
+async function responsaveisAtuais(taskId) {
+  const linhas = await all(
+    "SELECT user_id FROM task_assignees WHERE task_id = ? ORDER BY position, user_id",
+    [taskId]
+  );
+  return linhas.map((r) => r.user_id);
 }
 
 // --- Escrita ---------------------------------------------------------------
@@ -218,7 +319,10 @@ export async function createTask(input, actorId) {
         priority,
         energy,
         input.size ? Math.max(1, Math.min(40, Number(input.size))) : null,
-        input.assigneeId ? Number(input.assigneeId) : null,
+        // Fica nulo aqui e é escrito logo abaixo, por gravarResponsaveis: a
+        // coluna e a tabela têm que sair do mesmo lugar, senão a tarefa nasce
+        // com um responsável na coluna e nenhum na lista.
+        null,
         actorId || null,
         input.parentId ? Number(input.parentId) : null,
         cleanDate(input.dueOn),
@@ -235,6 +339,9 @@ export async function createTask(input, actorId) {
     );
 
     await logEvent({ taskId: id, actorId, kind: "created", to: title });
+
+    const quem = responsaveisDoPatch(input);
+    if (quem?.length) await gravarResponsaveis(id, quem, actorId, []);
 
     if (Array.isArray(input.steps)) {
       for (const [i, text] of input.steps.entries()) {
@@ -266,15 +373,32 @@ export async function updateTask(id, patch, actorId) {
       changes.push({ key, col: spec.col, from: current, to: value });
     }
 
-    if (!changes.length) return getTaskFull(id);
+    const ts = nowIso();
+
+    // Responsável sai na frente e por fora do laço de campos: ele não é uma
+    // coluna, é uma lista, e quem a escreve já grava o próprio evento.
+    const querQuem = responsaveisDoPatch(patch);
+    const mexeuNoQuem =
+      querQuem === null
+        ? false
+        : await gravarResponsaveis(id, querQuem, actorId, await responsaveisAtuais(id));
+
+    if (!changes.length) {
+      // Trocar só de responsável ainda é ter mexido na tarefa: sem esta linha,
+      // o cartão fica com a data de "última interação" de antes e envelhece na
+      // tela como se ninguém o tivesse tocado.
+      if (mexeuNoQuem) {
+        await run("UPDATE tasks SET updated_at = ?, touched_at = ? WHERE id = ?", [ts, ts, id]);
+      }
+      return getTaskFull(id);
+    }
 
     // Apontar para linha que não existe: no modo local isso vira violação de
     // chave estrangeira, ou seja, 500 sem explicação; no hospedado a checagem
-    // nem roda e a tarefa fica com um responsável fantasma que tela nenhuma
+    // nem roda e a tarefa fica com uma empresa fantasma que tela nenhuma
     // resolve. Conferir aqui faz os dois modos responderem igual.
     for (const c of changes) {
       if (c.to === null) continue;
-      if (c.key === "assigneeId") await exigirLinha("users", c.to, "Pessoa inexistente.");
       if (c.key === "companyId") await exigirLinha("companies", c.to, "Empresa inexistente.");
       if (c.key === "parentId") {
         await exigirLinha("tasks", c.to, "Tarefa pai inexistente.");
@@ -292,7 +416,6 @@ export async function updateTask(id, patch, actorId) {
       params.push(projeto.to ? await proximoNumero(projeto.to) : null);
     }
 
-    const ts = nowIso();
     const statusChange = changes.find((c) => c.key === "status");
 
     if (statusChange) {

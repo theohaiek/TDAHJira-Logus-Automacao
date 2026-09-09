@@ -9,7 +9,7 @@
 // mais novo. É a ordem que faz uma tarefa esquecida aparecer sozinha.
 
 import { h, frag, avatar } from "../dom.js";
-import { state, visiveis, usuario, empresa } from "../store.js";
+import { state, visiveis, usuario, empresa, nomesDoEvento } from "../store.js";
 import { taskCard } from "../taskcard.js";
 import {
   STATUS_LABEL,
@@ -161,7 +161,7 @@ const FRASE = {
   // Sem esta linha a troca de tipo cai no fallback e a trilha mostra a
   // palavra "kind" crua no meio da frase.
   kind: (e) => `moveu para ${KIND_LABEL[e.to] || e.to} —`,
-  assignee: (e) => (e.to ? `passou para ${usuario(e.to)?.name || "alguém"}` : "tirou o responsável"),
+  assignee: (e) => (e.to ? `passou para ${nomesDoEvento(e.to)}` : "tirou o responsável"),
   project: () => "mudou o projeto de",
   company: (e) =>
     e.to ? `marcou ${empresa(e.to)?.name || "uma empresa"} em` : "tirou a empresa de",
