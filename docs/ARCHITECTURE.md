@@ -180,8 +180,9 @@ web/                    interface
     ticket.js           o ticket, com conversa e trilha
     focus.js            modo foco
     palette.js          paleta de comandos
+    popup.js            o Hoje como <dialog>, que é a única forma dele
     views/              hoje, quadro, planilha, fluxo
 
-tests/                  78 testes, sem dependência externa
+tests/                  113 testes, sem dependência externa
 data/                   banco e anexos no modo autônomo (fora do versionamento)
 ```

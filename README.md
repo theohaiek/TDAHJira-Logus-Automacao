@@ -22,10 +22,14 @@ diferentes sobre a mesma tabela.
 
 | Visão | Para quê |
 |---|---|
-| **Hoje** | Responde "o que eu faço agora" logo na abertura, com uma tarefa em destaque e a explicação de por que ela está no topo |
-| **Quadro** | Cinco colunas, arrastar para mudar de estado, limite visível de trabalho simultâneo |
+| **Hoje** | Responde "o que eu faço agora", com uma tarefa em destaque e a explicação de por que ela está no topo. Vem sozinho uma vez por dia, como pop-up por cima do quadro, e sai do caminho depois |
+| **Quadro** | Um trilho horizontal de cenas — uma por empresa, uma por pessoa, todos os negócios no centro — e em cada cena as cinco colunas, com arrastar para mudar de estado e o limite visível de trabalho simultâneo |
 | **Planilha** | Tabela editável célula a célula, com filtros prontos e exportação em CSV |
 | **Fluxo** | Onde está cada coisa e há quanto tempo está lá, com a atividade recente do time |
+
+**Empresas e projetos na barra lateral.** Duas perguntas diferentes sobre a
+mesma tarefa: de que área ela é, e para quem. Cada empresa tem nome, cor e uma
+foto opcional, e clicar nela leva direto à cena dela no trilho.
 
 **Modo foco.** Uma tarefa por vez em tela cheia, com cronômetro. Quando o tempo
 acaba o relógio continua contando para cima em vez de alarmar: quem está embalado
@@ -88,8 +92,9 @@ está em [docs/INSTALL.md](docs/INSTALL.md).
 | `n` | Nova tarefa |
 | `f` | Focar na primeira da fila |
 | `/` ou `Ctrl+K` | Buscar e comandos |
-| `1` `2` `3` `4` | Hoje, Quadro, Planilha, Fluxo |
-| `Esc` | Fecha o que estiver aberto |
+| `1` `2` `3` `4` | Hoje, Quadro, Planilha, Fluxo. O `1` abre o Hoje como pop-up; o `2` devolve o quadro à cena central |
+| `[` `]` | Anda uma cena do trilho do quadro. As setas `←` `→` continuam sendo do cartão selecionado |
+| `Esc` | Fecha o que estiver aberto; no quadro sem nada aberto, volta à cena central |
 | `?` | Lembrete dos atalhos |
 
 ---

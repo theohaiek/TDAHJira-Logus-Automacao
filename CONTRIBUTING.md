@@ -66,8 +66,17 @@ web/js/app.js       montagem, navegação, atalhos, ciclo de desenho
 web/js/dom.js       o helper h(). Nunca use innerHTML.
 web/js/ticket.js    ticket, conversa, anexos, trilha
 web/js/capture.js   interpretador da captura rápida
+web/js/popup.js     o Hoje como <dialog>, que é a única forma dele
 web/js/views/       hoje, quadro, planilha, fluxo
 ```
+
+**O quadro é um trilho de cenas.** `views/quadro.js` é o arquivo-eixo: monta a
+fileira, cuida do gesto de arrasto e sobrevive ao `mount()`. Quem compõe a
+fileira é `escoposDoCarrossel()`, em `store.js`, e o escopo de cada cena sai de
+`escopoDeCena()`, que nunca devolve `null` — parâmetro padrão em JavaScript só
+vale para `undefined`, e um `null` ali deixa o quadro em tela branca. Antes de
+mexer nos dois, leia os comentários deles: quase todos existem porque alguma
+coisa quebrou em silêncio.
 
 Documentação: [docs/API.md](docs/API.md) é normativo — leia antes de mexer em
 rota. [OPEN_POINTS.md](OPEN_POINTS.md) diz o que está aberto e por quê.

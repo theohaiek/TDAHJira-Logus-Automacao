@@ -198,10 +198,28 @@ quadro certo. No ticket, o tipo é a primeira linha dos detalhes.
 
 ## Duas decisões que valem ser explicadas
 
-**Por que a tela inicial não é o quadro.** O quadro mostra tudo o que existe.
-Para quem se paralisa diante de volume, abrir no quadro é começar o dia pelo
-pior lugar possível. O quadro continua a um clique — ele é ótimo para entender o
-todo, e ruim para começar.
+**Por que o Hoje virou pop-up, e o quadro virou a tela inicial.** A versão
+original abria no Hoje, pelo motivo certo: o quadro mostra tudo o que existe, e
+para quem se paralisa diante de volume isso é começar o dia pelo pior lugar
+possível.
+
+O que mudou não foi a doutrina, foi a forma. A pergunta "o que eu faço agora"
+continua sendo a primeira coisa que aparece — só que como pop-up, uma vez por
+dia, por cima do quadro, e sai do caminho depois. Assim ela chega até quem não
+lembraria de ir buscá-la, sem ocupar permanentemente o lugar de onde o trabalho
+é tocado. Ele continua a um clique, pelo item de navegação, pelo atalho `1` e
+pela paleta — e todos abrem o pop-up, nunca uma tela.
+
+E o quadro deixou de mostrar tudo o que existe de uma vez. Ele é um trilho
+horizontal de cenas: uma por empresa, uma por pessoa, e "todos os negócios" no
+centro. Ver o todo continua a um gesto de distância, mas passou a ser escolha, e
+não o estado padrão da tela.
+
+A ordem das cenas é alfabética de propósito. A contagem de trabalho aberto
+decide **quem** aparece no trilho; nunca **onde**. Ordem por contagem se
+reorganizaria sozinha assim que alguém concluísse uma tarefa — e uma tela que se
+reorganiza debaixo de quem está olhando para ela é exatamente o que este produto
+não pode fazer.
 
 **Por que o cronômetro conta para cima depois do fim.** Alarme que encerra
 interrompe quem está rendendo — e hiperfoco é o ativo mais valioso deste público.
