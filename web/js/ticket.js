@@ -5,7 +5,7 @@
 // o que é, em que pé está, quem faz, em que passos se divide, o que já se
 // disse a respeito, e por onde andou.
 
-import { h, frag, mount, avatar, autoGrow, $ } from "./dom.js";
+import { h, frag, mount, avatar, autoGrow, fotoEmpresa, $ } from "./dom.js";
 import { api } from "./api.js";
 import { state, tarefa, usuario, empresa, patch, mesclarTarefa, emit, removerTarefa } from "./store.js";
 import {
@@ -309,16 +309,25 @@ function propriedades(t, responsavel) {
 
     // O projeto diz de que área a tarefa é; a empresa, para quem ela é.
     // Trocar de empresa não mexe na chave do cartão, que vem do projeto.
+    //
+    // A miniatura fica ao lado do seletor, e não dentro dele: <option> não
+    // aceita imagem em navegador nenhum, e trocar o seletor nativo por uma
+    // lista própria seria uma peça a mais para manter em troca de nada.
     linha(
       "Empresa",
-      select(
-        t.companyId ? String(t.companyId) : "",
-        [
-          ["", "Sem empresa"],
-          ...state.companies.map((c) => [String(c.id), c.name]),
-          [NOVA_EMPRESA, "+ Nova empresa…"],
-        ],
-        (v) => (v === NOVA_EMPRESA ? novaEmpresa() : salvar({ companyId: v ? Number(v) : null }))
+      h(
+        "span",
+        { class: "props__comfoto" },
+        fotoEmpresa(empresa(t.companyId), 16),
+        select(
+          t.companyId ? String(t.companyId) : "",
+          [
+            ["", "Sem empresa"],
+            ...state.companies.map((c) => [String(c.id), c.name]),
+            [NOVA_EMPRESA, "+ Nova empresa…"],
+          ],
+          (v) => (v === NOVA_EMPRESA ? novaEmpresa() : salvar({ companyId: v ? Number(v) : null }))
+        )
       )
     ),
 

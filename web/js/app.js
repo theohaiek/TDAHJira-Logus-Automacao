@@ -1,6 +1,6 @@
 // Montagem da aplicação: entrada, navegação, atalhos e o laço de desenho.
 
-import { h, mount, $, initials } from "./dom.js";
+import { h, mount, $, initials, fotoEmpresa } from "./dom.js";
 import { api } from "./api.js";
 import {
   state,
@@ -156,6 +156,7 @@ function desenharAgora() {
 
   desenharNav();
   desenharProjetos();
+  desenharEmpresas();
   desenharUsuario();
 
   const view = VIEWS[state.view] || VIEWS.hoje;
@@ -237,6 +238,68 @@ function desenharProjetos() {
         h("span", { class: "projitem__key", text: p.key })
       )
     )
+  );
+}
+
+// A lista de empresas da barra lateral, no mesmo formato da de projetos.
+//
+// A contagem é de tarefas abertas, e não de todas: o número que interessa
+// olhando para um cliente é o quanto ainda falta fazer para ele, não o
+// histórico. Ordem alfabética, a mesma do trilho — contagem decide quem
+// aparece em destaque, nunca onde a linha fica, senão a lista se reorganiza
+// sozinha quando alguém conclui uma tarefa.
+function desenharEmpresas() {
+  const abertas = visiveis().filter((t) => t.status !== "done");
+  const conta = new Map();
+  for (const t of abertas) {
+    if (t.companyId) conta.set(t.companyId, (conta.get(t.companyId) || 0) + 1);
+  }
+
+  const lista = [...state.companies].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+
+  mount(
+    $("#company-list"),
+    lista.length
+      ? lista.map((c) => linhaEmpresa(c, conta.get(c.id) || 0))
+      : h("p", {
+          class: "rail__vazio",
+          text: "Nenhuma ainda. O + cadastra a primeira.",
+        })
+  );
+}
+
+function linhaEmpresa(c, abertas) {
+  return h(
+    "div",
+    { class: "empitem" },
+    h(
+      "button",
+      {
+        class: "empitem__ir",
+        title: `Ver o quadro de ${c.name}`,
+        onClick: () => {
+          $("#rail").classList.remove("is-open");
+          irPara("quadro");
+        },
+      },
+      fotoEmpresa(c, 56),
+      h(
+        "span",
+        { class: "empitem__texto" },
+        h("span", { class: "empitem__nome truncate", text: c.name }),
+        h("span", {
+          class: "empitem__conta",
+          text: abertas ? `${abertas} aberta${abertas > 1 ? "s" : ""}` : "nada aberto",
+        })
+      )
+    ),
+    h("button", {
+      class: "empitem__cfg",
+      text: "⋯",
+      title: `Configurar ${c.name}`,
+      "aria-label": `Configurar ${c.name}`,
+      onClick: () => configurarEmpresa(c),
+    })
   );
 }
 
@@ -416,6 +479,27 @@ function ligarBotoes() {
     }
   });
 
+  $("#new-company").addEventListener("click", async () => {
+    const r = await pedir({
+      titulo: "Nova empresa",
+      descricao:
+        "Para quem o trabalho é feito. O projeto continua dizendo de que área ele é.",
+      confirmar: "Criar",
+      campos: [{ chave: "nome", rotulo: "Nome", dica: "ACME Metalurgia" }],
+    });
+    const nome = r?.nome?.trim();
+    if (!nome) return;
+    try {
+      const { company } = await api.createCompany({ name: nome });
+      // O servidor devolve a que já existe quando o nome se repete.
+      if (!state.companies.some((c) => c.id === company.id)) state.companies.push(company);
+      emit();
+      toast(`Empresa ${company.name} anotada. O ⋯ ao lado dela põe a foto.`);
+    } catch (err) {
+      erro(err.message);
+    }
+  });
+
   $("#user-btn").addEventListener("click", menuUsuario);
 
   // Fechar sobreposições clicando fora.
@@ -426,6 +510,95 @@ function ligarBotoes() {
         else fecharPaleta();
       }
     });
+  }
+}
+
+// --- Empresa: configurar e reduzir a foto -----------------------------------
+
+// A foto vai para dentro da própria linha da empresa, como data URI (ver
+// docs/API.md). Isso põe um teto real de tamanho, e é o cliente que precisa
+// respeitá-lo: o servidor recusa acima de 32 KB, e recusar depois de a pessoa
+// ter escolhido o arquivo é o pior lugar para dizer não.
+const FOTO_LADO = 96;
+const FOTO_TETO = 24 * 1024;
+
+async function reduzirFoto(arquivo) {
+  const bitmap = await createImageBitmap(arquivo).catch(() => null);
+  if (!bitmap) throw new Error("Não consegui ler esta imagem. Tente png, jpeg ou webp.");
+
+  // Corte central quadrado: a marca costuma estar no meio, e a foto vai
+  // aparecer pequena e redonda em quatro lugares diferentes.
+  const lado = Math.min(bitmap.width, bitmap.height);
+  const tela = document.createElement("canvas");
+  tela.width = FOTO_LADO;
+  tela.height = FOTO_LADO;
+  tela
+    .getContext("2d")
+    .drawImage(
+      bitmap,
+      (bitmap.width - lado) / 2,
+      (bitmap.height - lado) / 2,
+      lado,
+      lado,
+      0,
+      0,
+      FOTO_LADO,
+      FOTO_LADO
+    );
+  bitmap.close?.();
+
+  // Navegador que não conhece webp devolve PNG em silêncio, sem erro nenhum —
+  // e PNG de fotografia não cabe no teto. Ler o prefixo é a única forma de
+  // descobrir isso antes de o servidor recusar.
+  let tipo = "image/webp";
+  if (!tela.toDataURL(tipo, 0.82).startsWith("data:image/webp")) tipo = "image/jpeg";
+
+  for (let q = 0.82; q >= 0.4; q -= 0.1) {
+    const uri = tela.toDataURL(tipo, q);
+    if (uri.length <= FOTO_TETO) return uri;
+  }
+  throw new Error(
+    "Esta imagem não cabe em 24 KB nem na menor qualidade. Tente uma com menos detalhe."
+  );
+}
+
+async function configurarEmpresa(company) {
+  const r = await pedir({
+    titulo: `Configurar ${company.name}`,
+    descricao:
+      "A foto aparece na barra lateral, no trilho do quadro e no cabeçalho de filtros. Ela é reduzida para 96 por 96 antes de subir.",
+    confirmar: "Salvar",
+    campos: [
+      { chave: "nome", rotulo: "Nome", valor: company.name },
+      { chave: "cor", rotulo: "Cor", tipo: "color", valor: company.color || "#c9b6f0" },
+      {
+        chave: "foto",
+        rotulo: "Foto",
+        tipo: "arquivo",
+        accept: "image/*",
+        valor: company.avatar,
+        aoEscolher: reduzirFoto,
+      },
+    ],
+  });
+  if (!r) return;
+
+  const nome = r.nome.trim();
+  if (!nome) return;
+
+  const mudanca = { name: nome, color: r.cor };
+  // Só manda a foto quando ela mudou: enviar o mesmo data URI a cada salvamento
+  // faria uma requisição de dezenas de KB para trocar uma letra do nome.
+  if (r.foto !== (company.avatar ?? null)) mudanca.avatar = r.foto;
+
+  try {
+    const { company: nova } = await api.patchCompany(company.id, mudanca);
+    const i = state.companies.findIndex((x) => x.id === nova.id);
+    if (i >= 0) state.companies[i] = nova;
+    emit();
+    toast(`${nova.name} atualizada.`);
+  } catch (err) {
+    erro(err.message);
   }
 }
 

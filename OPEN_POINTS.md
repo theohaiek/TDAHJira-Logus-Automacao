@@ -564,7 +564,8 @@ a mesma quantidade de informação de antes.
 - **Não há tela de administração de empresas.** Cria-se pelo próprio seletor
   do ticket, e arquiva-se por `PATCH`. Renomear e recolorir pela interface
   ainda não têm botão — mesma situação em que `PATCH /users/{id}` está desde
-  a V1 (seção 10.2, item 5).
+  a V1 (seção 10.2, item 5). *Resolvido na 1.1: empresas viraram uma seção da
+  barra lateral, com criar, renomear, recolorir e pôr foto. Ver 14.6.*
 - **A planilha continua com o filtro antigo**, o dela, que não conhece
   empresa. Só o quadro ganhou o cabeçalho de ícones.
 - **O `&` da captura rápida exige tecla morta em teclado ABNT.** Os símbolos
@@ -690,3 +691,42 @@ dicionários — `EVENT_KINDS`, `EVENT_FOR`, `FRASE` e `NARRA` — mais o
 `tests/trilha.test.js`, e empresa não é campo de tarefa: é cadastro, como
 projeto, que segue o mesmo padrão desde a V1. A aba que editou atualiza
 `state.companies` localmente e emite; as outras veem depois.
+
+### 14.6 Empresas é seção da barra lateral, e não uma quinta tela
+
+O pedido falava em "aba". A entrega é um bloco `.rail__companies` espelhando o
+de projetos, e não uma entrada nova em `VIEWS`. Duas razões: o projeto e a
+empresa são perguntas irmãs sobre a mesma tarefa — de que área ela é, e para
+quem — e uma virar tela enquanto a outra continua sendo lista deixaria a barra
+lateral respondendo a mesma coisa de dois jeitos; e uma quinta tela obrigaria
+a mais um atalho numérico, mais um ícone e mais uma decisão de "onde eu estou"
+para quem já usa quatro.
+
+Isso resolve o item de 13.3: renomear, recolorir e pôr foto agora têm botão. O
+`⋯` de cada linha abre o diálogo, e o `+` do cabeçalho cadastra.
+
+**`docs/PRODUCT.md` recusa telas de configuração por escrito, e continua
+recusando.** O que se recusa ali é a tela que decide como o produto se comporta
+— quais estados existem, que campo é obrigatório, quem pode o quê. Cadastro de
+entidade não é isso, e a lista de projetos sempre existiu. O documento passou a
+dizer essa diferença em vez de deixar o código contradizê-lo em silêncio.
+
+### 14.7 Foto de pessoa ficou de fora, e é só escopo
+
+A mecânica inteira serve: `users` teria a mesma coluna `avatar`, o mesmo teto
+de 32 KB, a mesma redução para 96×96 no cliente e o mesmo `fotoEmpresa()` com
+outro nome. Não entrou porque a queixa que originou esta versão era sobre
+empresas, e porque `dom.js:avatar()` já resolve pessoa com iniciais coloridas —
+que é justamente o lugar onde a cor da entidade continua fazendo sentido.
+
+### 14.8 Um `<label>` engolia o clique do botão de tirar a foto
+
+Achado ao usar, não ao ler. `pedir()` envolve cada campo num `<label>`, e um
+`<label>` repassa qualquer clique de dentro dele ao primeiro controle que
+envolve. Com o campo de foto ali dentro, clicar em "Tirar a foto" — ou na
+própria prévia — abria a janela de escolher arquivo do sistema, sem erro nenhum
+no console e sem nada na tela explicando.
+
+Campo de arquivo passou a usar `<div class="field">` com o rótulo num `<label
+for>` que cobre só o texto. Fica como aviso para qualquer campo composto que
+alguém acrescente ao `pedir()` amanhã.

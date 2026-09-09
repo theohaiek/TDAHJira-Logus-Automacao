@@ -131,6 +131,15 @@ Não existe tela de configuração de fluxo, nem transições permitidas, nem
 esquemas por projeto. Essa configurabilidade é justamente a cerimônia que se
 quis evitar.
 
+**Cadastro não é configuração.** A barra lateral tem uma seção de projetos e,
+desde a 1.1, uma de empresas — com nome, cor e foto. Isso não contradiz o
+parágrafo acima: o que se recusa é a tela que decide *como o produto se
+comporta* (quais estados existem, que campo é obrigatório, quem pode o quê).
+Uma lista de para-quem-o-trabalho-é não muda comportamento nenhum; é o mesmo
+tipo de coisa que a lista de projetos sempre foi. A diferença prática é que
+uma se paga uma vez, e a outra se paga a cada tarefa criada, por todo mundo,
+para sempre.
+
 **Sobre "Esperando":** a pesquisa recomenda tratar bloqueio como uma marca
 sobreposta ao estado atual, e não como coluna, porque uma coluna de espera
 polui a medição de tempo da etapa real. A recomendação é tecnicamente correta e
@@ -176,7 +185,7 @@ quadro certo. No ticket, o tipo é a primeira linha dos detalhes.
 
 | Recusado | Por quê |
 |---|---|
-| Esquemas de fluxo, de campo, de tela e de permissão | É a maior fonte de complexidade do Jira e não entrega nada a um time de três pessoas |
+| Esquemas de fluxo, de campo, de tela e de permissão | É a maior fonte de complexidade do Jira e não entrega nada a um time de três pessoas. Cadastrar projeto ou empresa não é isso: não muda como o produto se comporta |
 | Campo de resolução separado do estado | Cria a classe inteira de bug "concluído mas não resolvido" |
 | Story points e velocidade | Precisão fingida sobre estimativa que ninguém acerta |
 | Sprints e cerimônias ágeis | O time não trabalha assim; a ferramenta não deveria obrigar |

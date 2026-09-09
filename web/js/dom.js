@@ -88,6 +88,45 @@ export function avatar(user, size = "") {
   );
 }
 
+// A marca visual de uma empresa, no tamanho que o lugar pede.
+//
+// Empresa sem foto não ganha placeholder cinza: ganha o mesmo ponto colorido
+// que o cabeçalho de filtros já usa, em escala. Um retângulo cinza dizendo
+// "falta imagem" transforma cadastro incompleto em cobrança, e a foto aqui é
+// enfeite útil, não campo obrigatório.
+export function fotoEmpresa(company, px = 20) {
+  if (!company) return null;
+  const medida = { width: `${px}px`, height: `${px}px` };
+
+  if (company.avatar) {
+    return h("img", {
+      class: "empfoto",
+      src: company.avatar,
+      alt: "",
+      style: medida,
+      loading: "lazy",
+    });
+  }
+
+  // O ponto fica dentro de uma caixa do mesmo tamanho da foto: sem ela, uma
+  // lista com empresas fotografadas e não fotografadas ficaria com os nomes
+  // em colunas diferentes. Ele cresce junto, mas nunca vira um disco cheio —
+  // continua sendo o ponto, não um lugar vazio pedindo para ser preenchido.
+  const ponto = Math.max(7, Math.round(px * 0.4));
+  return h(
+    "span",
+    { class: "empfoto empfoto--ponto", style: medida, "aria-hidden": "true" },
+    h("span", {
+      class: "dot",
+      style: {
+        width: `${ponto}px`,
+        height: `${ponto}px`,
+        color: company.color || "#8fa9b5",
+      },
+    })
+  );
+}
+
 // Faz um textarea crescer com o conteúdo, sem barra de rolagem interna.
 export function autoGrow(el) {
   const ajusta = () => {

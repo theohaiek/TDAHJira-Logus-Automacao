@@ -4,7 +4,7 @@
 // movimento de cartão, e a soma dessas decisões é o que torna um quadro de
 // Jira exaustivo de manter.
 
-import { h, frag, avatar } from "../dom.js";
+import { h, frag, avatar, fotoEmpresa } from "../dom.js";
 import {
   state,
   porStatus,
@@ -99,7 +99,7 @@ function filtros() {
                 "aria-pressed": ligado ? "true" : "false",
                 onClick: () => alternarFiltroQuadro("empresas", c.id),
               },
-              h("span", { class: "dot" }),
+              fotoEmpresa(c, 20),
               c.name
             );
           })

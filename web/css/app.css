@@ -1798,3 +1798,159 @@ select.cell {
 .chip--empresa .dot {
   background: currentColor;
 }
+
+
+/* ==========================================================================
+   Empresas na barra lateral
+   --------------------------------------------------------------------------
+   Mesma forma da seção de projetos, e de propósito: o projeto diz de que área
+   a tarefa é, a empresa diz para quem ela é, e duas perguntas irmãs não podem
+   ter dois formatos diferentes na mesma barra.
+
+   A foto é redonda e recortada pelo centro, como o avatar de pessoa. Empresa
+   sem foto não ganha retângulo cinza de "falta imagem": ganha o ponto colorido
+   que o cabeçalho de filtros já usa, em escala.
+   ========================================================================== */
+.rail__companies {
+  margin-top: var(--sp-5);
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.rail__vazio {
+  padding: 0 var(--sp-3);
+  font-size: var(--text-xs);
+  color: var(--text-faint);
+  line-height: 1.4;
+}
+
+.empfoto {
+  display: inline-block;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  object-fit: cover;
+  vertical-align: middle;
+}
+.empfoto--ponto {
+  display: inline-grid;
+  place-items: center;
+  background: none;
+}
+
+.empitem {
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-sm);
+}
+.empitem:hover,
+.empitem:focus-within {
+  background: var(--surface-3);
+}
+.empitem__ir {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex: 1;
+  min-width: 0;
+  padding: 6px var(--sp-3);
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  font-size: var(--text-sm);
+  text-align: left;
+}
+.empitem__ir:hover {
+  color: var(--text-1);
+}
+.empitem__texto {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.empitem__nome {
+  color: var(--text-1);
+}
+.empitem__conta {
+  font-size: var(--text-xs);
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+/* Aparece no hover, mas nunca some do teclado: opacidade zero continua
+   focável, e o :focus-visible traz o botão de volta. Esconder com display
+   deixaria a configuração inalcançável para quem navega por Tab. */
+.empitem__cfg {
+  flex: 0 0 auto;
+  padding: 2px var(--sp-2);
+  margin-right: 2px;
+  border-radius: var(--radius-sm);
+  color: var(--text-faint);
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.empitem:hover .empitem__cfg,
+.empitem__cfg:focus-visible {
+  opacity: 1;
+}
+.empitem__cfg:hover {
+  color: var(--text-1);
+}
+
+/* --- O campo de foto dentro do diálogo ------------------------------------ */
+/* A miniatura ao lado do seletor de empresa do ticket. <option> não aceita
+   imagem, então ela fica fora — e some quando a tarefa não tem empresa. */
+.props__comfoto {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+.props__comfoto select {
+  flex: 1;
+  min-width: 0;
+}
+
+.dlg-arquivo {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+.dlg-arquivo__lado {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+.dlg-arquivo input[type="file"] {
+  font-size: var(--text-xs);
+  color: var(--text-2);
+}
+.dlg-foto {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--surface-3);
+}
+.dlg-foto--vazia {
+  border: 1px dashed var(--border-strong);
+}
+.dlg-foto img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+input[type="color"] {
+  width: 56px;
+  height: 32px;
+  padding: 2px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
