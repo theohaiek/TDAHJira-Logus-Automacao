@@ -23,7 +23,7 @@ import { abrirFoco, fecharFoco, focoAtivo } from "./focus.js";
 import { abrirPaleta, fecharPaleta, paletaAberta, iniciarPaleta } from "./palette.js";
 import { criarDoTexto } from "./quickadd.js";
 import { parseCaptura, dicas } from "./capture.js";
-import { abrirHojeSePrimeiraVezNoDia, redesenharHoje } from "./popup.js";
+import { abrirHoje, abrirHojeSePrimeiraVezNoDia, redesenharHoje, popupAberto } from "./popup.js";
 import { toast, erro } from "./toast.js";
 import { pedir } from "./dialog.js";
 
@@ -66,9 +66,11 @@ async function entrar() {
 
   rota();
   window.addEventListener("hashchange", rota);
-  // Quem entrou direto no #/hoje já está lendo a mesma coisa: abrir o popup
-  // por cima seria mostrar a tela duas vezes.
-  if (state.view !== "hoje") abrirHojeSePrimeiraVezNoDia();
+  // Sem guarda de view: o Hoje não é mais uma tela, então não existe mais o
+  // caso de "já estou lendo isso, não abra por cima". Quem entrou por #/hoje
+  // já teve o popup aberto pela rota() acima, e abrir de novo só remonta o
+  // conteúdo do <dialog> que já está de pé.
+  abrirHojeSePrimeiraVezNoDia();
   document.addEventListener("focusout", () => {
     setTimeout(() => {
       if (redesenhoAdiado && !editandoNaView()) desenhar();
@@ -107,10 +109,22 @@ function telaLogin() {
 
 function rota() {
   // O quadro é onde o trabalho acontece, e é o que faz sentido ver ao chegar.
-  // A pergunta "o que eu faço agora" continua sendo respondida pelo Hoje, que
-  // vem sozinho uma vez por dia (popup.js) e segue acessível na navegação.
-  const alvo = (location.hash.replace(/^#\/?/, "") || "quadro").split("/")[0];
-  state.view = VIEWS[alvo] ? alvo : "quadro";
+  const partes = (location.hash.replace(/^#\/?/, "") || "quadro").split("/");
+  const alvo = VIEWS[partes[0]] ? partes[0] : "quadro";
+
+  // O Hoje não é mais uma tela: é a pergunta "o que eu faço agora" chegando
+  // por cima do quadro e saindo do caminho depois. Tratar aqui, e não em cada
+  // botão, é o que garante que os seis caminhos até ele — item de navegação,
+  // atalho 1, paleta, link Entrada, o logotipo da barra lateral e a URL
+  // digitada à mão — se comportem igual. Tratar um por um seria esquecer um.
+  if (alvo === "hoje") {
+    abrirHoje();
+    // replaceState, e não location.hash: trocar o hash aqui dispararia esta
+    // mesma função de novo e empilharia uma entrada de histórico por abertura.
+    history.replaceState(null, "", "#/quadro");
+  }
+
+  state.view = alvo === "hoje" ? "quadro" : alvo;
   desenhar();
   $("#view")?.scrollTo({ top: 0 });
 }
@@ -386,6 +400,10 @@ function ligarAtalhos() {
 
     if (e.key === "Escape") {
       if (paletaAberta()) return fecharPaleta();
+      // O <dialog> nativo já fecha sozinho com Escape. Sem esta guarda, o
+      // mesmo Escape fecharia também a camada de baixo: quem abre o Hoje por
+      // cima de um ticket perderia os dois de uma vez.
+      if (popupAberto()) return;
       if (focoAtivo()) return fecharFoco(false);
       if (ticketAberto()) return fecharTicket();
       return;

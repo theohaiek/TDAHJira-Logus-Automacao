@@ -730,3 +730,22 @@ no console e sem nada na tela explicando.
 Campo de arquivo passou a usar `<div class="field">` com o rótulo num `<label
 for>` que cobre só o texto. Fica como aviso para qualquer campo composto que
 alguém acrescente ao `pedir()` amanhã.
+
+### 14.9 Abrir o Hoje ainda empilha uma entrada de histórico
+
+Medido: três aberturas pelo atalho `1` criam três entradas. Todas são
+`#/quadro`, porque `rota()` normaliza o hash com `replaceState` logo depois de
+abrir o pop-up — então voltar não muda nada na tela, mas o botão Voltar do
+navegador fica sem efeito visível por tantas vezes quantas o Hoje foi aberto.
+
+Por que ficou assim. Três dos seis caminhos são `<a href="#/hoje">` — o
+logotipo, o item de navegação e o link Entrada — e um link de hash empilha
+antes de qualquer JavaScript rodar. Tirar isso exigiria interceptar o clique
+nos links, mais um caso especial em `irPara()`, mais o tratamento que já existe
+em `rota()`: três mecanismos para o mesmo comportamento, que é exatamente o que
+o ponto de entrada único foi feito para evitar. O defeito que se quis evitar
+primeiro — esquecer um dos seis caminhos — é bem mais caro que este.
+
+**Reveja se:** o Voltar começar a incomodar de verdade no uso diário. A saída
+menos ruim seria um único ouvinte delegado para `a[href="#/hoje"]`, que cobre
+os três links de uma vez.
