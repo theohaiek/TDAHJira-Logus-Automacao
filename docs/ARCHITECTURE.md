@@ -164,6 +164,7 @@ server/
   events.js             a trilha
   http.js               utilidades de HTTP
   demo.js               dados de exemplo
+  versao.js             que commit esta no ar, e o historico ate ele
   paths.js              caminhos
 
 web/                    interface
@@ -181,6 +182,7 @@ web/                    interface
     focus.js            modo foco
     palette.js          paleta de comandos
     popup.js            o Hoje como <dialog>, que é a única forma dele
+    versao.js           o rótulo de versão, a linha do tempo e o limpa-cache
     views/              hoje, quadro, planilha, fluxo
 
 tests/                  113 testes, sem dependência externa

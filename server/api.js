@@ -62,6 +62,7 @@ import {
   logEvent,
 } from "./events.js";
 import { readJson, readBody, sendJson, sendError, cookieHeader, parseCookies } from "./http.js";
+import { versao } from "./versao.js";
 
 export async function handleApi(req, res, { path, query, user }) {
   const seg = path.split("/").filter(Boolean); // ["api", ...]
@@ -75,6 +76,14 @@ export async function handleApi(req, res, { path, query, user }) {
   if (head === "boot" && method === "GET") return boot(req, res, user);
 
   if (!user) return sendError(res, 401, "Sessão expirada ou inexistente.");
+
+  // Que versão está no ar e o que mudou até aqui. Fica atrás da sessão, e não
+  // ao lado de /boot: o repositório é público, mas dizer a estranhos qual
+  // commit exato uma instalação está rodando é entregar de graça a lista de
+  // correções que ela ainda não tem.
+  if (head === "versao" && method === "GET") {
+    return sendJson(res, 200, await versao());
+  }
 
   // --- Estado completo -----------------------------------------------------
   if (head === "state" && method === "GET") {

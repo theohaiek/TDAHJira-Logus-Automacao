@@ -33,6 +33,7 @@ import { criarDoTexto } from "./quickadd.js";
 import { parseCaptura, dicas } from "./capture.js";
 import { abrirHoje, abrirHojeSePrimeiraVezNoDia, redesenharHoje, popupAberto } from "./popup.js";
 import { toast, erro } from "./toast.js";
+import { iniciarVersao } from "./versao.js";
 import { pedir } from "./dialog.js";
 
 // O Hoje não está aqui, e é de propósito. Ele não é uma tela: é a pergunta
@@ -75,6 +76,11 @@ async function entrar() {
   ligarCaptura();
   ligarAtalhos();
   ligarBotoes();
+  // Sem await: a consulta de versão vai à rede — e no modo hospedado até ao
+  // GitHub — e nada na tela depende dela para funcionar. Segurar a subida do
+  // aplicativo por causa de um rótulo de rodapé seria trocar o essencial pelo
+  // acessório.
+  iniciarVersao();
 
   rota();
   window.addEventListener("hashchange", rota);

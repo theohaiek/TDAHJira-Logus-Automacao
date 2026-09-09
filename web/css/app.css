@@ -114,16 +114,30 @@
   background: var(--surface-3);
   color: var(--text-1);
 }
-/* Selecionado tem um idioma só no aplicativo inteiro: superfície um degrau
-   acima do hover, texto cheio, peso e um traço na borda de dentro. Antes
-   disto o item de navegação usava o acento e o de projeto usava a mesma
-   superfície do próprio hover — errados de maneiras diferentes, e nenhum dos
-   dois distinguível de "estou passando o mouse aqui". */
+/* A seção em que se está é o único item de acento da barra lateral, e é de
+   propósito que ele grite: numa coluna de dez linhas cinzas, saber onde se
+   está tem que custar zero leitura.
+
+   Houve uma versão em que o acento aqui era o erro. Era — sozinho. Naquela,
+   selecionado era "texto ciano" e mais nada, indistinguível de passar o mouse.
+   Agora são quatro sinais no mesmo item: superfície de acento, texto de
+   acento, peso e o traço da borda de dentro. O hover continua sendo cinza um
+   degrau acima, e os dois não se confundem.
+
+   O item de projeto segue em superfície neutra, e essa diferença é a hierarquia:
+   um diz em que tela você está, o outro diz que recorte está aplicado nela. */
 .navitem.is-active {
-  background: var(--surface-4);
-  color: var(--text-1);
+  background: var(--accent-dim);
+  color: var(--accent);
   font-weight: 600;
-  box-shadow: inset 2px 0 0 var(--text-2);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.navitem.is-active:hover {
+  background: var(--accent-dim);
+  color: var(--accent-hover);
+}
+.navitem.is-active .navitem__icon {
+  opacity: 1;
 }
 .navitem__icon {
   width: 18px;
@@ -138,7 +152,7 @@
   font-variant-numeric: tabular-nums;
 }
 .navitem.is-active .navitem__count {
-  color: var(--text-2);
+  color: color-mix(in srgb, var(--accent) 72%, transparent);
 }
 
 .rail__projects {
@@ -282,11 +296,20 @@
   margin-bottom: var(--sp-5);
   flex-wrap: wrap;
 }
+/* O nome da tela em acento, com um halo de fora. É a âncora da página: quem
+   volta para a aba depois de meia hora lê esta palavra antes de qualquer
+   outra, e ela responde "onde eu estava" sem exigir varredura.
+
+   O halo é text-shadow, e não filtro: uma sombra colorida no texto acende sem
+   custar camada de composição nem desalinhar a linha de base do parágrafo que
+   fica ao lado. */
 .page-head h1 {
   font-family: var(--font-display);
   font-size: var(--text-2xl);
   font-weight: 400;
   letter-spacing: 0.02em;
+  color: var(--accent);
+  text-shadow: 0 0 26px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 .page-head p {
   color: var(--text-3);
@@ -2488,4 +2511,198 @@ input[type="color"] {
   border-color: var(--border-soft);
   transition: box-shadow var(--dur-brilho) var(--ease),
     border-color var(--dur-brilho) var(--ease);
+}
+
+/* ==========================================================================
+   Versão e linha do tempo
+   --------------------------------------------------------------------------
+   O rótulo mora no rodapé da barra lateral, acima do nome de quem entrou. Em
+   acento porque é a única coisa clicável naquele canto, e um texto de sete
+   caracteres em cinza ali seria lido como decoração de rodapé.
+   ========================================================================== */
+
+.rail__versao {
+  display: block;
+  width: 100%;
+  padding: 2px var(--sp-2) 6px;
+  border-radius: var(--radius-sm);
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-align: left;
+  opacity: 0.78;
+  transition: opacity var(--dur) var(--ease), color var(--dur) var(--ease),
+    text-shadow var(--dur) var(--ease);
+}
+.rail__versao:hover {
+  opacity: 1;
+  color: var(--accent-hover);
+  text-shadow: 0 0 16px color-mix(in srgb, var(--accent) 46%, transparent);
+}
+.rail__versao:active {
+  transform: scale(0.96);
+}
+
+.btn--sm {
+  padding: 5px 10px;
+  font-size: var(--text-xs);
+}
+
+.popup--versao {
+  width: min(660px, 94vw);
+}
+
+.versao__topo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding-bottom: var(--sp-4);
+  margin-bottom: var(--sp-4);
+  border-bottom: 1px solid var(--border-soft);
+  align-items: flex-start;
+}
+.versao__agora {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+.versao__numero {
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  color: var(--accent);
+  text-shadow: 0 0 22px color-mix(in srgb, var(--accent) 26%, transparent);
+}
+.versao__quando {
+  font-size: var(--text-xs);
+  color: var(--text-3);
+}
+.versao__estado {
+  font-size: var(--text-sm);
+  color: var(--text-2);
+  text-wrap: pretty;
+}
+.versao__estado--erro {
+  color: var(--alert);
+}
+
+/* A linha do tempo. O fio é um pseudo-elemento do item, e não uma borda da
+   lista: assim o último commit não fica com um traço pendurado embaixo dele,
+   apontando para um lugar onde não há mais nada. */
+.linha {
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.linha__item {
+  position: relative;
+  display: flex;
+  gap: var(--sp-3);
+  padding: 0 0 var(--sp-4) var(--sp-1);
+}
+.linha__item::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 14px;
+  bottom: 0;
+  width: 1px;
+  background: var(--border-soft);
+}
+.linha__item:last-child::before {
+  display: none;
+}
+.linha__ponto {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--surface-4);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+}
+/* O commit que está no ar acende. É a única informação do painel que a pessoa
+   veio buscar de verdade — o resto é contexto em volta dele. */
+.linha__item.is-atual .linha__ponto {
+  background: var(--accent);
+  box-shadow: var(--brilho-fraco);
+}
+.linha__corpo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.linha__cabeca {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.linha__sha {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-3);
+}
+.linha__item.is-atual .linha__sha {
+  color: var(--accent);
+}
+.linha__data {
+  font-size: var(--text-xs);
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+.linha__marca {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+}
+.linha__titulo {
+  font-size: var(--text-sm);
+  color: var(--text-1);
+  text-wrap: pretty;
+}
+.linha__item.is-atual .linha__titulo {
+  font-weight: 600;
+}
+.linha__nota {
+  margin: 2px 0 0;
+  font-size: var(--text-xs);
+  color: var(--text-3);
+  white-space: pre-wrap;
+  text-wrap: pretty;
+}
+.linha__mais {
+  margin-top: 2px;
+}
+.linha__mais summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: fit-content;
+  font-size: var(--text-xs);
+  color: var(--text-faint);
+  cursor: pointer;
+  list-style: none;
+  transition: color var(--dur) var(--ease);
+}
+.linha__mais summary::-webkit-details-marker {
+  display: none;
+}
+.linha__mais summary::before {
+  content: "▸";
+  font-size: 9px;
+  transition: transform var(--dur) var(--ease);
+}
+.linha__mais[open] summary::before {
+  transform: rotate(90deg);
+}
+.linha__mais summary:hover {
+  color: var(--accent);
 }

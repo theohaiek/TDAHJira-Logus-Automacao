@@ -14,12 +14,13 @@ export class ApiError extends Error {
   }
 }
 
-async function request(method, path, { body, headers = {}, raw } = {}) {
+async function request(method, path, { body, headers = {}, raw, cache } = {}) {
   const opts = {
     method,
     credentials: "same-origin",
     headers: { ...headers },
   };
+  if (cache) opts.cache = cache;
 
   if (raw) {
     opts.body = raw;
@@ -45,6 +46,11 @@ export const api = {
   boot: () => request("GET", "boot"),
   login: (usuario, senha) => request("POST", "session", { body: { usuario, senha } }),
   logout: () => request("DELETE", "session"),
+
+  // no-store porque a pergunta que ela responde é "o que mudou desde que eu
+  // carreguei" — servida do cache, ela responde sempre a mesma coisa e o
+  // botão de atualizar nunca acha nada.
+  versao: () => request("GET", "versao", { cache: "no-store" }),
 
   state: () => request("GET", "state"),
   sync: (cursor) => request("GET", `sync?cursor=${cursor || 0}`),

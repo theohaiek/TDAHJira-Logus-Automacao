@@ -1136,3 +1136,81 @@ nada.
 O estado do filtro é um só, compartilhado entre as cenas. Ligar uma pessoa na
 cena do cliente e voltar ao centro mantém aquela pessoa ligada — é o mesmo
 recorte visto de outro ângulo, não dois recortes independentes.
+
+## 16. O acento na navegação e o rótulo de versão, em 9 de setembro de 2026
+
+### 16.1 A seção em que se está voltou a ser ciano
+
+Duas peças foram apontadas para receber acento: o item selecionado da barra
+lateral e o nome da tela, no alto da página.
+
+Havia um comentário no CSS dizendo que o acento ali tinha sido um erro. Estava
+certo sobre o caso dele e não sobre este. Naquela versão, selecionado era
+"texto ciano" e mais nada — indistinguível de passar o mouse por cima. Agora
+são quatro sinais no mesmo item: superfície de acento, texto de acento, peso e
+o traço da borda de dentro. O hover continua sendo cinza um degrau acima, e os
+dois não se confundem.
+
+O item de projeto ficou em superfície neutra, de propósito: um diz em que tela
+você está, o outro diz que recorte está aplicado nela, e a hierarquia entre as
+duas perguntas é essa.
+
+O nome da tela ganhou acento e um halo de `text-shadow`. É a âncora da página —
+quem volta para a aba depois de meia hora lê aquela palavra antes de qualquer
+outra. Halo em `text-shadow`, e não em filtro: acende sem custar camada de
+composição e sem mexer na linha de base do parágrafo ao lado.
+
+### 16.2 Um rótulo de versão que também conserta o cache
+
+O aplicativo não põe número de build no nome dos arquivos. O navegador guarda
+`app.js` e `app.css` pelo caminho, e um deploy novo chega sem que a aba aberta
+perceba — a pessoa vê um defeito já corrigido e reclama de algo que não existe
+mais. O rótulo no rodapé da barra lateral responde "que versão é esta?", e o
+clique responde "e se não for a última?".
+
+O que o clique faz, nesta ordem:
+
+1. pergunta ao servidor em que commit ele está, sem passar pelo cache;
+2. apaga o Cache Storage e desregistra service workers — nenhum dos dois existe
+   hoje, e a limpeza é escrita defensiva para o dia em que existirem;
+3. rebusca no servidor cada arquivo que a página carregou, com `cache: "reload"`,
+   que é a única maneira de mexer no cache de HTTP a partir do JavaScript;
+4. compara com o commit de quando a aba abriu. Diferente, recarrega. Igual, diz
+   que está em dia — e a limpeza aconteceu de todo jeito, porque quem clica ali
+   está desconfiando do próprio cache, e responder "está tudo em dia" sem ter
+   mexido em nada seria responder com a mesma dúvida.
+
+A ordem importa: o `reload` do passo 4 sem o passo 3 reencontraria no cache
+exatamente os arquivos velhos que motivaram o clique.
+
+### 16.3 De onde vem o histórico
+
+`server/versao.js` esconde uma diferença grande entre os dois modos. No modo
+autônomo o repositório está no disco e `git log` responde tudo. No hospedado
+não existe repositório nenhum — a plataforma copia os arquivos e joga o
+histórico fora —, então a fonte é a API pública do GitHub, com o dono e o nome
+vindos das variáveis que a própria plataforma injeta.
+
+Três detalhes que não são óbvios:
+
+- **O separador do `git log` é caractere de controle** (`%x1f`, `%x1e`), e não
+  vírgula ou barra. É o que faz uma mensagem de commit com qualquer pontuação
+  atravessar inteira.
+- **A resposta do GitHub fica cinco minutos em memória.** Sem credencial são
+  sessenta chamadas por hora por endereço, e no modo hospedado o endereço é o
+  da plataforma, compartilhado — uma sala com cinco pessoas clicando esgotaria
+  a cota em minutos.
+- **O commit publicado pode não ser a ponta do ramo.** Um deploy que ainda está
+  subindo deixa o servidor atrás do GitHub, e a distância entre os dois é a
+  única resposta honesta para "estou atualizado?".
+
+A rota fica atrás da sessão, e não ao lado de `/api/boot`. O repositório é
+público, mas dizer a estranhos qual commit exato uma instalação está rodando é
+entregar de graça a lista de correções que ela ainda não tem.
+
+### 16.4 O corpo do commit fica fechado
+
+Este repositório escreve corpo de commit com parágrafos. Vinte deles abertos
+davam nove mil pixels de rolagem para achar a data de um — que é justamente o
+que a pessoa foi ver. O corpo entrou num `<details>` fechado, que entrega o
+abrir, o fechar, o estado e o teclado sem uma linha de JavaScript.
