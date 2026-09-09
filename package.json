@@ -5,6 +5,10 @@
   "private": true,
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/theohaiek/TDAHJira-Logus-Automacao.git"
+  },
   "engines": {
     "node": ">=22.5.0"
   },

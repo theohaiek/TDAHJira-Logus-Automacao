@@ -62,7 +62,7 @@ async function montar() {
   const sha = process.env.VERCEL_GIT_COMMIT_SHA || "";
   return {
     fonte: sha ? "plataforma" : "nenhuma",
-    repo: repoConfigurado(),
+    repo: await repoConfigurado(),
     atual: sha
       ? {
           sha: sha.slice(0, 7),
@@ -105,7 +105,7 @@ async function doRepositorioLocal() {
 
   return {
     fonte: "git",
-    repo: (await remoto()) || repoConfigurado(),
+    repo: (await remoto()) || (await repoConfigurado()),
     atual: commits[0] || null,
     commits,
     atras: 0,
@@ -131,24 +131,40 @@ async function git(args) {
 
 async function remoto() {
   const url = (await git(["remote", "get-url", "origin"]))?.trim();
-  if (!url) return null;
-  // Serve para os dois formatos que o mesmo repositório tem: o de HTTPS e o
-  // de SSH.
-  const m = url.match(/github\.com[/:]([^/]+)\/(.+?)(?:\.git)?$/i);
-  return m ? `${m[1]}/${m[2]}` : null;
+  return url ? doUrl(url) : null;
 }
 
 // --- GitHub -----------------------------------------------------------------
 
-function repoConfigurado() {
+// Qual repositório é este, em ordem de confiança: o que foi dito à mão, o que a
+// plataforma injeta, e o que o package.json declara. O último existe porque as
+// variáveis de sistema da plataforma são opcionais — dá para desligá-las no
+// painel, e sem esta rede o histórico abriria vazio no modo hospedado sem que
+// nada no código explicasse por quê.
+async function repoConfigurado() {
   if (process.env.GIT_REPO) return process.env.GIT_REPO;
+
   const dono = process.env.VERCEL_GIT_REPO_OWNER;
   const nome = process.env.VERCEL_GIT_REPO_SLUG;
-  return dono && nome ? `${dono}/${nome}` : null;
+  if (dono && nome) return `${dono}/${nome}`;
+
+  try {
+    const bruto = await readFile(join(ROOT, "package.json"), "utf8");
+    return doUrl(JSON.parse(bruto).repository?.url || "");
+  } catch {
+    return null;
+  }
+}
+
+// O mesmo endereço de repositório aparece em dois formatos, o de HTTPS e o de
+// SSH, e os dois chegam aqui: um vindo do remoto do git, outro do package.json.
+function doUrl(url) {
+  const m = String(url).match(/github\.com[/:]([^/]+)\/(.+?)(?:\.git)?$/i);
+  return m ? `${m[1]}/${m[2]}` : null;
 }
 
 async function doGithubRemoto() {
-  const repo = repoConfigurado();
+  const repo = await repoConfigurado();
   if (!repo) return null;
 
   const ramo = process.env.VERCEL_GIT_COMMIT_REF || "main";
