@@ -10,11 +10,14 @@
 // dele, menores, saindo pelas bordas, com a marca de quem eles são — e o
 // vizinho imediato sempre por cima dos mais distantes daquele lado.
 //
-// Arrastar o fundo desliza a pilha um para um com o cursor; ao soltar, ela
-// assenta no painel mais próximo. Aproximar o cursor de um painel lateral abre
-// o convite: ele esmaece sob um véu e sobe um botão de entrar. Clique simples
-// não navega, porque um arrasto que termina em cima de um painel não pode
-// virar viagem que ninguém pediu.
+// Arrastar o fundo desliza a pilha, com resistência: a mão faz pouco mais da
+// metade do caminho e o assentamento faz o resto, com uma curva que passa do
+// destino e volta. Um para um parecia o certo e deixava o movimento seco — a
+// mão chegava ao destino e não sobrava trecho para a transição percorrer.
+//
+// Aproximar o cursor de um painel de trás abre o convite: ele esmaece sob um
+// véu e sobe um botão de entrar. Clique simples não navega, porque um arrasto
+// que termina em cima de um painel não pode virar viagem que ninguém pediu.
 
 import { h, frag, avatar, fotoEmpresa } from "../dom.js";
 import {
@@ -579,6 +582,11 @@ function escreverHash(id) {
 // custa um transform por quadro.
 const FUNDO = 3;
 
+// O quanto a pilha acompanha a mão. Abaixo de um, de propósito: o resto do
+// caminho é feito pelo assentamento, que é onde mora a curva com peso. Ver o
+// comentário longo em aoMover.
+const ARRASTO_ACOMPANHA = 0.58;
+
 // Como a faixa que sobra de cada lado é repartida entre as camadas de trás.
 //
 // O primeiro vizinho fica com a maior fatia porque é o que se quer ler; os de
@@ -777,13 +785,22 @@ function aoMover(e) {
   const m = medidas();
   if (!m) return;
 
-  // O passo é a distância que o painel percorre para trocar de camada — a
-  // mesma que a conta de posição usa. Assim o painel acompanha a mão um para
-  // um: arrastar cem pixels move a pilha cem pixels, e não uma fração
-  // arbitrária deles.
   const passo = passoDoGesto(m);
   if (!passo) return;
-  const cru = gesto.posicao0 - dx / passo;
+
+  // A pilha acompanha a mão com resistência, e não um para um.
+  //
+  // Um para um parecia o certo e era a causa do movimento seco: a mão levava a
+  // pilha até quase o destino, e ao soltar sobravam poucos pixels para o
+  // assentamento percorrer — a transição rodava inteira, os 420 ms
+  // completos, mas sobre um trecho tão curto que não dava para ver. O que se
+  // via era um encaixe.
+  //
+  // Com resistência, a mão faz pouco mais da metade do caminho e o resto é
+  // feito ao soltar, com a curva que passa do destino e volta. É o mesmo peso
+  // que uma porta pesada tem: ela acompanha o empurrão e termina de fechar
+  // sozinha.
+  const cru = gesto.posicao0 - (dx / passo) * ARRASTO_ACOMPANHA;
 
   // Velocidade média, e não instantânea: dois eventos de ponteiro separados por
   // um milissegundo dão uma velocidade absurda, e era ela que atirava a pilha
@@ -848,6 +865,7 @@ function passoDoGesto(m) {
   return Math.max(60, posicaoEm(1, m));
 }
 
+
 function maisProxima() {
   if (!cenasEl.length) return -1;
   return Math.max(0, Math.min(cenasEl.length - 1, Math.round(posicao)));
@@ -864,7 +882,11 @@ function maisProxima() {
 function destinoAoSoltar(velocidade) {
   const teto = cenasEl.length - 1;
   const base = Math.round(posicao);
-  const forte = Math.abs(velocidade || 0) > 0.0045;
+  // O limiar é calibrado em cenas por milissegundo: 0,0038 equivale a
+  // atravessar uma cena em pouco mais de 260 ms, que é rápido para uma mão e
+  // lento para um tremor. Abaixo disso o movimento foi deliberado, e quem
+  // decide é a posição em que a mão parou.
+  const forte = Math.abs(velocidade || 0) > 0.0038;
   const alvo = forte
     ? velocidade > 0
       ? Math.ceil(posicao)

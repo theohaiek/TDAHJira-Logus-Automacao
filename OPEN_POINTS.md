@@ -996,3 +996,41 @@ A saída foi `CRIAR-LEGER.local.md`, fora do versionamento, com um bloco pronto
 para colar no console do navegador já autenticado. Ele faz o mesmo que o botão
 de foto faria — inclusive o recorte, que passou a pegar o símbolo à esquerda
 quando a imagem é bem mais larga que alta (15.8).
+
+### 15.12 O arrasto acompanhava a mão bem demais
+
+O assentamento parecia não existir, e a transição estava certa o tempo todo:
+medida no navegador, `transitionend` disparava com `elapsedTime` de 420 ms
+exatos, com a curva de mola aplicada.
+
+A causa era o arrasto ser **um para um** com o cursor. A mão levava a pilha até
+o destino, e ao soltar sobravam poucos pixels para a transição percorrer — ela
+rodava inteira, sobre um trecho tão curto que não dava para ver. O que se via
+era um encaixe.
+
+Agora a pilha acompanha a mão a 58%. Medido: a mão anda 300 px, a pilha anda
+174, e o assentamento percorre os 88 restantes — **um terço do movimento total
+acontece na transição**, com a curva que passa do destino e volta. É o peso de
+uma porta pesada: ela acompanha o empurrão e termina de fechar sozinha.
+
+O limiar do arremesso foi recalibrado junto, para 0,0038 cena por milissegundo
+— atravessar uma cena em pouco mais de 260 ms. Rápido para uma mão, lento para
+um tremor.
+
+**Nota de método:** nada disso era mensurável com a aba do navegador em segundo
+plano. O compositor não avança transição em aba oculta: `playState` fica em
+`running`, `currentTime` em zero, e `getComputedStyle` já devolve o valor final.
+Toda medida de animação neste projeto precisa da aba em primeiro plano — foi o
+que fez a primeira leitura concluir, errado, que a transição não estava sendo
+criada.
+
+### 15.13 O diálogo de empresa ficava por baixo do quadro
+
+As cenas se empilham entre si com `z-index` até 100, escrito inline. Sem
+isolamento, esses números disputam com os do resto do aplicativo — e o diálogo
+vale `--z-palette`, que é 70. O quadro ganhava.
+
+`isolation: isolate` no `.trilho` prende a briga lá dentro: as cenas continuam
+se ordenando entre si, e lá fora o trilho inteiro conta como uma camada só, na
+ordem natural do documento. O `<dialog>` do Hoje nunca teve o problema porque
+vive na camada de topo do navegador, acima de qualquer `z-index`.

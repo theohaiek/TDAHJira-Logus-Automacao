@@ -76,7 +76,7 @@
      aplicativo. Ele não é enfeite: é o deslocamento que responde a um gesto, e
      responder rápido demais dá a sensação de a tela ter pulado em vez de
      andado. O resto continua rápido, porque atraso percebido quebra o fio. */
-  --dur-trilho: 420ms;
+  --dur-trilho: 480ms;
   /* Passa um triz do destino e volta. É o peso que falta a uma curva que só
      desacelera: sem o retorno, a pilha parece parar contra uma parede. */
   --ease-trilho: cubic-bezier(0.32, 1.42, 0.52, 1);

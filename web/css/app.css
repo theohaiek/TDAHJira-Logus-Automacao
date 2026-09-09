@@ -2038,6 +2038,11 @@ input[type="color"] {
   --espia: 214px;
   --cena-w: max(300px, calc(100% - 2 * var(--espia)));
   position: relative;
+  /* As cenas se empilham entre si com z-index até 100, e sem isolamento esses
+     números disputam com os do resto do aplicativo — o diálogo de empresa vale
+     70, e ficava POR BAIXO do quadro. Isolar prende a briga aqui dentro: lá
+     fora o trilho inteiro conta como uma camada só, na ordem natural. */
+  isolation: isolate;
   /* Altura fixa: é ela que impede a página de saltar quando a cena do centro
      troca por uma com outro número de cartões. */
   height: clamp(380px, calc(100vh - 268px), 1100px);
