@@ -1601,8 +1601,22 @@ uma limpeza que não aconteceu treina a pessoa a não acreditar no que está
 escrito ali — e a única coisa que aquele painel tem para oferecer é ser
 acreditado.
 
-Verificado: abrir mantém a página viva com as vinte linhas à vista; o botão
-recarrega, e a prova é a variável de marcação desaparecer do `window`.
+E um segundo defeito veio junto com a correção, achado ao verificá-la em
+produção: quem clicasse no rótulo **antes** de a consulta da carga responder
+abria um painel dizendo "versão desconhecida", e ele ficava assim. Nada mais ia
+buscar. Antes isso não aparecia porque abrir disparava a verificação, que
+buscava de novo — e recarregava a página junto, que era justamente o defeito
+que acabara de sair dali.
+
+Abrir sem dado agora faz a leitura, e só ela: sem limpar cache, sem recarregar.
+Enquanto ela está em voo o painel diz "Consultando o servidor…", e não "o
+servidor não sabe informar" — as duas são espera de quem olha, mas a segunda
+acusa o servidor de algo que ainda não se apurou.
+
+Verificado nos dois caminhos: abrir mantém a página viva com as vinte linhas à
+vista, e o botão recarrega — a prova é a variável de marcação desaparecer do
+`window`. O clique cedo foi reproduzido importando o módulo com um sufixo
+novo, que dá uma instância com o estado zerado.
 
 ### 16.7 A minor passou a vir de uma tabela de séries
 

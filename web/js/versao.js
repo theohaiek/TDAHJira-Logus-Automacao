@@ -28,6 +28,7 @@ import { toast, erro } from "./toast.js";
 let aoCarregar = null;
 let caixa = null;
 let verificando = false;
+let buscando = false;
 
 const QUANDO = new Intl.DateTimeFormat("pt-BR", {
   day: "2-digit",
@@ -153,6 +154,34 @@ export function abrirVersao(estado = { fase: "parado" }) {
   );
 
   if (!alvo.open) alvo.showModal();
+
+  // Só a leitura que faltou, e nada além dela.
+  //
+  // A consulta da carga leva uma ida à rede — no modo hospedado, duas, porque
+  // ela passa pelo GitHub. Quem clica no rótulo antes de ela responder abria um
+  // painel dizendo "versão desconhecida", e ele ficava assim: nada mais ia
+  // buscar. Antes isto não aparecia porque abrir disparava a verificação, que
+  // buscava de novo — e recarregava a página junto, que é o defeito que acabou
+  // de sair daqui.
+  //
+  // Esta busca não limpa cache e não recarrega. É a leitura, só.
+  if (estado.fase === "parado" && !aoCarregar) buscarParaMostrar();
+}
+
+async function buscarParaMostrar() {
+  if (buscando) return;
+  buscando = true;
+  try {
+    aoCarregar = await api.versao();
+    pintarRotulo(aoCarregar);
+    // Redesenha o painel se ele ainda estiver aberto. Se a pessoa fechou no
+    // meio da espera, o rótulo já foi atualizado e não há mais o que mostrar.
+    if (caixa?.open) abrirVersao({ fase: "parado" });
+  } catch {
+    if (caixa?.open) abrirVersao({ fase: "erro", mensagem: "Não consegui falar com o servidor agora." });
+  } finally {
+    buscando = false;
+  }
 }
 
 function cabecalho(v, estado) {
@@ -201,7 +230,13 @@ function frase(estado, v) {
 
   // Parado: só abriu. Diz o que se sabe e o que o botão faria.
   if (estado.fase === "parado") {
-    if (!v?.atual?.versao && !v?.atual?.sha) {
+    // Sem dado nenhum ainda: ou a consulta está em voo, ou ela falhou. As duas
+    // são espera do ponto de vista de quem olha, e nenhuma delas é "o servidor
+    // não sabe" — dizer isso seria acusar o servidor de algo que ainda não se
+    // apurou.
+    if (!v) return h("span", { text: "Consultando o servidor…" });
+
+    if (!v.atual?.versao && !v.atual?.sha) {
       return h("span", { text: "O servidor não sabe informar em que versão está." });
     }
     if (v.atras) {
