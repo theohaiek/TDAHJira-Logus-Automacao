@@ -1526,3 +1526,23 @@ quadro de um gesto.
 Navegar desfaz o alargamento: largo é "quero ver este quadro inteiro", e trocar
 de quadro é dizer que a pergunta mudou. Escape também desfaz, e antes de voltar
 ao centro — Escape desfaz de dentro para fora.
+
+### 18.11 Arrastar dentro do painel alargado
+
+Com o painel ocupando a faixa inteira, arrastar o fundo dava em nada útil: os
+vizinhos estão em opacidade zero, então a mão andava, a pilha andava junto e a
+tela ficava parada até soltar. E pior que parada — com `--espia` zerado o passo
+do gesto encolhe para um sétimo do normal, e o mesmo movimento de mão que
+atravessa uma cena passava a atravessar várias.
+
+Começar a arrastar agora desfaz o alargamento. Sem transição, de propósito: a
+classe de arrasto já desligou as transições da cena, a largura volta no mesmo
+quadro, e é justamente a geometria dessa largura que o passo do gesto mede — um
+gesto que começasse esperando meio segundo por ela não acompanharia a mão.
+
+Desfaz no primeiro movimento que conta como arrasto, e não no `pointerdown`:
+movimento vertical devolve a rolagem da página sem nunca virar arrasto, e um
+clique simples no fundo continua não fazendo nada.
+
+Medido: painel a 2328 px, primeiro movimento de 15 px, painel a 1891 px e as
+cinco cenas de trás de volta à vista no mesmo instante.

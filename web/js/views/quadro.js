@@ -910,6 +910,25 @@ function aoMover(e) {
       trilhoEl.setPointerCapture(gesto.pointerId);
     } catch {}
     trilhoEl.classList.add("is-arrastando");
+
+    // Arrastar sai do painel alargado.
+    //
+    // Enquanto ele ocupa a faixa inteira não há pilha para atravessar: os
+    // vizinhos estão em opacidade zero, e o gesto mexia numa fileira que
+    // ninguém via — a mão andava, o trilho andava junto, e a tela ficava
+    // parada até soltar. Pior: com --espia zerado o passo do gesto encolhe
+    // para um sétimo do normal, então o mesmo movimento de mão atravessava
+    // várias cenas de uma vez.
+    //
+    // Sem transição, de propósito: a classe de arrasto acima já desligou as
+    // transições da cena, e a largura volta no mesmo quadro. Um gesto que
+    // começasse esperando meio segundo pela largura não acompanharia a mão —
+    // e é justamente a geometria dessa largura que o passo do gesto mede.
+    if (state.carrossel.largo) {
+      state.carrossel.largo = false;
+      trilhoEl.classList.remove("is-largo");
+    }
+
     // Quem estava com o convite aberto perde a vez: no meio de um arrasto
     // ninguém está escolhendo para onde ir.
     for (const c of cenasEl) c.classList.remove("is-convidando");
