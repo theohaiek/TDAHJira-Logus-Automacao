@@ -360,7 +360,23 @@ campo no formulário.
 
 ---
 
-## 9. Estado em 8 de setembro de 2026
+## 9. Estado em 10 de setembro de 2026
+
+Série **v1.3**, marcada pelos cartões flutuantes. Produção em `v1.3.21`.
+
+- A tela principal deixou de ser um quadro e virou uma pilha de painéis: as
+  empresas à esquerda, as pessoas à direita, "todos os negócios" no centro.
+  Arrastar o fundo desliza a pilha; dois cliques no fundo alargam o painel.
+- A tarefa passou a ter mais de um responsável, pela tabela `task_assignees`.
+  `tasks.assignee_id` continua e guarda o primeiro — escrito pela mesma função.
+- O rodapé mostra a versão e, ao ser clicado, limpa o cache do navegador e
+  recarrega. É a saída de "vi um defeito que já foi corrigido".
+- 125 testes passando, 12 deles novos.
+- Handoff próprio da série em
+  `Handoffs/2026-09-10 - V1.3 os cartoes flutuantes/00 - Handoff.md`, com as
+  cinco coisas não óbvias do trilho e o que fazer quando cada uma quebra.
+
+## 9.1 Estado em 8 de setembro de 2026
 
 Marcado como `v1.0`. É a árvore que se sabe boa: se uma mudança futura derrubar
 a produção, `git revert` até aqui devolve o aplicativo ao ar.
@@ -380,7 +396,7 @@ a produção, `git revert` até aqui devolve o aplicativo ao ar.
 - Os testes deixaram de poder apagar o banco real quando escritos com `import`
   estático — armadilha reproduzida e agora barrada nos sete arquivos.
 
-## 9.1 Estado em 5 de setembro de 2026
+## 9.2 Estado em 5 de setembro de 2026
 
 - V1 completa, publicada e validada em produção de ponta a ponta: criar tarefa,
   comentar, anexar print, recuperá-lo byte a byte, e recusar acesso sem sessão.
