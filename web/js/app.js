@@ -21,6 +21,7 @@ import {
   irParaCena,
   voltarAoCentro,
   andarCena,
+  alternarLargura,
   carrosselOcupado,
   posicionarTrilho,
 } from "./views/quadro.js";
@@ -457,6 +458,11 @@ function ligarAtalhos() {
       if (popupAberto()) return;
       if (focoAtivo()) return fecharFoco(false);
       if (ticketAberto()) return fecharTicket();
+      // Antes de mudar de cena: sair do painel alargado é desfazer a última
+      // coisa que se fez, e Escape desfaz de dentro para fora.
+      if (state.view === "quadro" && state.carrossel.largo) {
+        return alternarLargura(false);
+      }
       // Última da cadeia: sem nada aberto por cima, Escape no quadro devolve
       // a cena central. É a saída de "me perdi numa lateral do trilho".
       if (state.view === "quadro" && state.carrossel.atual !== "geral") {

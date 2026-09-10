@@ -572,7 +572,15 @@
 .board {
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: minmax(252px, 1fr);
+  /* O mínimo é o que decide se aparece rolagem horizontal, e ele era largo
+     demais: com cinco etapas, 252 pedia 1308 px de quadro e a barra aparecia
+     em painel que tinha espaço de sobra para as colunas — só não para aquele
+     mínimo. Duzentos cabe nas cinco em pouco mais de mil pixels e continua
+     dando ao cartão largura de leitura.
+
+     A rolagem não sumiu: ela continua para quem de fato não tem largura, que
+     é a tela estreita. O que sumiu foi a rolagem que não precisava existir. */
+  grid-auto-columns: minmax(200px, 1fr);
   gap: var(--sp-3);
   align-items: start;
   min-height: 100%;
@@ -2096,6 +2104,18 @@ input[type="color"] {
   user-select: none;
 }
 
+/* O painel em uso ocupando a faixa inteira. Zerar a espiada é tudo o que
+   precisa acontecer: --cena-w sai dela, e a cena cresce sozinha até a borda. */
+.trilho.is-largo {
+  --espia: 0px;
+}
+/* As de trás saem da frente enquanto isso. Continuam na fileira e no lugar —
+   só deixam de disputar a tela com o quadro que alguém pediu para ver inteiro. */
+.trilho.is-largo .cena:not(.is-atual) {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .cena {
   position: absolute;
   /* Recuada da borda do recorte pela folga do halo, dos dois lados: é o que
@@ -2112,10 +2132,14 @@ input[type="color"] {
   border: 1px solid var(--border);
   box-shadow: var(--painel-sombra), var(--painel-brilho);
   transform-origin: center center;
-  /* Só transform e opacity, e nunca `all`: uma mudança de cor entrando na
-     mesma transição derruba o quadro para o processador. */
+  /* Transform e opacity são o que a placa de vídeo compõe sozinha, e é por
+     isso que o arrasto anda neles. A largura entra à parte: ela recalcula
+     layout, mas só muda quando alguém alarga o painel — uma vez, não a cada
+     quadro de um gesto. Nunca `all`: uma mudança de cor entrando aqui
+     derrubaria o quadro inteiro para o processador. */
   transition: transform var(--dur-trilho) var(--ease-trilho),
-    opacity var(--dur-trilho) var(--ease), box-shadow var(--dur) var(--ease);
+    opacity var(--dur-trilho) var(--ease), width var(--dur-trilho) var(--ease),
+    box-shadow var(--dur) var(--ease);
 }
 /* Reposicionamento por remonte e por mudança de tamanho da janela não são
    movimento que alguém pediu: vão instantâneos. */
@@ -2155,6 +2179,26 @@ input[type="color"] {
 .cena[data-lado="dir"] {
   border-inline-end-width: 3px;
   border-inline-end-style: solid;
+}
+
+/* O painel de trás sai de foco.
+   
+   Só a transparência não bastava: o texto atravessava o véu legível, e um
+   quadro legível atrás do quadro em uso disputa a leitura com ele — que é
+   exatamente o que a pilha existe para evitar. Borrado, ele volta a ser o que
+   deveria ser: a forma de um quadro, o suficiente para dizer que há trabalho
+   ali, sem convidar a ler.
+
+   O filtro fica no corpo, e não na cena: borrar a cena inteira levaria junto a
+   borda, o halo e o cartão com o nome — e o nome é justamente o que precisa
+   continuar nítido. */
+.cena:not(.is-atual) .cena__corpo {
+  filter: blur(3.5px);
+}
+/* Acompanha o véu, e some no mesmo tempo em que ele: entrar numa visualização
+   é um movimento só, e o foco voltando depois do véu seria um segundo. */
+.cena__corpo {
+  transition: filter min(var(--dur-trilho), 320ms) var(--ease);
 }
 
 /* O quadro dentro do painel. Rola por dentro, e é a folga de 8px que dá o raio

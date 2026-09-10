@@ -1475,3 +1475,54 @@ de fato se vê, sem empurrar o trilho para fora da janela.
 
 Medido depois: 40 px de folga em cima e embaixo, 214 de cada lado, e nenhuma
 rolagem horizontal na página.
+
+### 18.8 O painel de trás era legível demais
+
+Só a transparência não bastava: o texto atravessava o véu e ficava legível, e um
+quadro legível atrás do quadro em uso disputa a leitura com ele — que é
+exatamente o que a pilha existe para evitar.
+
+Entrou `filter: blur(3.5px)` nas cenas que não estão no centro. O filtro fica no
+`.cena__corpo`, e não na `.cena`: borrar a cena inteira levaria junto a borda, o
+halo e o cartão com o nome — e o nome é justamente o que precisa continuar
+nítido, porque é ele que diz de quem é aquela prévia.
+
+A transição usa a mesma duração do véu. Entrar numa visualização é um movimento
+só; o foco voltando depois do véu seria um segundo.
+
+### 18.9 A rolagem horizontal aparecia sem precisar
+
+Com cinco etapas, `minmax(252px, 1fr)` pedia 1308 px de quadro, e a barra
+aparecia em painel que tinha espaço de sobra para as colunas — só não para
+aquele mínimo. O mínimo caiu para 200 px: as cinco cabem em 1048, e o cartão
+continua com largura de leitura.
+
+A rolagem não sumiu — ela continua para quem de fato não tem largura, que é a
+tela estreita. O que sumiu foi a rolagem que não precisava existir.
+
+### 18.10 Dois cliques no fundo alargam o painel
+
+Duplo clique numa área vazia do quadro em uso faz ele ocupar a faixa inteira, e
+de novo o devolve. Zerar `--espia` é tudo o que precisa acontecer: `--cena-w`
+sai dela, e a cena cresce sozinha até a borda do trilho.
+
+Três detalhes que não são óbvios:
+
+- **O gesto lê a classe, não a variável do render.** `destacarMaisProxima()`
+  troca `is-atual` no nó vivo, então o painel que era prévia pode já ser o
+  quadro em uso antes de qualquer remonte. Um `onDblclick` decidido no render
+  responderia pelo estado de antes.
+- **Só a partir de área vazia.** Dois cliques num cartão são para abrir o
+  ticket dele, e um gesto não pode significar duas coisas no mesmo lugar.
+- **A opacidade das cenas de trás sai do JavaScript, não de uma regra.**
+  `aplicarLayout()` escreve opacidade no atributo, e atributo ganha de classe —
+  uma regra `.is-largo .cena:not(.is-atual) { opacity: 0 }` seria escrita e
+  ignorada.
+
+`width` entrou na transição da cena. É a única propriedade ali que recalcula
+layout, e entra porque muda uma vez, quando alguém alarga o painel — não a cada
+quadro de um gesto.
+
+Navegar desfaz o alargamento: largo é "quero ver este quadro inteiro", e trocar
+de quadro é dizer que a pergunta mudou. Escape também desfaz, e antes de voltar
+ao centro — Escape desfaz de dentro para fora.

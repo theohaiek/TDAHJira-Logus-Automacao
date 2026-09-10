@@ -39,7 +39,11 @@ export const state = {
   // Vive na sessão, e não em prefs nem no localStorage — mesma decisão já
   // tomada para filtroProjeto. Sair e voltar pelo item de navegação devolve a
   // cena geral, porque a tela principal é a de todos os negócios.
-  carrossel: { atual: "geral" },
+  // `largo` é o painel em uso ocupando a faixa inteira, sem as espiadas dos
+  // vizinhos. Vive aqui, e não no nó, porque mount() destrói o trilho a cada
+  // seis segundos — e é na sessão, não em prefs: é uma postura momentânea
+  // ("agora quero este quadro inteiro"), não uma preferência de quem usa.
+  carrossel: { atual: "geral", largo: false },
 };
 
 export function subscribe(fn) {

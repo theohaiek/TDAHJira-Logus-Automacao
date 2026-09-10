@@ -79,7 +79,11 @@ export function viewQuadro() {
 
   const trilho = h(
     "div",
-    { class: "trilho", role: "group", "aria-label": "Telas do quadro" },
+    {
+      class: `trilho${state.carrossel.largo ? " is-largo" : ""}`,
+      role: "group",
+      "aria-label": "Telas do quadro",
+    },
     fileira.map((d) => cena(d, atual))
   );
 
@@ -98,7 +102,7 @@ function cabecalho(d) {
       text:
         d?.tipo === "mais"
           ? "Escolha para onde ir. As cenas do trilho mostram quem tem mais trabalho aberto."
-          : `Arraste o fundo para trocar de cena, ou use [ e ]. As setas ← → movem o cartão selecionado.${
+          : `Arraste o fundo para trocar de cena, ou use [ e ]. Dois cliques no fundo do quadro o alargam.${
               p ? ` Filtrado por ${p.name}.` : ""
             }`,
     })
@@ -195,7 +199,6 @@ function cena(d, atual) {
             role: "button",
             tabindex: "0",
             "aria-label": `Ver o quadro de ${d.nome}, ${contagemDe(d)}`,
-            onDblclick: () => entrarNaCena(d.id),
             onKeydown: (e) => {
               if (e.key !== "Enter" && e.key !== " ") return;
               e.preventDefault();
@@ -215,6 +218,22 @@ function cena(d, atual) {
     // opacidade indo de zero a um e voltando, que o navegador interpola sozinho.
     veuDaCena(d)
   );
+
+  // O duplo clique lê a classe no momento do gesto, e não a variável do
+  // render: destacarMaisProxima() troca is-atual no nó vivo, então o painel
+  // que era prévia pode já ser o quadro em uso antes de qualquer remonte.
+  //
+  // Na prévia ele leva até lá; no quadro em uso ele alarga o painel, e só a
+  // partir de área vazia — dar dois cliques num cartão é abrir o ticket dele,
+  // e um gesto não pode significar duas coisas no mesmo lugar.
+  el.addEventListener("dblclick", (e) => {
+    if (el.classList.contains("is-atual")) {
+      if (e.target.closest(".task, button, a, input, textarea, select, [contenteditable]")) return;
+      alternarLargura();
+      return;
+    }
+    entrarNaCena(d.id);
+  });
 
   if (!ehAtual) {
     // Um toque simples abre o convite e o deixa aberto: sem isso, quem usa
@@ -608,6 +627,37 @@ export function voltarAoCentro() {
   irParaCena("geral");
 }
 
+// O painel em uso ocupando a faixa inteira, e de volta.
+//
+// Enquanto está largo não há espiada de vizinho nenhum: --espia vai a zero, a
+// cena cresce até a borda do trilho e as de trás somem atrás dela. Elas não
+// deixam de existir — continuam na fileira, e sair de largo as devolve no
+// lugar em que estavam.
+export function alternarLargura(ligar = !state.carrossel.largo) {
+  if (state.carrossel.largo === ligar) return;
+  state.carrossel.largo = ligar;
+
+  // O nó vivo primeiro, para o painel começar a crescer no mesmo quadro do
+  // gesto. O emit vem junto porque a barra e o resto da tela também mudam —
+  // mas se dependesse só dele, a largura só mudaria no redesenho seguinte.
+  trilhoEl?.classList.toggle("is-largo", ligar);
+
+  // Duas passadas, e as duas são necessárias.
+  //
+  // Esta apaga (ou devolve) as cenas de trás no mesmo quadro do gesto, para
+  // elas esmaecerem junto com o painel crescendo em vez de sumirem depois.
+  aplicarLayout();
+
+  // E esta refaz a conta com a largura nova, que é de onde sai toda a
+  // geometria da pilha. No fim da transição, e não agora: durante ela
+  // offsetWidth devolve um valor a cada quadro, e o que se quer é o final.
+  const ms = duracaoDoMovimento(1);
+  setTimeout(() => {
+    aplicarLayout();
+    emit();
+  }, ms + 40);
+}
+
 export function andarCena(passo) {
   const fileira = escoposDoCarrossel();
   const i = fileira.findIndex((d) => d.id === state.carrossel.atual);
@@ -705,6 +755,11 @@ function aplicarLayout() {
   const m = medidas();
   if (!m) return;
   const { perto, longe } = veus();
+  // Com o painel alargado não há espiada de vizinho para calibrar: eles saem
+  // de cena inteiros. A conta tem de sair daqui, e não de uma regra de CSS,
+  // porque é esta função que escreve a opacidade no atributo — e atributo
+  // ganha de classe, então a regra seria escrita e ignorada.
+  const largo = trilhoEl.classList.contains("is-largo");
 
   cenasEl.forEach((el, i) => {
     const d = i - posicao;
@@ -720,7 +775,7 @@ function aplicarLayout() {
     const opacidade = entre(k, 1, perto, longe);
 
     el.style.transform = `translate(-50%, 0) translateX(${x.toFixed(2)}px) scale(${escala.toFixed(4)})`;
-    el.style.opacity = opacidade.toFixed(3);
+    el.style.opacity = largo && k > 0.5 ? "0" : opacidade.toFixed(3);
 
     // De que lado esta cena está saindo, agora — e não na fileira.
     //
@@ -1132,6 +1187,10 @@ function concluirNavegacao(id) {
   // Antes de qualquer outra coisa: enquanto isto não zera, app.js continua
   // represando o redesenho.
   ocupadoDesde = 0;
+  // Chegar noutra cena desfaz o alargamento: largo é "quero ver este quadro
+  // inteiro", e trocar de quadro é dizer que a pergunta mudou.
+  state.carrossel.largo = false;
+  trilhoEl?.classList.remove("is-largo");
   escopoVisivel = id || escopoVisivel;
 
   if (id && id !== state.carrossel.atual) {
