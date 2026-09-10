@@ -1323,3 +1323,67 @@ Agora recarrega dos dois jeitos, e a diferença é só o que se diz antes. Quem
 clica ali está pedindo a página que o servidor tem agora, e limpar o cache sem
 recarregar não entrega isso. O estado da tela não se perde: o que existe mora
 no servidor.
+
+## 18. O trilho deixou de teletransportar, em 9 de setembro de 2026
+
+### 18.1 Navegar era aparecer, não andar
+
+`irParaCena()` trocava `state.carrossel.atual` e emitia. O emit remonta `#view`
+inteiro, e `posicionarTrilho()` coloca o trilho novo sem transição — de
+propósito, porque remonte não é movimento que alguém pediu. O resultado era
+teletransporte, e por todos os caminhos de uma vez: duplo clique no painel,
+ponto da barra, setas do teclado, botão "entrar em visualização" e o clique na
+empresa da barra lateral passam todos por aquela função.
+
+Agora o deslize vem primeiro e a troca de estado vem no fim — a mesma ordem que
+o arrasto já usava. O caminho antigo continua existindo para quando não há
+trilho na tela (outra view aberta, ou a cena fora da fileira), porque ali não
+há o que animar.
+
+### 18.2 O "snap" ao soltar era a duração fixa
+
+Medido no navegador: a transição de assentamento **existia**, partia do ponto
+certo e rodava os 480 ms. O problema era a distância. Quem solta a mão perto de
+uma cena deixa dez pixels para o assentamento percorrer, e dez pixels em 480 ms
+não são um movimento — são um painel parado que demora meio segundo para
+admitir que chegou.
+
+A duração passou a escalar com a distância. Não linearmente: velocidade
+constante faria três cenas levarem três vezes o tempo de uma, e três vezes 480
+ms é uma espera. A raiz da distância aproxima a velocidade constante nas
+distâncias curtas — que é onde a diferença entre andar e estalar se decide — e
+comprime as longas.
+
+    0,04 cena (10 px) → 168 ms      1 cena  → 480 ms
+    0,25 cena         → 240 ms      2 cenas → 679 ms
+    0,50 cena         → 339 ms      3 cenas → 831 ms
+
+Piso e teto são frações da base, e não milissegundos cravados: o modo calmo
+continua zerando tudo, e mexer no token do CSS move o conjunto inteiro junto.
+
+A duração é escrita no nó do trilho, não lida do documento — o CSS declara
+quanto vale UMA cena, e o JavaScript diz quanto vale ESTA viagem. As cenas
+herdam a variável.
+
+### 18.3 A aparência saltava mesmo quando a posição andava
+
+Havia um segundo salto, e ele era o mais visível dos dois: o painel deslizava
+até o centro ainda apagado, e o `mount()` chegava depois e acendia tudo de uma
+vez — reflexo de acento, véu, borda. Dois movimentos onde a pessoa fez um gesto
+só.
+
+`destacarMaisProxima()` já trocava o rótulo e os pontos no nó vivo. Passou a
+trocar também a classe `is-atual` e o `inert` do corpo. Agora a cena acende
+enquanto anda, e o remonte no fim não tem mais nada a corrigir.
+
+### 18.4 O que foi verificado, e como
+
+Instrumentado no navegador, com `getAnimations()` e um `MutationObserver` sobre
+o `style` das cenas:
+
+- duplo clique a duas cenas: quatro transições de `transform`, 679 ms, `is-atual`
+  já trocada no mesmo instante;
+- soltar a mão em três distâncias: 168 ms, 303 ms e 168 ms, cada uma partindo do
+  transform onde a mão parou;
+- ponto da barra a três cenas: 831 ms; seta do teclado: 480 ms;
+- `irParaCena` fora do quadro: cai no caminho antigo sem estourar.

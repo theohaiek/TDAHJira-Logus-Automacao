@@ -561,9 +561,33 @@ function presetDaCena(cena) {
 
 // --- Navegação --------------------------------------------------------------
 
+// Ir para uma cena é sempre andar até ela, nunca aparecer nela.
+//
+// Antes isto trocava o estado e emitia, e o emit remonta #view inteiro: o
+// trilho nascia de novo já na posição de destino, e posicionarTrilho() o
+// coloca sem transição de propósito, porque remonte não é movimento que
+// alguém pediu. O efeito era teletransporte — e por todos os caminhos ao mesmo
+// tempo, já que o duplo clique, os pontos da barra, as setas do teclado e o
+// botão de entrar passam todos por aqui.
+//
+// Agora o deslize vem primeiro e a troca de estado vem no fim, que é a mesma
+// ordem que o arrasto já usava. O caminho antigo continua existindo para
+// quando não há trilho na tela — outra view aberta, ou a cena não está na
+// fileira —, porque ali não há o que animar.
 export function irParaCena(id) {
   const alvo = cenaValida(id);
   if (alvo === state.carrossel.atual) return;
+
+  const i = ids.indexOf(alvo);
+  if (trilhoEl?.isConnected && i >= 0) {
+    // O represamento entra antes do primeiro quadro: um sync de seis segundos
+    // que chegasse no meio do deslize remontaria o trilho e cortaria o
+    // movimento pela metade.
+    ocupadoDesde = Date.now();
+    deslizarAte(i, () => concluirNavegacao(alvo));
+    return;
+  }
+
   state.carrossel.atual = alvo;
   escreverHash(alvo);
   emit();
@@ -928,11 +952,15 @@ function destinoAoSoltar(velocidade) {
   return Math.max(0, Math.min(teto, umaSo));
 }
 
-// Durante o arrasto, a cena que chegou ao centro é marcada no nó vivo. É o que
-// faz o painel crescer enquanto a mão ainda está no botão: transição de CSS
-// não roda em nó recém-criado, e o render posterior só reaplica o valor final.
-function destacarMaisProxima() {
-  const i = maisProxima();
+// Qual cena está no centro, marcada no nó vivo — durante o arrasto, e também
+// durante o deslize que a navegação dispara.
+//
+// É o que faz o painel acender enquanto a mão ainda está no botão: transição
+// de CSS não roda em nó recém-criado, e o render posterior só reaplica o valor
+// final. Sem isto, a posição animava e a aparência esperava o remonte, o que
+// se lê como dois movimentos onde a pessoa fez um gesto só.
+function destacarMaisProxima(alvo = null) {
+  const i = alvo === null ? maisProxima() : Math.max(0, Math.min(cenasEl.length - 1, Math.round(alvo)));
   const id = ids[i];
   if (!id || id === escopoVisivel) return;
   escopoVisivel = id;
@@ -945,6 +973,24 @@ function destacarMaisProxima() {
     p.classList.toggle("is-on", ligado);
     p.setAttribute("aria-current", ligado ? "true" : "false");
   }
+
+  // O reflexo de acento troca de painel aqui, no nó vivo, e não no remonte.
+  //
+  // Antes, a posição animava e a aparência saltava: o painel deslizava até o
+  // centro ainda apagado, o mount() chegava depois e acendia tudo de uma vez.
+  // São dois movimentos onde a pessoa fez um gesto só, e o segundo é o que
+  // parecia um estalo no fim.
+  //
+  // `inert` acompanha porque ele é o que separa um quadro em uso de uma
+  // prévia: sem trocá-lo, a cena que acabou de chegar ao centro continuaria
+  // recusando cliques até o redesenho.
+  cenasEl.forEach((el, k) => {
+    const ehAtual = k === i;
+    el.classList.toggle("is-atual", ehAtual);
+    if (ehAtual) el.classList.remove("is-convidando");
+    const corpo = el.querySelector(".cena__corpo");
+    if (corpo) corpo.inert = !ehAtual;
+  });
 }
 
 function assentar(velocidade = 0) {
@@ -961,12 +1007,43 @@ function assentar(velocidade = 0) {
 // dá a sensação de a tela ter pulado em vez de andado. O modo calmo zera; o
 // movimento reduzido do sistema encurta e tira o balanço, que é a parte que
 // incomoda quem pediu menos movimento. Nunca crave milissegundos aqui.
-function duracaoDoMovimento() {
+//
+// A duração escala com a distância, e é isso que separa movimento de estalo.
+//
+// Com duração fixa, o assentamento de quem solta perto de uma cena percorria
+// dez pixels em 480 ms: parado o suficiente para ninguém ver que andou, longo
+// o suficiente para o painel parecer travado. E a viagem de três cenas de um
+// duplo clique percorria o dobro do caminho no mesmo tempo, o que é o defeito
+// oposto — rápido demais para acompanhar com o olho.
+//
+// A raiz, e não a distância crua: velocidade constante faria três cenas
+// levarem três vezes o tempo de uma, e três vezes o valor de uma cena é uma
+// espera. A raiz aproxima a velocidade constante nas distâncias curtas, que é
+// onde a diferença entre andar e estalar se decide, e comprime as longas.
+//
+// Os dois limites são frações da base, e não milissegundos cravados: assim o
+// modo calmo continua zerando tudo e mexer no token do CSS continua movendo o
+// conjunto inteiro junto.
+const DUR_PISO = 0.35;
+const DUR_TETO = 1.9;
+
+function duracaoDoMovimento(distancia = 1) {
   if (document.documentElement.dataset.calm === "1") return 0;
+
   const v = parseFloat(
     getComputedStyle(document.documentElement).getPropertyValue("--dur-trilho")
   );
-  return Number.isFinite(v) ? v : 420;
+  const base = Number.isFinite(v) ? v : 420;
+  if (!base) return 0;
+
+  const d = Math.abs(distancia);
+  // Distância nula não é movimento nenhum: animar zero pixels só atrasaria a
+  // conclusão da navegação em meio segundo.
+  if (d < 0.002) return 0;
+
+  return Math.round(
+    Math.min(base * DUR_TETO, Math.max(base * DUR_PISO, base * Math.sqrt(d)))
+  );
 }
 
 // O assentamento é feito pela transição do CSS, e não quadro a quadro por
@@ -985,13 +1062,21 @@ function duracaoDoMovimento() {
 function deslizarAte(destino, aoChegar) {
   cancelarTween();
 
-  const ms = duracaoDoMovimento();
+  const ms = duracaoDoMovimento(destino - posicao);
   if (!ms || !trilhoEl?.isConnected) {
+    // A duração da viagem anterior não pode ficar pendurada no nó: quem
+    // escrever transform depois disto herdaria um tempo que não pediu.
+    trilhoEl?.style.removeProperty("--dur-trilho");
     posicao = destino;
     aplicarLayout();
     aoChegar?.();
     return;
   }
+
+  // A duração é escrita no nó, e não lida do documento, porque ela muda a cada
+  // movimento: o CSS declara quanto vale UMA cena, e aqui se diz quanto vale
+  // esta viagem. As cenas herdam a variável do trilho.
+  trilhoEl.style.setProperty("--dur-trilho", `${ms}ms`);
 
   // A classe de arrasto já saiu; este reflow é o que separa os dois estados
   // para o navegador. Sem ele, remover a classe e escrever a posição no mesmo
@@ -1000,6 +1085,10 @@ function deslizarAte(destino, aoChegar) {
 
   posicao = destino;
   aplicarLayout();
+  // A cena que chega ao centro acende agora, junto com o movimento, e não no
+  // remonte que vem depois. Sem isto o painel desliza até o lugar e só então
+  // troca de aparência, o que se lê como dois movimentos em vez de um.
+  destacarMaisProxima(destino);
   ocupadoDesde = Date.now();
 
   // Uma folga sobre a duração: o fim da transição não precisa ser ao
