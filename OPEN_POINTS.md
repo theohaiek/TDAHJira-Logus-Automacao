@@ -1588,8 +1588,8 @@ a lista inteira mentia sobre quando o produto mudou de forma.
 
 Entrou `SERIES`, uma tabela de onde cada série começa:
 
-    1.2 → commit 39   os painéis flutuantes
-    1.1 → commit 38   empresa como dimensão própria
+    1.3 → commit 39   os cartões flutuantes
+    1.2 → commit 24   empresa como dimensão própria
     1.0 → commit 1
 
 A chave é o **número** do commit, e não o identificador, porque é o número que
@@ -1598,10 +1598,10 @@ no hospedado sai da paginação do GitHub. Perguntar "em que posição está o c
 tal" custaria uma consulta a mais em cada modo — e no hospedado nem seria
 possível, porque o histórico que cabe numa página não alcança o começo.
 
-O terceiro campo conta de dentro da série: o primeiro commit dos painéis
-flutuantes é `1.2.01`, e não `1.2.39`.
+O terceiro campo conta de dentro da série: o primeiro commit dos cartões
+flutuantes é `1.3.01`, e não `1.3.39`.
 
-O package.json subiu para `1.2.0` junto. Ele deixou de numerar a linha do tempo
+O package.json subiu para `1.3.0` junto. Ele deixou de numerar a linha do tempo
 e passou a servir de rede — é o número que o rótulo mostra quando a contagem de
 commits falha — e de conferência: se ele discordar da primeira linha de `SERIES`,
 alguém subiu de série num lugar e esqueceu do outro.

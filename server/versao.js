@@ -54,11 +54,14 @@ export async function versao() {
 // Em ordem decrescente: a busca pega a primeira série que começa em ou antes do
 // commit, e a primeira da lista é a mais recente.
 const SERIES = [
-  // O quadro virou uma pilha de painéis flutuantes. É outra forma de usar o
-  // produto, não um ajuste — a tela principal deixou de ser um quadro só.
-  { minor: "1.2", doCommit: 39 },
-  // Empresa como dimensão própria, ao lado de projeto.
-  { minor: "1.1", doCommit: 38 },
+  // Os cartões flutuantes: o quadro virou uma pilha de painéis. É outra forma
+  // de usar o produto, não um ajuste — a tela principal deixou de ser um
+  // quadro só. ("Transforma as cenas do quadro em paineis flutuantes")
+  { minor: "1.3", doCommit: 39 },
+  // Empresa como dimensão própria, ao lado de projeto: o produto passou a
+  // saber para QUEM o trabalho é, e não só de que área ele é.
+  // ("Associa uma empresa ao ticket")
+  { minor: "1.2", doCommit: 24 },
   { minor: "1.0", doCommit: 1 },
 ];
 
