@@ -1747,3 +1747,25 @@ aplicativo para quem usa não é um bom negócio.
 carregar script de outro domínio, ou passar a usar `innerHTML` em algum lugar.
 Aí o CSP deixa de ser endurecimento genérico e vira mitigação de uma superfície
 real, e o custo com o antivírus passa a valer a pena.
+
+### 16.9 A lista de versões parecia cortada, e os porquês eram longos demais
+
+Duas coisas, e a primeira não era um defeito de rolagem.
+
+A lista mostra as vinte versões mais recentes, e quem rolava até o fim via o
+último item e mais nada. Isso lê como corte: a pessoa não sabe se acabou a lista
+ou acabou a tela. Entrou uma linha no fim dizendo quantas são e onde estão as
+anteriores. De quebra, ela dá ao último item o espaço que faltava contra a borda.
+
+A segunda: o "por quê" mostrava a mensagem de commit inteira. Neste repositório
+ela tem parágrafos, e o painel virava um paredão. Agora ele mostra só o primeiro
+parágrafo, cortado em 240 caracteres na fronteira de palavra, sem travessão.
+
+O travessão sai porque funciona num parágrafo de documento e atrapalha numa
+linha só de painel, onde o olho não tem espaço para separar a oração principal
+da intercalada. Vira vírgula quando está entre espaços, hífen quando está colado.
+
+A síntese é de exibição, não de histórico: as mensagens no repositório
+continuam inteiras, porque quem for mexer no código precisa delas assim. Daqui
+em diante elas nascem sem travessão e com o primeiro parágrafo se sustentando
+sozinho, que é a parte que a tela mostra.

@@ -266,6 +266,42 @@ function frase(estado, v) {
   return h("span", { text: "Cache limpo. Você está na versão mais recente." });
 }
 
+// A síntese do "por quê".
+//
+// A mensagem de commit deste repositório tem parágrafos: o primeiro diz o que
+// mudou e por quê, e os seguintes contam o caminho até lá. Quem abre o painel
+// de versão quer o primeiro — o resto é leitura de quem for mexer no código, e
+// para essa pessoa existe o repositório.
+//
+// O travessão sai junto. Ele funciona num parágrafo de documento e atrapalha
+// numa linha só de painel, onde o olho não tem espaço para separar a oração
+// principal da intercalada.
+const TETO_DO_PORQUE = 240;
+
+function sintetizar(corpo) {
+  if (!corpo) return null;
+
+  const primeiro = String(corpo)
+    .split(/\n\s*\n/)[0]
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!primeiro) return null;
+
+  const semTravessao = primeiro
+    .replace(/\s+[—–]\s+/g, ", ")
+    .replace(/[—–]/g, "-")
+    .replace(/\s+,/g, ",")
+    .replace(/,\s*,/g, ",");
+
+  if (semTravessao.length <= TETO_DO_PORQUE) return semTravessao;
+
+  // Corta na fronteira de palavra: meia palavra com reticências parece defeito,
+  // e um corte limpo parece decisão.
+  const cortado = semTravessao.slice(0, TETO_DO_PORQUE);
+  const espaco = cortado.lastIndexOf(" ");
+  return (espaco > TETO_DO_PORQUE * 0.6 ? cortado.slice(0, espaco) : cortado).replace(/[,.;:]$/, "") + "…";
+}
+
 function linhaDoTempo(v) {
   const commits = v?.commits || [];
   if (!commits.length) {
@@ -302,18 +338,33 @@ function linhaDoTempo(v) {
           // e vinte commits abertos dariam nove mil pixels de rolagem para
           // achar a data de um deles — que é o que a pessoa veio ver. O <details>
           // nativo entrega o abrir e fechar, o estado e o teclado de graça.
-          c.corpo
-            ? h(
-                "details",
-                { class: "linha__mais" },
-                h("summary", { text: "por quê" }),
-                h("p", { class: "linha__nota", text: c.corpo })
-              )
-            : null
+          (() => {
+            const porque = sintetizar(c.corpo);
+            return porque
+              ? h(
+                  "details",
+                  { class: "linha__mais" },
+                  h("summary", { text: "por quê" }),
+                  h("p", { class: "linha__nota", text: porque })
+                )
+              : null;
+          })()
         )
       )
-    )
+    ),
+
+    // A lista acaba aqui, e dizer isso é o ponto.
+    //
+    // Ela mostra as vinte mais recentes, e quem rolava até o fim via o último
+    // item e mais nada. Parece corte: a pessoa não sabe se acabou a lista ou
+    // acabou a tela. Uma linha no fim resolve, e de quebra dá ao último item o
+    // espaço que ele não tinha para respirar contra a borda.
+    h("li", { class: "linha__fim" }, h("span", { text: rodapeDaLista(commits.length) }))
   );
+}
+
+function rodapeDaLista(quantas) {
+  return `Estas são as ${quantas} versões mais recentes. As anteriores estão no repositório.`;
 }
 
 // --- A verificação ----------------------------------------------------------
