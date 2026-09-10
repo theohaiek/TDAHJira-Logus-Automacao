@@ -2128,11 +2128,13 @@ input[type="color"] {
     0 0 26px color-mix(in srgb, var(--accent) 26%, transparent),
     0 0 64px color-mix(in srgb, var(--accent) 14%, transparent);
 }
-.cena--esq {
+/* A borda grossa fica do lado que aparece, e o lado vem de aplicarLayout() a
+   cada quadro — não do render, que só sabe a ordem na fileira. */
+.cena[data-lado="esq"] {
   border-inline-start-width: 3px;
   border-inline-start-style: solid;
 }
-.cena--dir {
+.cena[data-lado="dir"] {
   border-inline-end-width: 3px;
   border-inline-end-style: solid;
 }
@@ -2177,10 +2179,10 @@ input[type="color"] {
   background: color-mix(in srgb, var(--surface-0) 78%, transparent);
 }
 
-.cena--esq .cena__veu {
+.cena[data-lado="esq"] .cena__veu {
   justify-items: start;
 }
-.cena--dir .cena__veu {
+.cena[data-lado="dir"] .cena__veu {
   justify-items: end;
 }
 /* Na cena do centro não há véu; esta regra existe para o caso de ela chegar
@@ -2194,8 +2196,10 @@ input[type="color"] {
   flex-direction: column;
   align-items: center;
   gap: var(--sp-2);
-  /* Cabe na fatia do primeiro vizinho, que é 62% da faixa. */
-  width: min(168px, calc(var(--espia) * 0.66));
+  /* Cabe na fatia do primeiro vizinho, que é 62% da faixa — e com folga para
+     o preenchimento do véu dos dois lados, senão a borda do cartão encosta no
+     painel da frente justamente onde ele deveria estar sobrando à vista. */
+  width: min(168px, calc(var(--espia) * 0.52));
   text-align: center;
 }
 .cena__nome {

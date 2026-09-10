@@ -182,7 +182,11 @@ function cena(d, atual) {
   const el = h(
     "div",
     {
-      class: `cena cena--${d.lado}${ehAtual ? " is-atual" : ""}`,
+      // De que lado a cena aparece não vem daqui: vem de aplicarLayout(), que
+      // é quem sabe onde ela está AGORA. O campo d.lado diz o lado na fileira
+      // — empresas antes do centro, pessoas depois —, e isso deixa de ser o
+      // lado na tela assim que alguém navega para uma cena que não é a geral.
+      class: `cena${ehAtual ? " is-atual" : ""}`,
       dataset: { escopo: d.id },
       // O painel de trás é um alvo inteiro, e o de frente é o quadro em uso.
       ...(ehAtual
@@ -710,6 +714,17 @@ function aplicarLayout() {
 
     el.style.transform = `translate(-50%, 0) translateX(${x.toFixed(2)}px) scale(${escala.toFixed(4)})`;
     el.style.opacity = opacidade.toFixed(3);
+
+    // De que lado esta cena está saindo, agora — e não na fileira.
+    //
+    // É o que decide em que borda do painel de trás fica o cartão com o nome e
+    // o botão de entrar: a borda que sobra à vista. Com o lado fixado no
+    // render, navegar para uma cena de empresa deixava as outras empresas
+    // marcadas como "esquerda" enquanto apareciam à direita — e o cartão delas
+    // ia parar na borda coberta, ou seja, desenhado por dentro do quadro em
+    // uso, sobre o trabalho de quem está trabalhando.
+    const lado = sinal < 0 ? "esq" : sinal > 0 ? "dir" : "centro";
+    if (el.dataset.lado !== lado) el.dataset.lado = lado;
 
     // O vizinho imediato sempre por cima dos mais distantes daquele lado: sem
     // isto a pilha vira uma mancha em que não se distingue o que vem antes.

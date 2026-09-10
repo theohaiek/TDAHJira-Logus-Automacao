@@ -1387,3 +1387,35 @@ o `style` das cenas:
   transform onde a mão parou;
 - ponto da barra a três cenas: 831 ms; seta do teclado: 480 ms;
 - `irParaCena` fora do quadro: cai no caminho antigo sem estourar.
+
+### 18.5 O convite da cena de trás aparecia dentro do quadro em uso
+
+Reportado com print: o painel central era uma empresa, e o cartão de outra cena
+— nome, contagem e o botão "Entrar em visualização" — aparecia desenhado por
+dentro dele, sobre o trabalho de quem estava trabalhando. Não era transparência
+mal calibrada: era o cartão no lugar errado.
+
+`cena--esq` e `cena--dir` eram escritas no render, a partir do lado na
+**fileira**: empresas antes do centro, pessoas depois. É a informação certa
+sobre a fileira e a errada sobre a tela, porque o lado em que uma cena aparece
+depende de qual cena está no centro — e isso muda a cada navegação.
+
+Dois defeitos saíam daí:
+
+- A cena "geral" tem `lado: "centro"` e nenhuma regra de alinhamento. Ao navegar
+  para uma empresa, ela virava uma cena de trás com o cartão centralizado — ou
+  seja, no meio do painel da frente, que é exatamente onde ele não pode estar.
+- Uma empresa que ficasse à direita de outra continuava marcada como
+  "esquerda", e o cartão ia para a borda coberta.
+
+O lado passou a sair de `aplicarLayout()`, em `data-lado`, do mesmo `Math.sign`
+que já decide para que lado a cena se desloca. Ele acompanha o arrasto: medido,
+uma cena troca de `esq` para `dir` no quadro em que cruza o centro.
+
+O cartão também encolheu de 66% para 52% da faixa. Ele era dimensionado por uma
+fração maior que a fatia de 62% que o primeiro vizinho de fato mostra, e com o
+preenchimento do véu dos dois lados encostava no painel da frente.
+
+`d.lado` continua existindo no descritor da fileira, e continua sendo a resposta
+certa para "de que tipo é esta cena". Só deixou de ser a resposta para "onde ela
+está agora".
