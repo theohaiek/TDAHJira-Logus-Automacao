@@ -175,3 +175,66 @@ test("a leitura de uma tarefa só devolve os dois formatos", async () => {
   assert.equal(lida.assigneeId, bruno);
   assert.deepEqual(lida.assigneeIds, [bruno, carla]);
 });
+
+// --- O que a revisão de segurança de 10 de setembro conferiu ----------------
+//
+// Estes casos foram exercitados contra o servidor vivo antes de virarem teste.
+// Nenhum deles achou defeito — e é justamente por isso que estão aqui: o valor
+// de uma revisão que não encontra nada é a garantia, e garantia que não está
+// travada por teste dura até o próximo refatoramento.
+
+test("entrada hostil em responsável nunca chega ao banco", async () => {
+  const t = await createTask({ title: "Alvo da sondagem", assigneeIds: [ana] }, ana);
+
+  // Cada uma destas normaliza para lista vazia: Number() as recusa antes de
+  // qualquer consulta, e o que não é inteiro positivo não entra.
+  const lixo = [
+    ["injeção clássica", ["1; DROP TABLE tasks--"]],
+    ["injeção em cláusula", ["1 OR 1=1"]],
+    ["negativo", [-1]],
+    ["zero", [0]],
+    ["fracionário", [1.5]],
+    ["objeto", [{ id: 1 }]],
+    ["texto solto", ["responsável"]],
+    ["infinito", [Infinity]],
+    ["notação exponencial gigante", [1e309]],
+  ];
+
+  for (const [nome, valor] of lixo) {
+    const r = await updateTask(t.id, { assigneeIds: valor }, ana);
+    assert.deepEqual(r.assigneeIds, [], `${nome} deveria normalizar para vazio`);
+    assert.deepEqual(await conferirAcordo(t.id), [], `${nome} deixou resíduo`);
+  }
+
+  // E as tabelas continuam de pé — nenhuma delas virou SQL.
+  const tarefas = await all("SELECT COUNT(*) AS n FROM tasks");
+  const gente = await all("SELECT COUNT(*) AS n FROM users");
+  assert.ok(tarefas[0].n > 0, "a tabela de tarefas sumiu");
+  assert.equal(gente[0].n, 3, "a tabela de pessoas mudou de tamanho");
+});
+
+test("id de pessoa que não existe é recusado, e não vira responsável fantasma", async () => {
+  const t = await createTask({ title: "Guarda do fantasma", assigneeIds: [ana] }, ana);
+
+  await assert.rejects(
+    () => updateTask(t.id, { assigneeIds: [999999] }, ana),
+    /Pessoa inexistente/,
+    "id inexistente passou"
+  );
+
+  // A recusa acontece antes de qualquer escrita.
+  assert.deepEqual(await conferirAcordo(t.id), [ana]);
+});
+
+test("lista com repetição não incha a tabela", async () => {
+  // Mil entradas de três pessoas viram três linhas. Sem a deduplicação, a
+  // chave primária recusaria a segunda e a escrita inteira morreria no meio.
+  const t = await createTask({ title: "Mil repetidos" }, ana);
+  const mil = Array.from({ length: 1000 }, (_, i) => [ana, bruno, carla][i % 3]);
+
+  const r = await updateTask(t.id, { assigneeIds: mil }, ana);
+  assert.deepEqual(r.assigneeIds, [ana, bruno, carla]);
+
+  const linhas = await all("SELECT user_id FROM task_assignees WHERE task_id = ?", [t.id]);
+  assert.equal(linhas.length, 3, "a tabela guardou repetição");
+});

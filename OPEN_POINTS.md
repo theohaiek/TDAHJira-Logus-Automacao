@@ -1605,3 +1605,106 @@ O package.json subiu para `1.3.0` junto. Ele deixou de numerar a linha do tempo
 e passou a servir de rede — é o número que o rótulo mostra quando a contagem de
 commits falha — e de conferência: se ele discordar da primeira linha de `SERIES`,
 alguém subiu de série num lugar e esqueceu do outro.
+
+## 19. Revisão de segurança da série 1.3, em 10 de setembro de 2026
+
+Escopo: o diff de `54798dd` até `19f32f7` — vinte e um commits, 2 953 linhas
+acrescentadas. Sete lentes de vulnerabilidade sobre o código, cada achado
+enfrentando três céticos independentes, mais as sondagens que só se fazem
+contra um servidor vivo.
+
+**Nenhuma vulnerabilidade encontrada.** O que segue é o que foi examinado e por
+que está fechado — porque o valor de uma revisão que não acha nada é a garantia,
+e garantia sem registro dura até a próxima pessoa perguntar de novo.
+
+### 19.1 A superfície nova que mais importava: conteúdo de terceiro na tela
+
+A série trouxe o primeiro lugar do produto que renderiza texto que não veio do
+banco nem de quem usa: as mensagens de commit da API pública do GitHub, no
+painel de versão. Qualquer pessoa pode escrever uma mensagem de commit.
+
+Está fechado por construção, não por sorte: `h()` em `web/js/dom.js` põe todo
+texto por `textContent`, e todo dado do GitHub entra por `text:`. O `title` do
+identificador vai por propriedade DOM, não por HTML. Não há `innerHTML` em
+módulo nenhum do navegador, e `tests/modulos-web.test.js` recusa a introdução
+de um — o teste varre a pasta inteira, então já cobria `versao.js` no dia em
+que ele nasceu.
+
+### 19.2 Entrada nova indo ao banco: os responsáveis
+
+`assigneeIds` é campo novo que chega da rede e vira escrita. Sondado contra o
+servidor vivo com injeção clássica, injeção em cláusula, id negativo, zero,
+fracionário, objeto, array aninhado, texto solto, infinito, notação exponencial
+gigante, mil repetições e `assigneeId` com `UNION SELECT`.
+
+Nada virou SQL: `normalizarResponsaveis()` passa tudo por `Number()` e só deixa
+inteiro positivo. Id que não existe é recusado com 400 antes de qualquer
+escrita. Mil repetições viram três linhas. Ao fim, as tabelas continuavam com o
+mesmo tamanho e nenhuma tarefa tinha responsável fantasma.
+
+Os casos viraram teste em `tests/responsaveis.test.js`. Sondagem que não vira
+teste é sondagem que se refaz.
+
+### 19.3 O que roda comando e o que sai para a rede
+
+`server/versao.js` chama `git` por `execFile` — sem shell, com argumentos
+literais do próprio código, `cwd` derivado de `import.meta.url`. Nenhum
+argumento vem de entrada.
+
+O `fetch` para `api.github.com` monta a URL com o repositório e o ramo. Os dois
+vêm de variável de ambiente ou do `package.json` — valores de quem publica, não
+de quem usa. O ramo passa por `encodeURIComponent`.
+
+### 19.4 A rota nova está atrás da sessão
+
+`GET /api/versao` entra no roteador **depois** da guarda `if (!user)`.
+Confirmado em produção: responde 401 sem sessão, junto com `/api/state`,
+`/api/tasks`, `/api/companies` e `/api/users`. Os quatro cabeçalhos de segurança
+seguem no lugar, e login recusado não emite cookie.
+
+### 19.5 Travessia de caminho no servidor de arquivos
+
+Nove formas testadas contra o modo autônomo, com `--path-as-is`: `..` cru,
+codificado, duplo, meio-codificado, e a partir de subpasta. Nenhuma serviu
+arquivo fora de `web/`. O único 200 foi o `index.html` do fallback de rota — que
+é o comportamento correto e não vaza nada.
+
+### 19.6 Quem pode mexer em responsável
+
+Um membro comum pode pôr e tirar qualquer pessoa de qualquer tarefa. **Isto é o
+modelo, não um descuido**: o quadro é de um time pequeno e compartilhado, e
+`updateTask` já deixava qualquer membro mudar status, prazo, projeto, empresa e
+título de qualquer tarefa muito antes desta série. Responsável entrou na mesma
+lista.
+
+As fronteiras que existem continuam firmes — criar acesso e mudar papel
+responderam 403 para membro comum.
+
+Fica registrado porque é o tipo de coisa que um leitor futuro assume ao
+contrário. Se um dia houver quadro privado ou papel de convidado, este é o
+lugar que muda.
+
+### 19.7 Por que NÃO entrou uma política de conteúdo
+
+Um `Content-Security-Policy` era o único endurecimento candidato, e foi
+descartado com medição, não por preguiça.
+
+O inventário do que a página carrega, medido no navegador: zero script inline,
+zero manipulador `on*` no HTML, um único `<script src>` de mesma origem — e
+**108 atributos `style`**, porque `h()` escreve estilo inline o tempo todo.
+`style-src` precisaria de `'unsafe-inline'`, o que já esvazia metade do valor.
+
+O que decidiu: o antivírus da máquina injeta script de
+`gc.kis.v2.scr.kaspersky-labs.com` em toda página, mais um `link` e uma
+requisição. `script-src 'self'` bloquearia essa injeção. Este projeto já tem um
+capítulo sobre esse antivírus interferindo no aplicativo (`HANDOFF.md` 4.8), e a
+política valeria para todo mundo em produção, não só para uma máquina.
+
+Trocar uma proteção contra um XSS que não existe — a superfície está fechada
+por `textContent` e travada por teste — por uma chance concreta de quebrar o
+aplicativo para quem usa não é um bom negócio.
+
+**Quando reconsiderar:** no dia em que o produto renderizar HTML de terceiro,
+carregar script de outro domínio, ou passar a usar `innerHTML` em algum lugar.
+Aí o CSP deixa de ser endurecimento genérico e vira mitigação de uma superfície
+real, e o custo com o antivírus passa a valer a pena.
