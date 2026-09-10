@@ -3,13 +3,20 @@
 // Existe por um motivo prático: este aplicativo não tem número de build no
 // nome dos arquivos. O navegador guarda `app.js` e `app.css` pelo caminho, e
 // um deploy novo pode chegar sem que a aba aberta perceba — a pessoa vê um
-// defeito já corrigido e reclama de algo que não existe mais. O rótulo diz em
-// que commit ela está, e o clique é a saída: limpa o que o navegador guardou,
-// confere com o servidor e recarrega se ficou para trás.
+// defeito já corrigido e reclama de algo que não existe mais.
 //
-// A limpeza acontece mesmo quando não há novidade. É de propósito: quem clica
-// aqui está desconfiando do próprio cache, e responder "está tudo em dia" sem
-// ter mexido em nada seria responder com a mesma dúvida.
+// São dois gestos, e a separação entre eles é o ponto:
+//
+//   o rótulo do rodapé  →  ABRE o painel. Mostra a versão e o histórico, e não
+//                          mexe em nada. Quem só quer saber onde está não perde
+//                          o que estava fazendo.
+//   o botão de dentro   →  LIMPA o cache do navegador e RECARREGA. É a saída de
+//                          "vi um defeito que já foi corrigido".
+//
+// A limpeza recarrega mesmo quando o commit não mudou. É de propósito: quem
+// aperta aquele botão está desconfiando do próprio cache, e o caso mais comum
+// é justamente esse — commit novo, JavaScript novo e CSS ainda velho, servido
+// pela borda da hospedagem por mais alguns segundos depois do deploy.
 
 import { h, mount, $ } from "./dom.js";
 import { api } from "./api.js";
@@ -84,7 +91,7 @@ function pintarRotulo(v) {
   btn.title = [
     v?.atual?.titulo,
     v?.atual?.sha ? `commit ${v.atual.sha}` : null,
-    "Clique para ver o histórico e conferir se há atualização.",
+    "Clique para ver o histórico das versões.",
   ]
     .filter(Boolean)
     .join("\n");
@@ -104,9 +111,21 @@ function garantirCaixa() {
   return caixa;
 }
 
+// Abrir só mostra.
+//
 // `estado` é o que a verificação está fazendo agora, e muda enquanto o painel
 // já está aberto — por isso desenhar é uma função, e não um trecho solto.
-export function abrirVersao(estado = { fase: "verificando" }) {
+//
+// A fase padrão era "verificando", e ela dispara a limpeza no fim desta
+// função. Enquanto a verificação só recarregava quando o commit tinha mudado,
+// isso passava despercebido — mas ela passou a recarregar sempre, e aí abrir o
+// painel virou recarregar a página. A linha do tempo ficava visível por um
+// instante e sumia, o que é o mesmo que não existir.
+//
+// Ver e agir são gestos diferentes: o clique no rodapé mostra, e o botão de
+// dentro é que limpa e recarrega. Quem quer só saber em que versão está não
+// perde o que estava fazendo por causa disso.
+export function abrirVersao(estado = { fase: "parado" }) {
   const alvo = garantirCaixa();
   const v = estado.dados || aoCarregar;
 
@@ -134,7 +153,6 @@ export function abrirVersao(estado = { fase: "verificando" }) {
   );
 
   if (!alvo.open) alvo.showModal();
-  if (estado.fase === "verificando" && !verificando) verificar();
 }
 
 function cabecalho(v, estado) {
@@ -160,6 +178,11 @@ function cabecalho(v, estado) {
   );
 }
 
+// O que se diz em cada fase.
+//
+// Nenhuma frase de "cache limpo" fora das fases que de fato limparam: abrir o
+// painel não mexe em nada, e afirmar que mexeu treinaria a pessoa a não
+// acreditar no que está escrito aqui.
 function frase(estado, v) {
   if (estado.fase === "verificando") {
     return h("span", { text: "Limpando o cache e conferindo com o servidor…" });
@@ -175,8 +198,24 @@ function frase(estado, v) {
       text: "Cache limpo. Recarregando para pegar os arquivos direto do servidor…",
     });
   }
-  // Em dia. Vale distinguir "conferi e está igual" de "conferi e o servidor nem
-  // sabe em que commit está": a segunda não é garantia de nada.
+
+  // Parado: só abriu. Diz o que se sabe e o que o botão faria.
+  if (estado.fase === "parado") {
+    if (!v?.atual?.versao && !v?.atual?.sha) {
+      return h("span", { text: "O servidor não sabe informar em que versão está." });
+    }
+    if (v.atras) {
+      return h("span", {
+        text: `O servidor está ${v.atras} versão${v.atras > 1 ? "ões" : ""} atrás do repositório — o deploy ainda não chegou.`,
+      });
+    }
+    return h("span", {
+      text: "Esta é a versão que o servidor tem. O botão abaixo limpa o cache do navegador e recarrega.",
+    });
+  }
+
+  // Em dia, depois de ter verificado. Vale distinguir "conferi e está igual" de
+  // "conferi e o servidor nem sabe em que commit está": a segunda não garante nada.
   if (!v?.atual?.sha) {
     return h("span", {
       text: "Cache limpo. O servidor não sabe informar o commit, então não dá para comparar.",

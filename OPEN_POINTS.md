@@ -1579,6 +1579,31 @@ numerar assim daria `1.1.00` e `1.1.-1` na tela. Aconteceu de verdade enquanto
 o regex do cabeçalho estava quebrado. Nesse caso o painel volta ao identificador
 do commit — que é feio e é verdade.
 
+### 16.8 Abrir o painel de versão recarregava a página
+
+Clicar no rótulo do rodapé limpava o cache e recarregava — a linha do tempo
+aparecia por um instante e sumia, o que é o mesmo que não existir.
+
+A causa foi minha, e de duas mudanças que estavam certas separadamente. O painel
+sempre abriu na fase "verificando", e essa fase dispara a limpeza. Enquanto a
+verificação só recarregava quando o commit tinha mudado, isso passava
+despercebido na maior parte das vezes. Quando ela passou a recarregar sempre
+(seção 18.6, para resolver o CSS servido velho pela borda da hospedagem), abrir
+o painel virou recarregar a página.
+
+Ver e agir viraram gestos separados:
+
+- **o rótulo do rodapé** abre o painel e não mexe em nada;
+- **o botão de dentro** limpa o cache e recarrega.
+
+Junto foi a frase: nenhuma fase que não limpou nada diz "cache limpo". Afirmar
+uma limpeza que não aconteceu treina a pessoa a não acreditar no que está
+escrito ali — e a única coisa que aquele painel tem para oferecer é ser
+acreditado.
+
+Verificado: abrir mantém a página viva com as vinte linhas à vista; o botão
+recarrega, e a prova é a variável de marcação desaparecer do `window`.
+
 ### 16.7 A minor passou a vir de uma tabela de séries
 
 A numeração tirava a minor do package.json, e ele guarda a série de HOJE. A
