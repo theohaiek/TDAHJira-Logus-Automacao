@@ -1780,3 +1780,49 @@ A síntese é de exibição, não de histórico: as mensagens no repositório
 continuam inteiras, porque quem for mexer no código precisa delas assim. Daqui
 em diante elas nascem sem travessão, com o primeiro parágrafo se sustentando
 sozinho, e curtas quando a mudança é pequena.
+
+### 18.12 A pilha passou a ceder na vertical
+
+O trilho só andava de lado. Agora ele cede também para cima e para baixo,
+resistindo cada vez mais perto do limite, e volta ao lugar quando a mão solta.
+
+O eixo vertical não navega, e essa é a diferença que governa o resto: `posicao`
+é índice e leva a alguma cena, `alturaDoGesto` é pixel e não leva a lugar
+nenhum. Ele existe para dar peso ao gesto, não destino.
+
+A curva é a tangente hiperbólica, e não é escolha de gosto. No começo ela é
+quase uma reta: os primeiros pixels de mão viram os mesmos pixels de painel, e
+o movimento parece solto. Conforme se afasta, a derivada cai sozinha, então
+cada pixel a mais rende menos que o anterior. E ela nunca alcança o limite, só
+encosta, que é exatamente a sensação de ser repelido pela borda em vez de bater
+nela.
+
+Medido, com teto de 228 px numa janela de 1037:
+
+    mão -40 px   →  painel -23 px   (58% do movimento)
+    mão -160 px  →  painel -88 px   (55%)
+    mão -300 px  →  painel -147 px  (49%)
+    mão -800 px  →  painel -221 px  (28%)
+    mão -1400 px →  painel -228 px  (16%)
+
+Um gesto de mão comum não passa de trezentos pixels, então na prática o painel
+cede uns cento e cinquenta. O limite só aparece para quem insiste, que é
+quando ele deve mesmo aparecer.
+
+Três decisões que não são óbvias:
+
+- **A amplitude é fração da altura do trilho**, não um número de pixels. Numa
+  tela baixa, duzentos pixels tirariam o quadro da vista; numa alta, seriam um
+  tremor.
+- **O deslocamento é o mesmo para todas as cenas.** A pilha cede junto, como
+  uma folha só. Escalá-lo por distância faria os painéis de trás descolarem do
+  da frente, e aí não seria uma pilha cedendo, seria cada painel com vida
+  própria.
+- **A duração do retorno conta os dois eixos.** Um gesto que desceu bastante e
+  mal andou de lado tem destino horizontal igual ao de partida, e a duração
+  sairia zero: a vertical voltaria de uma vez, no estalo que o resto do trilho
+  passou a não ter.
+
+O gesto que começa claramente vertical continua devolvendo a rolagem da página,
+sem virar arrasto. O eixo novo só existe dentro de um arrasto que já foi
+reconhecido como do trilho.

@@ -55,6 +55,10 @@ let ids = [];
 // caminho entre a terceira e a quarta cena", e é isso que deixa o arrasto
 // contínuo em vez de saltar de uma para a outra.
 let posicao = 0;
+// Quanto a pilha está deslocada na vertical, em pixels. Diferente de `posicao`,
+// que é índice e navega, este eixo não leva a lugar nenhum: ele cede ao gesto e
+// volta ao soltar. Existe para dar peso, não destino.
+let alturaDoGesto = 0;
 let escopoVisivel = "geral";
 let gesto = null;
 let tween = 0;
@@ -774,7 +778,12 @@ function aplicarLayout() {
     const escala = escalaEm(k);
     const opacidade = entre(k, 1, perto, longe);
 
-    el.style.transform = `translate(-50%, 0) translateX(${x.toFixed(2)}px) scale(${escala.toFixed(4)})`;
+    // O deslocamento vertical é o mesmo para todas as cenas: a pilha inteira
+    // cede junto, como uma folha só. Escalá-lo por distância faria os painéis
+    // de trás descolarem do da frente, e aí não seria uma pilha cedendo — seria
+    // cada painel com vida própria.
+    const y = alturaDoGesto;
+    el.style.transform = `translate(-50%, 0) translateX(${x.toFixed(2)}px) translateY(${y.toFixed(2)}px) scale(${escala.toFixed(4)})`;
     el.style.opacity = largo && k > 0.5 ? "0" : opacidade.toFixed(3);
 
     // De que lado esta cena está saindo, agora — e não na fileira.
@@ -835,6 +844,8 @@ export function posicionarTrilho() {
   // anterior foi destruído, e um índice sozinho muda de significado quando a
   // fileira muda de composição.
   posicao = Math.max(0, ids.indexOf(state.carrossel.atual));
+  // O eixo vertical não sobrevive ao remonte: ele é do gesto, e o gesto acabou.
+  alturaDoGesto = 0;
   // Sem animação: isto é reposicionamento por remonte, não movimento que
   // alguém pediu. A classe sai no quadro seguinte, quando a posição já está
   // escrita e não há mais o que interpolar.
@@ -965,6 +976,13 @@ function aoMover(e) {
   gesto.instante = agora;
   // Passar do fim resiste em vez de travar: o leque estica um pouco e volta.
   posicao = amortecer(cru);
+
+  // O eixo vertical cede à mão e é repelido pelas bordas. Ele não navega: ao
+  // soltar, volta a zero. É o mesmo acordo do horizontal quando se passa do
+  // fim da fileira, só que aqui vale o percurso inteiro, porque na vertical
+  // não existe "próxima cena" para onde ir.
+  alturaDoGesto = elastico(dy * ARRASTO_ACOMPANHA, amplitudeVertical());
+
   aplicarLayout();
   destacarMaisProxima();
 
@@ -982,6 +1000,33 @@ function amortecer(v) {
   if (v < 0) return v * 0.32;
   if (v > fim) return fim + (v - fim) * 0.32;
   return v;
+}
+
+// Até onde a pilha cede na vertical, e como ela resiste no caminho.
+//
+// A fração é da altura do trilho, e não um número de pixels: numa tela baixa
+// um deslocamento de duzentos pixels tiraria o quadro da vista, e na tela larga
+// os mesmos duzentos seriam um tremor.
+const CEDE_NA_VERTICAL = 0.22;
+
+// A tangente hiperbólica é a curva certa para isto e não é escolha de gosto.
+//
+// No começo ela é quase uma reta: os primeiros pixels de mão viram os mesmos
+// pixels de painel, e o movimento parece solto. Conforme se afasta, a derivada
+// cai sozinha, então cada pixel a mais rende menos que o anterior. E ela nunca
+// chega ao limite, só encosta — que é exatamente a sensação de ser repelido
+// pela borda em vez de bater nela.
+//
+// A alternativa seria um corte duro no limite, e corte duro não resiste: ele
+// para. Quem empurra sente a diferença na hora.
+function elastico(distancia, amplitude) {
+  if (!amplitude) return 0;
+  return amplitude * Math.tanh(distancia / amplitude);
+}
+
+function amplitudeVertical() {
+  const altura = trilhoEl?.clientHeight || 0;
+  return altura * CEDE_NA_VERTICAL;
 }
 
 function aoSoltar() {
@@ -1091,8 +1136,21 @@ function destacarMaisProxima(alvo = null) {
 
 function assentar(velocidade = 0) {
   if (!cenasEl.length) return;
+
+  // A vertical volta a zero junto com o assentamento horizontal, e pela mesma
+  // transição: são um gesto só, e devolvê-los em tempos diferentes faria a
+  // pilha parecer duas coisas soltas.
+  //
+  // A distância que a duração usa tem de contar os dois eixos. Um gesto que
+  // desceu bastante e mal andou de lado tem destino horizontal igual ao de
+  // partida, e a duração sairia zero: a vertical voltaria de uma vez, no
+  // estalo que o resto do trilho passou a não ter.
+  const m = medidas();
+  const emCenas = m ? Math.abs(alturaDoGesto) / Math.max(1, passoDoGesto(m)) : 0;
+  alturaDoGesto = 0;
+
   const i = destinoAoSoltar(velocidade);
-  deslizarAte(i, () => concluirNavegacao(ids[i]));
+  deslizarAte(i, () => concluirNavegacao(ids[i]), emCenas);
 }
 
 // A duração vem do CSS e é lida a cada movimento, nunca cacheada: é assim que
@@ -1155,10 +1213,12 @@ function duracaoDoMovimento(distancia = 1) {
 //
 // Durante o arrasto é o contrário: a transição fica desligada e o transform
 // vem de JavaScript, porque ali o painel tem de acompanhar a mão sem atraso.
-function deslizarAte(destino, aoChegar) {
+function deslizarAte(destino, aoChegar, distanciaExtra = 0) {
   cancelarTween();
 
-  const ms = duracaoDoMovimento(destino - posicao);
+  // A maior das duas, e não a soma: os eixos voltam ao mesmo tempo, então o
+  // movimento dura o do trecho mais longo.
+  const ms = duracaoDoMovimento(Math.max(Math.abs(destino - posicao), Math.abs(distanciaExtra)));
   if (!ms || !trilhoEl?.isConnected) {
     // A duração da viagem anterior não pode ficar pendurada no nó: quem
     // escrever transform depois disto herdaria um tempo que não pediu.
