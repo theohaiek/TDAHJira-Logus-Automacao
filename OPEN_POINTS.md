@@ -1451,3 +1451,27 @@ com movimento reduzido ligado, ele piscava em vez de subir.
 
 O véu nunca dura mais que o deslize — `min(dur, 320)` é sempre menor ou igual —,
 então o remonte do fim nunca corta o esmaecimento pela metade.
+
+### 18.7 O halo do painel em uso era cortado em cima e embaixo
+
+O reflexo de acento aparecia nas laterais e sumia na vertical, rente à borda.
+`.trilho` tem `overflow: hidden` — e precisa ter, senão as cenas distantes
+esticam a página e criam rolagem horizontal —, e a cena ocupava `height: 100%`
+dele. Não sobrava um pixel para a sombra vazar.
+
+Na horizontal a folga já existia por acaso: `--espia` reserva 214 px de cada
+lado para as cenas de trás, e o halo cabia ali. Na vertical não havia reserva
+nenhuma.
+
+Entrou `--folga-halo: 40px`. A folga é somada à altura do trilho e devolvida em
+`margin-block` negativa: o recorte cresce para o halo caber, e o fluxo da página
+não percebe que ele cresceu. A cena passou a ser `top: var(--folga-halo)` com
+`height: calc(100% - 2 * var(--folga-halo))`, então a altura útil do painel é
+exatamente a de antes.
+
+Quarenta e não sessenta e quatro: o halo tem duas camadas, uma de 26 px a 26% e
+outra de 64 px a 14%. Quarenta pega a primeira inteira e a parte da segunda que
+de fato se vê, sem empurrar o trilho para fora da janela.
+
+Medido depois: 40 px de folga em cima e embaixo, 214 de cada lado, e nenhuma
+rolagem horizontal na página.
