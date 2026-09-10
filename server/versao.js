@@ -38,27 +38,49 @@ export async function versao() {
   return dados;
 }
 
-// O número que a pessoa lê: 1.1.07, e não 7b16447.
+// Onde cada série do produto começa, em número de commit.
+//
+// A minor não pode sair do package.json sozinha: ele guarda a série de HOJE, e
+// a linha do tempo mostra commits de todas as séries que já existiram. Sem esta
+// tabela, um commit de dois meses atrás apareceria com o número da série atual
+// — e a lista inteira mentiria sobre quando o produto mudou de forma.
+//
+// A chave é o número do commit, e não o identificador dele, porque é o número
+// que os dois modos sabem calcular: no autônomo sai de rev-list, no hospedado
+// sai da paginação do GitHub. Perguntar "em que posição está o commit tal"
+// custaria uma consulta a mais em cada modo, e no hospedado nem seria possível
+// com o histórico que cabe numa página.
+//
+// Em ordem decrescente: a busca pega a primeira série que começa em ou antes do
+// commit, e a primeira da lista é a mais recente.
+const SERIES = [
+  // O quadro virou uma pilha de painéis flutuantes. É outra forma de usar o
+  // produto, não um ajuste — a tela principal deixou de ser um quadro só.
+  { minor: "1.2", doCommit: 39 },
+  // Empresa como dimensão própria, ao lado de projeto.
+  { minor: "1.1", doCommit: 38 },
+  { minor: "1.0", doCommit: 1 },
+];
+
+function serieDe(n) {
+  return SERIES.find((s) => n >= s.doCommit) || SERIES[SERIES.length - 1];
+}
+
+// O número que a pessoa lê: 1.2.19, e não 971391e.
 //
 // Um identificador de commit responde "qual código exatamente", que é uma
 // pergunta de quem for depurar. Quem abre o painel está perguntando outra
 // coisa — "a minha é mais nova ou mais velha que a dela?" —, e sete dígitos de
 // hexadecimal não se comparam de cabeça. Um número que só cresce, sim.
 //
-// Os dois primeiros campos vêm do package.json, que é onde a versão do produto
-// já é mantida. O terceiro é a contagem de commits: cada publicação anda um, e
-// ninguém precisa lembrar de mexer em lugar nenhum. Dois dígitos com zero à
-// esquerda até o 99, e daí para cima cresce sozinho.
+// O terceiro campo conta de dentro da série, e não do começo do repositório:
+// o primeiro commit dos painéis flutuantes é o 1.2.01, e não o 1.2.39. Dois
+// dígitos com zero à esquerda até o 99, e daí para cima cresce sozinho.
 //
 // O identificador não some — ele passa para o title de cada linha, que é onde
 // quem for depurar vai procurá-lo.
 function numerar(dados) {
-  const base = String(dados.app || "")
-    .split(".")
-    .slice(0, 2)
-    .join(".");
-
-  if (!base || !dados.total || !dados.commits?.length) return;
+  if (!dados.total || !dados.commits?.length) return;
 
   // Um total menor que a própria lista é total errado — a contagem falhou e
   // devolveu um número de mentira. Numerar assim daria "1.1.00" e "1.1.-1" na
@@ -70,17 +92,22 @@ function numerar(dados) {
   // menos. É por posição, e não por contagem própria de cada commit, porque
   // contar de novo para cada um custaria uma ida ao git por linha.
   dados.commits.forEach((c, i) => {
-    c.versao = `${base}.${String(dados.total - i).padStart(2, "0")}`;
+    const n = dados.total - i;
+    const s = serieDe(n);
+    c.versao = `${s.minor}.${String(n - s.doCommit + 1).padStart(2, "0")}`;
   });
 
   const atual = dados.commits.find((c) => c.sha === dados.atual?.sha);
   if (atual && dados.atual) dados.atual.versao = atual.versao;
 }
 
-// O número que a pessoa lê. Vem do package.json, que é onde ele já é mantido —
-// duplicá-lo numa constante aqui seria criar um segundo lugar para esquecer de
-// mudar. Se o arquivo não vier junto no pacote publicado, o commit sozinho
-// ainda identifica a versão, e é ele que a linha do tempo cruza.
+// A série declarada no package.json. Não é ela que numera a linha do tempo —
+// quem faz isso é SERIES, que sabe de todas as séries e não só da de hoje.
+//
+// Serve de rede: quando a contagem de commits falha, é este número que o rótulo
+// mostra, ao lado do identificador do commit. E serve de conferência — se ele
+// discordar da primeira linha de SERIES, alguém subiu de série num lugar e
+// esqueceu do outro.
 async function versaoDoPacote() {
   try {
     const bruto = await readFile(join(ROOT, "package.json"), "utf8");
