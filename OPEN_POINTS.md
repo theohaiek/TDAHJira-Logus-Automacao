@@ -1546,3 +1546,35 @@ clique simples no fundo continua não fazendo nada.
 
 Medido: painel a 2328 px, primeiro movimento de 15 px, painel a 1891 px e as
 cinco cenas de trás de volta à vista no mesmo instante.
+
+### 16.6 A versão virou número, e o commit foi para o title
+
+O rótulo dizia `v1.1.0 · 7b16447`. Sete dígitos de hexadecimal respondem "qual
+código exatamente", que é pergunta de quem for depurar. Quem lê o rodapé está
+perguntando outra coisa — "a minha é mais nova que a dela?" —, e para isso só
+serve um número que cresce.
+
+Agora é `v1.1.56`, e a linha do tempo lista `1.1.56`, `1.1.55`, `1.1.54`. Os
+dois primeiros campos vêm do package.json, onde a versão do produto já é
+mantida; o terceiro é a contagem de commits, então cada publicação anda um
+número sozinha e não há um segundo lugar para alguém esquecer de mexer. Dois
+dígitos com zero à esquerda até o 99, e daí para cima cresce naturalmente.
+
+O identificador do commit não sumiu: passou para o `title` do rótulo e de cada
+linha, que é onde quem for depurar vai procurá-lo. E a comparação interna
+continua sendo por ele — o número é rótulo de leitura, e dois commits só são o
+mesmo se o identificador for.
+
+De onde vem a contagem, em cada modo:
+
+- **git local**: `git rev-list --count HEAD`, uma pergunta só. Contar por commit
+  seria uma ida ao git por linha da tela.
+- **GitHub**: a API não devolve esse número em campo nenhum. Pedindo uma página
+  de UM commit, o número da última página no cabeçalho `Link` é o total — é o
+  truque conhecido, e é a única forma de saber isto sem trazer o histórico
+  inteiro pela rede a cada cinco minutos.
+
+Uma guarda que valeu a pena: total menor que a própria lista é total errado, e
+numerar assim daria `1.1.00` e `1.1.-1` na tela. Aconteceu de verdade enquanto
+o regex do cabeçalho estava quebrado. Nesse caso o painel volta ao identificador
+do commit — que é feio e é verdade.

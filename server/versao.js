@@ -33,8 +33,48 @@ export async function versao() {
 
   const dados = await montar();
   dados.app = await versaoDoPacote();
+  numerar(dados);
   cache = { em: Date.now(), dados };
   return dados;
+}
+
+// O número que a pessoa lê: 1.1.07, e não 7b16447.
+//
+// Um identificador de commit responde "qual código exatamente", que é uma
+// pergunta de quem for depurar. Quem abre o painel está perguntando outra
+// coisa — "a minha é mais nova ou mais velha que a dela?" —, e sete dígitos de
+// hexadecimal não se comparam de cabeça. Um número que só cresce, sim.
+//
+// Os dois primeiros campos vêm do package.json, que é onde a versão do produto
+// já é mantida. O terceiro é a contagem de commits: cada publicação anda um, e
+// ninguém precisa lembrar de mexer em lugar nenhum. Dois dígitos com zero à
+// esquerda até o 99, e daí para cima cresce sozinho.
+//
+// O identificador não some — ele passa para o title de cada linha, que é onde
+// quem for depurar vai procurá-lo.
+function numerar(dados) {
+  const base = String(dados.app || "")
+    .split(".")
+    .slice(0, 2)
+    .join(".");
+
+  if (!base || !dados.total || !dados.commits?.length) return;
+
+  // Um total menor que a própria lista é total errado — a contagem falhou e
+  // devolveu um número de mentira. Numerar assim daria "1.1.00" e "1.1.-1" na
+  // tela, que é pior do que não numerar: o painel cai no identificador do
+  // commit, que é feio e é verdade.
+  if (dados.total < dados.commits.length) return;
+
+  // O mais recente da lista é o de número `total`; cada um abaixo dele, um a
+  // menos. É por posição, e não por contagem própria de cada commit, porque
+  // contar de novo para cada um custaria uma ida ao git por linha.
+  dados.commits.forEach((c, i) => {
+    c.versao = `${base}.${String(dados.total - i).padStart(2, "0")}`;
+  });
+
+  const atual = dados.commits.find((c) => c.sha === dados.atual?.sha);
+  if (atual && dados.atual) dados.atual.versao = atual.versao;
 }
 
 // O número que a pessoa lê. Vem do package.json, que é onde ele já é mantido —
@@ -108,6 +148,9 @@ async function doRepositorioLocal() {
     repo: (await remoto()) || (await repoConfigurado()),
     atual: commits[0] || null,
     commits,
+    // Quantos commits existem até aqui. É o terceiro campo da versão, e sai de
+    // uma pergunta só ao git — contar por commit seria uma por linha.
+    total: Number((await git(["rev-list", "--count", "HEAD"]))?.trim()) || 0,
     atras: 0,
   };
 }
@@ -205,6 +248,33 @@ async function doGithubRemoto() {
     repo,
     atual: (indice >= 0 ? commits[indice] : null) || commits[0] || null,
     commits,
+    total: await totalDeCommits(repo, ramo),
     atras: indice > 0 ? indice : indice === 0 ? 0 : null,
   };
+}
+
+// Quantos commits o ramo tem, sem baixar todos eles.
+//
+// A API não devolve esse número em campo nenhum. O que ela devolve é
+// paginação: pedindo uma página de UM commit, o número da última página é o
+// total. É um truque conhecido e é a única forma de saber isto sem trazer o
+// histórico inteiro pela rede a cada cinco minutos.
+//
+// Falhando, devolve zero — e sem total a numeração não acontece, o painel cai
+// no identificador do commit e nada quebra.
+async function totalDeCommits(repo, ramo) {
+  try {
+    const r = await fetch(
+      `https://api.github.com/repos/${repo}/commits?sha=${encodeURIComponent(ramo)}&per_page=1`,
+      {
+        headers: { Accept: "application/vnd.github+json", "User-Agent": "tdah-logus" },
+        signal: AbortSignal.timeout(5000),
+      }
+    );
+    if (!r.ok) return 0;
+    const ultima = (r.headers.get("link") || "").match(/[?&]page=(\d+)>;\s*rel="last"/);
+    return ultima ? Number(ultima[1]) : 1;
+  } catch {
+    return 0;
+  }
 }

@@ -2726,13 +2726,14 @@ input[type="color"] {
   align-items: center;
   gap: var(--sp-2);
 }
-.linha__sha {
+.linha__versao {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--text-3);
 }
-.linha__item.is-atual .linha__sha {
-  color: var(--accent);
+.linha__item.is-atual .linha__versao {
+  color: var(--accent-vivo);
+  font-weight: 600;
 }
 .linha__data {
   font-size: var(--text-xs);

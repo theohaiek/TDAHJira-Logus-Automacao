@@ -40,8 +40,18 @@ function data(iso, curto = false) {
 
 // O texto do botão. Curto de propósito: ele mora num canto de barra lateral e
 // concorre com o nome de quem está logado.
+//
+// Um número, e não o identificador do commit. Sete dígitos de hexadecimal
+// respondem "qual código exatamente", que é pergunta de quem for depurar; quem
+// lê o rodapé está perguntando "a minha é mais nova que a dela?", e para isso
+// só serve um número que cresce. O identificador continua no title.
+//
+// A queda existe porque o servidor pode não saber contar commits — sem
+// repositório e sem rede, ele ainda sabe em que commit está.
 function rotulo(v) {
   if (!v) return "versão desconhecida";
+  if (v.atual?.versao) return `v${v.atual.versao}`;
+
   const partes = [];
   if (v.app) partes.push(`v${v.app}`);
   if (v.atual?.sha) partes.push(v.atual.sha);
@@ -68,9 +78,16 @@ function pintarRotulo(v) {
   const btn = $("#version-btn");
   if (!btn) return;
   btn.textContent = rotulo(v);
-  btn.title = v?.atual?.titulo
-    ? `${v.atual.titulo}\nClique para ver o histórico e conferir se há atualização.`
-    : "Clique para ver o histórico e conferir se há atualização.";
+  // O identificador do commit vive aqui: fora do caminho de quem só quer saber
+  // se está atualizado, e à mão de quem precisa dizer exatamente qual código
+  // está no ar.
+  btn.title = [
+    v?.atual?.titulo,
+    v?.atual?.sha ? `commit ${v.atual.sha}` : null,
+    "Clique para ver o histórico e conferir se há atualização.",
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 // --- O painel ---------------------------------------------------------------
@@ -196,7 +213,13 @@ function linhaDoTempo(v) {
           h(
             "div",
             { class: "linha__cabeca" },
-            h("code", { class: "linha__sha", text: c.sha }),
+            // O número é o rótulo; o identificador do commit fica no title,
+            // para quem precisar dizer exatamente qual código é este.
+            h("code", {
+              class: "linha__versao",
+              text: c.versao || c.sha,
+              title: `commit ${c.sha}`,
+            }),
             h("span", { class: "linha__data", text: data(c.data, true) || "" }),
             c.sha === atual ? h("span", { class: "linha__marca", text: "no ar" }) : null
           ),
