@@ -206,7 +206,14 @@ function cena(d, atual) {
     // inert tira o subtree do foco e do ponteiro de uma vez: sem ele, o Tab
     // entraria nos cartões da prévia, que é um quadro que ninguém está usando.
     h("div", { class: "cena__corpo", inert: !ehAtual }, corpo),
-    ehAtual ? null : veuDaCena(d)
+    // Toda cena tem véu, inclusive a do centro — onde ele fica transparente.
+    //
+    // Montar véu só nas de trás parecia economia e impedia a única coisa que
+    // importa aqui, que é esmaecer: o painel que sai do centro não tinha véu
+    // para acender, e o que chega tinha um véu que precisava sumir de uma vez.
+    // Com o véu sempre presente, entrar e sair de uma visualização é uma
+    // opacidade indo de zero a um e voltando, que o navegador interpola sozinho.
+    veuDaCena(d)
   );
 
   if (!ehAtual) {

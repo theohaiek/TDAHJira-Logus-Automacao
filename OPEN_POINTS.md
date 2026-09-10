@@ -1419,3 +1419,35 @@ preenchimento do véu dos dois lados encostava no painel da frente.
 `d.lado` continua existindo no descritor da fileira, e continua sendo a resposta
 certa para "de que tipo é esta cena". Só deixou de ser a resposta para "onde ela
 está agora".
+
+### 18.6 O véu aparecia de uma vez
+
+Ao entrar numa visualização, o painel que ficava para trás ganhava véu, nome e
+contagem instantaneamente — no meio de um movimento que era suave em todo o
+resto. A causa era `display: none` na cena do centro: display não interpola, e
+o navegador não tem como esmaecer o que acabou de existir.
+
+Duas mudanças, e as duas são a mesma ideia:
+
+- **Todo painel tem véu, inclusive o do centro**, onde ele fica transparente.
+  Montar véu só nas cenas de trás parecia economia e impedia exatamente o que
+  importa: o painel que sai do centro não tinha véu para acender, e o que chega
+  tinha um véu que precisava sumir de uma vez. Com o véu sempre presente,
+  entrar e sair de uma visualização é uma opacidade indo de zero a um e
+  voltando.
+- **`display: none` virou `opacity: 0` com `pointer-events: none`.** O segundo
+  não é detalhe: sem ele o véu invisível continuaria por cima do quadro em uso e
+  engoliria todo clique em cartão. Verificado com `elementFromPoint` e com um
+  clique de verdade abrindo o ticket.
+
+A duração é a do trilho, com teto de 320 ms. Não é `--dur-slow` porque o
+movimento reduzido do sistema zera esse token, e entrar numa visualização não é
+enfeite — é a resposta ao gesto que a pessoa acabou de fazer. O teto existe
+porque a viagem chega a quase um segundo quando se atravessa a fileira inteira,
+e um véu que leva isso tudo para acender descola do painel que já chegou.
+
+Pelo mesmo argumento, o convite de entrar deixou de usar `--dur`: nesta máquina,
+com movimento reduzido ligado, ele piscava em vez de subir.
+
+O véu nunca dura mais que o deslize — `min(dur, 320)` é sempre menor ou igual —,
+então o remonte do fim nunca corta o esmaecimento pela metade.

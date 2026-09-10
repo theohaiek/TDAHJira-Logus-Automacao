@@ -2171,7 +2171,17 @@ input[type="color"] {
   padding: var(--sp-4) var(--sp-3);
   border-radius: var(--radius-xl);
   background: color-mix(in srgb, var(--surface-0) 58%, transparent);
-  transition: background-color var(--dur) var(--ease);
+  /* O véu acompanha o trilho, e por isso usa a duração dele — que o JavaScript
+     reescreve a cada viagem — e não --dur-slow, que o movimento reduzido do
+     sistema zera. Entrar numa visualização não é enfeite: é a resposta ao
+     gesto que a pessoa acabou de fazer, e some-la faz a tela trocar de estado
+     sem dizer que trocou.
+
+     O teto existe porque a duração da viagem chega a quase um segundo quando
+     se atravessa a fileira inteira, e um véu que leva isso tudo para acender
+     descola do painel que já chegou. */
+  transition: opacity min(var(--dur-trilho), 320ms) var(--ease),
+    background-color min(var(--dur-trilho), 320ms) var(--ease);
 }
 .cena:not(.is-atual):hover > .cena__veu,
 .cena:not(.is-atual):focus-visible > .cena__veu,
@@ -2185,10 +2195,15 @@ input[type="color"] {
 .cena[data-lado="dir"] .cena__veu {
   justify-items: end;
 }
-/* Na cena do centro não há véu; esta regra existe para o caso de ela chegar
-   ao centro ainda com a classe de lado, entre um quadro e outro do gesto. */
+/* No centro o véu está lá e é invisível. Era `display: none`, e display não
+   interpola: o véu e o cartão com o nome apareciam e sumiam de uma vez, no
+   meio de um movimento que era suave em todo o resto.
+
+   pointer-events junto, senão o véu invisível continuaria por cima do quadro
+   em uso e engoliria todo clique em cartão. */
 .cena.is-atual .cena__veu {
-  display: none;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .cena__cartao {
@@ -2242,7 +2257,11 @@ input[type="color"] {
   box-shadow: var(--shadow-2);
   opacity: 0;
   transform: translateY(6px) scale(0.96);
-  transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease),
+  /* Mesma duração do véu, e pela mesma razão: aparecer e sumir aqui é a
+     resposta ao gesto de escolher para onde ir. --dur zera no movimento
+     reduzido do sistema, e sem isto o convite pisca em vez de subir. */
+  transition: opacity min(var(--dur-trilho), 320ms) var(--ease),
+    transform min(var(--dur-trilho), 320ms) var(--ease),
     background-color var(--dur) var(--ease);
 }
 .cena:not(.is-atual):hover .cena__entrar,
