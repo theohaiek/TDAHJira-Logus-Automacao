@@ -1752,14 +1752,25 @@ real, e o custo com o antivírus passa a valer a pena.
 
 Duas coisas, e a primeira não era um defeito de rolagem.
 
-A lista mostra as vinte versões mais recentes, e quem rolava até o fim via o
+A lista mostrava as vinte versões mais recentes, e quem rolava até o fim via o
 último item e mais nada. Isso lê como corte: a pessoa não sabe se acabou a lista
-ou acabou a tela. Entrou uma linha no fim dizendo quantas são e onde estão as
-anteriores. De quebra, ela dá ao último item o espaço que faltava contra a borda.
+ou acabou a tela.
+
+A primeira tentativa foi uma linha no fim dizendo quantas eram. Não resolveu a
+pergunta certa, porque a pergunta era "por que só vinte?". Agora a lista mostra
+**todas**: 64 versões hoje, de `1.3.26` a `1.0.01`. O git local traz o log
+inteiro; o GitHub vem paginado de cem em cem até acabar. A resposta ficou em
+71 KB, que é uma consulta por carga de página com cinco minutos de cache no
+servidor.
 
 A segunda: o "por quê" mostrava a mensagem de commit inteira. Neste repositório
-ela tem parágrafos, e o painel virava um paredão. Agora ele mostra só o primeiro
-parágrafo, cortado em 240 caracteres na fronteira de palavra, sem travessão.
+ela tem parágrafos, e o painel virava um paredão. Agora ele mostra o primeiro
+parágrafo, inteiro e sem travessão.
+
+Houve um corte em 240 caracteres, e ele foi um erro: terminava toda explicação
+em reticências no meio de uma frase. Um "por quê" que não completa a razão não é
+economia, é dívida de leitura. Onde encurtar é na hora de escrever, e mudança
+que não precisa de explicação não deveria ganhar uma.
 
 O travessão sai porque funciona num parágrafo de documento e atrapalha numa
 linha só de painel, onde o olho não tem espaço para separar a oração principal
@@ -1767,5 +1778,5 @@ da intercalada. Vira vírgula quando está entre espaços, hífen quando está c
 
 A síntese é de exibição, não de histórico: as mensagens no repositório
 continuam inteiras, porque quem for mexer no código precisa delas assim. Daqui
-em diante elas nascem sem travessão e com o primeiro parágrafo se sustentando
-sozinho, que é a parte que a tela mostra.
+em diante elas nascem sem travessão, com o primeiro parágrafo se sustentando
+sozinho, e curtas quando a mudança é pequena.

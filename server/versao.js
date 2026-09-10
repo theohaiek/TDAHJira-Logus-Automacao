@@ -17,9 +17,16 @@ import { ROOT } from "./paths.js";
 
 const exec = promisify(execFile);
 
-// Quantos commits a linha do tempo mostra. Vinte cobre semanas de trabalho
-// neste ritmo e cabe numa rolagem curta; quem quiser mais tem o repositório.
-const TETO = 20;
+// A linha do tempo mostra o histórico inteiro. Havia um teto de vinte, e ele
+// fazia a lista parecer cortada: quem rolava até o fim não sabia se tinha
+// acabado o histórico ou acabado o que se resolveu mostrar.
+//
+// O que sobrou é um limite de segurança, e não de produto: cem por página é o
+// máximo que a API do GitHub dá, e vinte páginas são duas mil versões. Um
+// repositório que passe disso deu outra escala ao projeto, e este painel vai
+// precisar de outra ideia antes de precisar de outro número.
+const POR_PAGINA = 100;
+const PAGINAS_NO_MAXIMO = 20;
 
 // A API do GitHub sem credencial dá sessenta chamadas por hora por endereço.
 // No modo hospedado o endereço é o da plataforma, compartilhado entre todas as
@@ -156,7 +163,8 @@ async function doRepositorioLocal() {
 
   const linhas = await git([
     "log",
-    `-${TETO}`,
+    // Sem limite: o histórico inteiro. Um repositório com dez mil commits
+    // pesaria aqui, e este não é — quando for, o teto volta com um motivo.
     // %x1f e %x1e são os separadores de unidade e de registro do ASCII. Usar
     // caractere de controle, e não vírgula ou barra, é o que faz uma mensagem
     // de commit com qualquer pontuação atravessar inteira.
@@ -241,21 +249,39 @@ async function doGithubRemoto() {
   if (!repo) return null;
 
   const ramo = process.env.VERCEL_GIT_COMMIT_REF || "main";
-  let bruto;
+
+  // Página a página até acabar. A API entrega cem por vez no máximo, e o
+  // histórico inteiro é o que a linha do tempo mostra — parar na primeira
+  // página seria o teto de vinte com outro número.
+  //
+  // Uma página incompleta significa fim: a API só devolve menos que o pedido
+  // quando não há mais. É mais barato do que ler o cabeçalho de paginação de
+  // novo, e não depende do formato dele.
+  const bruto = [];
   try {
-    const r = await fetch(
-      `https://api.github.com/repos/${repo}/commits?sha=${encodeURIComponent(ramo)}&per_page=${TETO}`,
-      {
-        headers: { Accept: "application/vnd.github+json", "User-Agent": "tdah-logus" },
-        signal: AbortSignal.timeout(5000),
-      }
-    );
-    if (!r.ok) return null;
-    bruto = await r.json();
+    for (let pagina = 1; pagina <= PAGINAS_NO_MAXIMO; pagina++) {
+      const r = await fetch(
+        `https://api.github.com/repos/${repo}/commits?sha=${encodeURIComponent(
+          ramo
+        )}&per_page=${POR_PAGINA}&page=${pagina}`,
+        {
+          headers: { Accept: "application/vnd.github+json", "User-Agent": "tdah-logus" },
+          signal: AbortSignal.timeout(8000),
+        }
+      );
+      if (!r.ok) break;
+
+      const lote = await r.json();
+      if (!Array.isArray(lote) || !lote.length) break;
+      bruto.push(...lote);
+      if (lote.length < POR_PAGINA) break;
+    }
   } catch {
-    return null;
+    // Uma página que falha no meio não perde as anteriores: histórico
+    // incompleto é melhor do que painel vazio, e o número de cada versão não
+    // depende de a lista estar inteira.
   }
-  if (!Array.isArray(bruto)) return null;
+  if (!bruto.length) return null;
 
   const commits = bruto.map((c) => {
     const [titulo, ...resto] = String(c.commit?.message || "").split("\n");

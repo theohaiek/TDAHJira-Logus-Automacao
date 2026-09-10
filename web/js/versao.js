@@ -270,14 +270,19 @@ function frase(estado, v) {
 //
 // A mensagem de commit deste repositório tem parágrafos: o primeiro diz o que
 // mudou e por quê, e os seguintes contam o caminho até lá. Quem abre o painel
-// de versão quer o primeiro — o resto é leitura de quem for mexer no código, e
+// de versão quer o primeiro; o resto é leitura de quem for mexer no código, e
 // para essa pessoa existe o repositório.
 //
-// O travessão sai junto. Ele funciona num parágrafo de documento e atrapalha
-// numa linha só de painel, onde o olho não tem espaço para separar a oração
+// O parágrafo vem inteiro. Houve um corte em 240 caracteres, e ele terminava
+// toda explicação em reticências no meio de uma frase, o que é pior do que o
+// texto longo: um "por quê" que não completa a razão não é economia, é dívida
+// de leitura. Se um parágrafo está comprido demais para caber aqui, o lugar de
+// encurtar é na hora de escrevê-lo, e mudança que não precisa de explicação
+// não deveria ganhar uma.
+//
+// O travessão sai. Ele funciona num parágrafo de documento e atrapalha numa
+// linha só de painel, onde o olho não tem espaço para separar a oração
 // principal da intercalada.
-const TETO_DO_PORQUE = 240;
-
 function sintetizar(corpo) {
   if (!corpo) return null;
 
@@ -293,13 +298,7 @@ function sintetizar(corpo) {
     .replace(/\s+,/g, ",")
     .replace(/,\s*,/g, ",");
 
-  if (semTravessao.length <= TETO_DO_PORQUE) return semTravessao;
-
-  // Corta na fronteira de palavra: meia palavra com reticências parece defeito,
-  // e um corte limpo parece decisão.
-  const cortado = semTravessao.slice(0, TETO_DO_PORQUE);
-  const espaco = cortado.lastIndexOf(" ");
-  return (espaco > TETO_DO_PORQUE * 0.6 ? cortado.slice(0, espaco) : cortado).replace(/[,.;:]$/, "") + "…";
+  return semTravessao;
 }
 
 function linhaDoTempo(v) {
@@ -353,18 +352,15 @@ function linhaDoTempo(v) {
       )
     ),
 
-    // A lista acaba aqui, e dizer isso é o ponto.
+    // O fim da lista é o primeiro commit do projeto, e não há mais nada a
+    // anunciar: houve uma linha aqui dizendo quantas versões se mostrava,
+    // porque só se mostrava vinte. Mostrando todas, ela vira ruído — o fio
+    // termina e isso já diz que acabou.
     //
-    // Ela mostra as vinte mais recentes, e quem rolava até o fim via o último
-    // item e mais nada. Parece corte: a pessoa não sabe se acabou a lista ou
-    // acabou a tela. Uma linha no fim resolve, e de quebra dá ao último item o
-    // espaço que ele não tinha para respirar contra a borda.
-    h("li", { class: "linha__fim" }, h("span", { text: rodapeDaLista(commits.length) }))
+    // O que ela deixou foi a folga: o último item precisa de espaço contra a
+    // borda, e agora ele vem do preenchimento da própria lista.
+    h("li", { class: "linha__fim", "aria-hidden": "true" })
   );
-}
-
-function rodapeDaLista(quantas) {
-  return `Estas são as ${quantas} versões mais recentes. As anteriores estão no repositório.`;
 }
 
 // --- A verificação ----------------------------------------------------------

@@ -2891,15 +2891,9 @@ input[type="color"] {
   box-shadow: 0 0 0 2px var(--surface-1);
 }
 
-/* O fim da lista, dito. Sem esta linha, quem rola até o último item não sabe
-   se acabou a lista ou acabou a tela — e as vinte versões parecem um corte.
-
-   Sem ponto e sem fio: ela não é uma versão, é a borda do que se mostra. */
+/* A folga do fim da lista. O último item precisa de espaço contra a borda do
+   painel, e um item vazio dá isso sem inventar uma linha de texto que ninguém
+   pediu para ler. */
 .linha__fim {
-  padding: var(--sp-3) 0 var(--sp-2) calc(9px + var(--sp-3) + var(--sp-1));
-  border-top: 1px solid var(--border-soft);
-  margin-top: var(--sp-2);
-  font-size: var(--text-xs);
-  color: var(--text-faint);
-  text-wrap: pretty;
+  height: var(--sp-4);
 }
