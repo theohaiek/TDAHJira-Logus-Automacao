@@ -515,9 +515,18 @@ function ligarAtalhos() {
         if (t) abrirFoco(t.id);
         break;
       }
-      // Colchetes, e não as setas: ← e → continuam sendo exclusivamente do
-      // cartão focado, que é como se move uma tarefa de coluna sem mouse.
-      // No teclado ABNT2 os dois são tecla direta, ao lado do Enter.
+      // As setas andam pelo trilho de cenas. Cartão em foco fica com elas para
+      // si: ali elas movem a tarefa de coluna, e o cartão já chamou
+      // preventDefault antes de o evento subir até aqui.
+      case "ArrowLeft":
+      case "ArrowRight":
+        if (state.view !== "quadro" || e.defaultPrevented) break;
+        if (popupAberto() || focoAtivo() || ticketAberto()) break;
+        e.preventDefault();
+        andarCena(e.key === "ArrowRight" ? 1 : -1);
+        break;
+      // Os colchetes fazem o mesmo, e continuam valendo: no teclado ABNT2 os
+      // dois são tecla direta, ao lado do Enter.
       case "[":
         if (state.view === "quadro") {
           e.preventDefault();
@@ -539,7 +548,7 @@ function ligarAtalhos() {
 
 function mostrarAtalhos() {
   toast(
-    "n nova · / buscar · f focar · 1 a 5 telas · [ ] cenas do quadro · Esc fecha · Ctrl+K comandos",
+    "n nova · / buscar · f focar · 1 a 5 telas · ← → cenas do quadro · Esc fecha · Ctrl+K comandos",
     { ms: 9000 }
   );
 }
