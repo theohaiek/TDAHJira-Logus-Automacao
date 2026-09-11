@@ -1826,3 +1826,58 @@ Três decisões que não são óbvias:
 O gesto que começa claramente vertical continua devolvendo a rolagem da página,
 sem virar arrasto. O eixo novo só existe dentro de um arrasto que já foi
 reconhecido como do trilho.
+
+### 18.13 A vertical refeita: atraído para o centro, e só o painel segurado
+
+A primeira versão errou em quatro coisas, todas vistas no uso.
+
+**A pilha inteira subia.** Quem segura um painel está segurando AQUELE painel, e
+ver os de trás acompanhando tira a sensação de que há um objeto na mão. Agora só
+o do centro cede, com peso que cai pela distância (`1 - k`) em vez de ir de tudo
+para nada — durante o arrasto de lado o centro troca de painel, e um corte seco
+faria o deslocamento pular de um para outro.
+
+**O gesto só começava de lado.** Havia uma desistência: movimento vertical
+soltava o gesto "para devolver a rolagem da página". Mas o gesto é só de mouse,
+e mouse não rola página arrastando. A desistência não devolvia nada a ninguém;
+ela só obrigava a mexer de lado antes de poder mexer para cima. Qualquer
+direção inicia agora.
+
+**Repelido pela borda, em vez de atraído para o centro.** A tangente hiperbólica
+é quase uma reta no começo, então o painel andava solto por um bom trecho e só
+então encontrava resistência. Isso lê como parede macia na borda. Trocou por
+`1 - e^(-x)`: a derivada no zero é 0,3, então a resistência já está lá no
+primeiro pixel, e ela cresce desde o começo, como mola presa no centro.
+
+    mão 8 px    →  painel 2 px    (30%)
+    mão 80 px   →  painel 21 px   (26%)
+    mão 300 px  →  painel 58 px   (19%)
+    mão 600 px  →  painel 80 px   (13%)
+
+O teto caiu de 22% da altura do trilho para 9%.
+
+**Ele entrava por baixo do cabeçalho.** O trilho tinha `overflow: hidden`, que
+cortava também na vertical: o painel, ao subir, sumia rente à borda de cima,
+como se passasse por trás de uma parede. Agora é `overflow-x: clip` com
+`overflow-y: visible`. `hidden` num eixo só não serve — o navegador transforma
+os dois em rolagem —, e `clip` não tem essa regra. O painel segurado passa por
+cima do cabeçalho, que é onde um objeto na mão deve estar.
+
+### 18.14 Os pontos da barra estavam inclicáveis desde a folga do halo
+
+Achado ao verificar a seção anterior: nenhum dos pontos da barra recebia clique.
+A folga do halo (seção 18.7) punha o trilho 40 px acima do lugar, com margem
+negativa, e o trilho — posicionado, pintando acima da barra — engolia o clique
+em cada ponto. Ficou assim uma sessão inteira.
+
+Os testes não pegaram porque disparavam `ponto.click()` por script, e clique
+por script vai direto ao elemento, sem passar pelo que está por cima dele. A
+verificação que pegou foi `document.elementFromPoint` no centro de cada ponto,
+que é o que o navegador faz com o clique de verdade.
+
+Com o recorte vertical solto, o halo passou a vazar sem ser cortado, e a folga
+perdeu a razão de existir. Saiu inteira. Quatro de quatro pontos voltaram a
+receber clique, e a altura útil do painel continua 957 px, a mesma de antes.
+
+A lição vale além daqui: **`el.click()` não prova que alguém consegue clicar em
+`el`.** Para isso, `elementFromPoint` no centro dele tem de devolver ele.

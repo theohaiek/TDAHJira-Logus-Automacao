@@ -2069,18 +2069,6 @@ input[type="color"] {
   /* Quanto se vê do painel de trás de cada lado. */
   --espia: 214px;
   --cena-w: max(300px, calc(100% - 2 * var(--espia)));
-  /* A folga que o halo do painel em uso precisa para caber dentro do recorte.
-
-     O trilho tem overflow: hidden — e precisa ter, senão as cenas distantes
-     esticam a página e criam rolagem horizontal. Só que a cena ocupava a
-     altura inteira dele, e aí a sombra de acento era cortada rente à borda de
-     cima e à de baixo: o halo aparecia nas laterais, onde há folga, e sumia na
-     vertical, onde não havia nenhuma.
-
-     Quarenta pixels: o halo forte vaza 26 e o fraco 64. Este pega o primeiro
-     inteiro e a parte do segundo que de fato se vê, sem empurrar o trilho
-     para fora da janela. */
-  --folga-halo: 40px;
   position: relative;
   /* As cenas se empilham entre si com z-index até 100, e sem isolamento esses
      números disputam com os do resto do aplicativo — o diálogo de empresa vale
@@ -2088,14 +2076,35 @@ input[type="color"] {
      fora o trilho inteiro conta como uma camada só, na ordem natural. */
   isolation: isolate;
   /* Altura fixa: é ela que impede a página de saltar quando a cena do centro
-     troca por uma com outro número de cartões. */
-  /* A folga entra na altura e sai na margem: o recorte cresce para o halo
-     caber, e o fluxo da página não percebe que ele cresceu. */
-  height: calc(clamp(380px, calc(100vh - 268px), 1100px) + 2 * var(--folga-halo));
-  margin-block: calc(-1 * var(--folga-halo));
+     troca por uma com outro número de cartões.
+
+     Houve aqui uma folga para o halo, somada à altura e devolvida em margem
+     negativa, para a sombra de acento caber dentro do recorte vertical. Ela
+     tinha um efeito colateral que ninguém viu por uma sessão inteira: a margem
+     negativa punha o trilho por cima da barra de pontos, e o trilho — que é
+     posicionado e pinta acima dela — engolia o clique em cada ponto. Os testes
+     não pegaram porque disparavam o clique por script, e clique por script
+     não passa pelo que está por cima.
+
+     Com o recorte vertical solto (abaixo), o halo vaza sem ser cortado e a
+     folga deixou de ter razão de existir. Saiu, e a barra voltou a receber
+     clique. */
+  height: clamp(380px, calc(100vh - 268px), 1100px);
   margin-inline: calc(-1 * var(--sp-5));
   padding-inline: var(--sp-5);
-  overflow: hidden;
+  /* Corta de lado e só de lado.
+
+     O recorte horizontal é o que segura as cenas distantes: sem ele elas
+     esticam a página e criam rolagem. O vertical era efeito colateral de
+     `overflow: hidden`, e o painel segurado, ao ceder para cima, entrava por
+     baixo do cabeçalho da página — cortado rente à borda de cima do trilho,
+     como se passasse por trás de uma parede.
+
+     `hidden` num eixo só não serve: com o outro em `visible`, o navegador
+     transforma os dois em rolagem. `clip` não tem essa regra — ele corta sem
+     criar contêiner de rolagem, então dá para cortar um eixo e soltar o outro. */
+  overflow-x: clip;
+  overflow-y: visible;
   cursor: grab;
   touch-action: pan-y;
 }
@@ -2118,13 +2127,10 @@ input[type="color"] {
 
 .cena {
   position: absolute;
-  /* Recuada da borda do recorte pela folga do halo, dos dois lados: é o que
-     dá à sombra de acento para onde vazar sem ser cortada. A altura útil do
-     painel não muda — a folga foi somada à do trilho. */
-  top: var(--folga-halo);
+  top: 0;
   left: 50%;
   width: var(--cena-w);
-  height: calc(100% - 2 * var(--folga-halo));
+  height: 100%;
   display: flex;
   flex-direction: column;
   border-radius: var(--radius-xl);

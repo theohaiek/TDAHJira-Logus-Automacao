@@ -778,11 +778,16 @@ function aplicarLayout() {
     const escala = escalaEm(k);
     const opacidade = entre(k, 1, perto, longe);
 
-    // O deslocamento vertical é o mesmo para todas as cenas: a pilha inteira
-    // cede junto, como uma folha só. Escalá-lo por distância faria os painéis
-    // de trás descolarem do da frente, e aí não seria uma pilha cedendo — seria
-    // cada painel com vida própria.
-    const y = alturaDoGesto;
+    // Só o painel segurado se move na vertical; os de trás ficam onde estão.
+    //
+    // Houve uma versão em que a pilha inteira subia junto, e ela lia errado:
+    // quem segura um painel está segurando AQUELE painel, e ver os de trás
+    // acompanhando tira a sensação de que há um objeto na mão.
+    //
+    // "O segurado" é quem está no centro, e o peso cai com a distância em vez
+    // de ir de tudo para nada: durante o arrasto de lado o centro troca de
+    // painel, e um corte seco faria o deslocamento pular de um para outro.
+    const y = alturaDoGesto * Math.max(0, 1 - k);
     el.style.transform = `translate(-50%, 0) translateX(${x.toFixed(2)}px) translateY(${y.toFixed(2)}px) scale(${escala.toFixed(4)})`;
     el.style.opacity = largo && k > 0.5 ? "0" : opacidade.toFixed(3);
 
@@ -911,9 +916,14 @@ function aoMover(e) {
   const dy = e.clientY - gesto.y0;
 
   if (!gesto.arrastando) {
-    // Movimento claramente vertical devolve a rolagem da página.
-    if (Math.abs(dy) >= 10 && Math.abs(dy) > Math.abs(dx)) return soltarOuvintes();
-    if (!(Math.abs(dx) >= 6 && Math.abs(dx) > Math.abs(dy))) return;
+    // Qualquer direção inicia o gesto, e não só a horizontal.
+    //
+    // Havia uma desistência aqui: movimento claramente vertical soltava o
+    // gesto "para devolver a rolagem da página". Só que o gesto é só de mouse
+    // — aoApertar recusa toque —, e mouse não rola página arrastando. A
+    // desistência não devolvia nada a ninguém; ela só obrigava a mexer de
+    // lado antes de poder mexer para cima.
+    if (Math.hypot(dx, dy) < 6) return;
 
     gesto.arrastando = true;
     cancelarTween();
@@ -981,7 +991,7 @@ function aoMover(e) {
   // soltar, volta a zero. É o mesmo acordo do horizontal quando se passa do
   // fim da fileira, só que aqui vale o percurso inteiro, porque na vertical
   // não existe "próxima cena" para onde ir.
-  alturaDoGesto = elastico(dy * ARRASTO_ACOMPANHA, amplitudeVertical());
+  alturaDoGesto = elastico(dy, amplitudeVertical());
 
   aplicarLayout();
   destacarMaisProxima();
@@ -1002,26 +1012,32 @@ function amortecer(v) {
   return v;
 }
 
-// Até onde a pilha cede na vertical, e como ela resiste no caminho.
+// Até onde o painel cede na vertical, como fração da altura do trilho.
 //
-// A fração é da altura do trilho, e não um número de pixels: numa tela baixa
-// um deslocamento de duzentos pixels tiraria o quadro da vista, e na tela larga
-// os mesmos duzentos seriam um tremor.
-const CEDE_NA_VERTICAL = 0.22;
+// Fração e não pixels: numa tela baixa um número fixo tiraria o quadro da
+// vista, e na tela larga o mesmo número seria um tremor.
+const CEDE_NA_VERTICAL = 0.09;
 
-// A tangente hiperbólica é a curva certa para isto e não é escolha de gosto.
+// Quanto do primeiro pixel de mão vira painel. É aqui que a resistência começa.
+const PRIMEIRO_PIXEL = 0.3;
+
+// O painel é atraído para o centro, e não repelido pela borda.
 //
-// No começo ela é quase uma reta: os primeiros pixels de mão viram os mesmos
-// pixels de painel, e o movimento parece solto. Conforme se afasta, a derivada
-// cai sozinha, então cada pixel a mais rende menos que o anterior. E ela nunca
-// chega ao limite, só encosta — que é exatamente a sensação de ser repelido
-// pela borda em vez de bater nela.
+// A primeira versão usava tangente hiperbólica, e ela produzia o efeito
+// errado: a tanh é quase uma reta no começo, então o painel andava solto por
+// um bom trecho e só então encontrava resistência, perto do limite. Isso lê
+// como uma parede macia na borda — repelido. O que funciona é o contrário:
+// sentir o puxão desde o primeiro pixel, crescendo sem parar, como uma mola
+// presa no centro.
 //
-// A alternativa seria um corte duro no limite, e corte duro não resiste: ele
-// para. Quem empurra sente a diferença na hora.
+// 1 - e^(-x) faz isso. A derivada no zero é PRIMEIRO_PIXEL, bem abaixo de um,
+// então a resistência já está lá quando a mão começa a andar; e ela cai desde
+// o primeiro pixel, sem trecho reto. A curva também nunca alcança o teto, só
+// se aproxima — o painel nunca bate em nada, ele só fica cada vez mais pesado.
 function elastico(distancia, amplitude) {
   if (!amplitude) return 0;
-  return amplitude * Math.tanh(distancia / amplitude);
+  const puxao = 1 - Math.exp((-Math.abs(distancia) * PRIMEIRO_PIXEL) / amplitude);
+  return Math.sign(distancia) * amplitude * puxao;
 }
 
 function amplitudeVertical() {
