@@ -29,6 +29,10 @@ const ESPERA_DEPOIS_DE_ERRO = 30 * 1000;
 // são umas cinco linhas do cartão: o bastante para saber do que se trata.
 const TETO_DO_CORPO = 400;
 
+// O mesmo corte para o que já foi respondido antes, mais curto: o passo de cima
+// é o que se lê agora, e os de baixo estão ali para dar o histórico.
+const TETO_DA_NOTA = 260;
+
 const cache = { dados: null, em: 0, carregando: false, erro: null, erroEm: 0 };
 
 // O que a pessoa abriu, por chave: "secao:encerradas", "historico:12",
@@ -421,7 +425,7 @@ function passo(e, r, atual, primeiro, duplicado) {
       })
     ),
     atual && duplicado ? duplicado : null,
-    e.nota ? h("p", { class: "sugestao__resposta", text: e.nota }) : null,
+    nota(e, r, atual),
     atual ? entrega(r) : null,
     atual ? previsao(r) : null
   );
@@ -452,6 +456,31 @@ function previsao(r) {
     text: `${r.status === "autorizado" ? "Publicação prevista" : "Resposta prevista"}: ${previsaoTexto(agenda.entrega)}`,
     title: `A passada do agente é às ${agenda.horario} e costuma levar ${plural(agenda.duracao, "minuto", "minutos")}.`,
   });
+}
+
+// O que foi dito naquele passo. O de cima é o que importa agora (o plano, o
+// motivo do não, a pergunta) e aparece inteiro. Os de baixo já foram lidos, e
+// mostrar os quatro por extenso transforma o cartão numa parede de texto.
+function nota(e, r, atual) {
+  const texto = String(e.nota || "");
+  if (!texto) return null;
+  const chave = `nota:${r.id}:${e.em}`;
+  const longo = !atual && texto.length > TETO_DA_NOTA;
+  const inteiro = !longo || abertos.has(chave);
+  return frag(
+    h("p", { class: "sugestao__resposta", text: inteiro ? texto : `${texto.slice(0, TETO_DA_NOTA).trimEnd()}…` }),
+    longo
+      ? h("button", {
+          type: "button",
+          class: "sugestao__mais",
+          text: inteiro ? "ver menos" : "ver tudo",
+          onClick: () => {
+            alternar(chave);
+            emit();
+          },
+        })
+      : null
+  );
 }
 
 // "Novo" quer dizer coisas diferentes conforme onde está na pilha: o primeiro
