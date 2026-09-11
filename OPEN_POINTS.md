@@ -1891,39 +1891,41 @@ escreve raramente lembra de dizer os dois.
 
 ### 20.1 Para onde o relato vai, e por que não para o repositório
 
-**Fica no banco do aplicativo.** Quem administra lê pelo mesmo botão, que para
-essa pessoa mostra também a lista do que chegou.
+**Fica no banco do aplicativo.** Todo mundo acompanha pela tela Sugestões
+(seção 21). Até 11 de setembro a lista ficava dentro do popup, e só quem
+administrava via.
 
 Encaminhar ao GitHub existe e fica **desligado por padrão**, porque o
 repositório deste projeto é público — e um relato de defeito quase sempre
 carrega um pedaço do trabalho real: o nome de um cliente, o título de uma
 tarefa. Publicar isso sem querer é o risco que o desenho existe para não correr.
-Para ligar, \`FEEDBACK_GITHUB_REPO\` aponta para um repositório **privado** à
-parte, e \`FEEDBACK_GITHUB_TOKEN\` é um token com permissão só de Issues, só
-nele. Instruções em \`.env.example\`.
+Para ligar, `FEEDBACK_GITHUB_REPO` aponta para um repositório **privado** à
+parte, e `FEEDBACK_GITHUB_TOKEN` é um token com permissão só de Issues, só
+nele. Instruções em `.env.example`.
 
 O relato já está salvo quando o encaminhamento é tentado. Se o GitHub falhar,
 quem escreveu não perde o que escreveu.
 
 ### 20.2 O que não pode acontecer, e o teste que segura cada coisa
 
-\`tests/feedback.test.js\` tem catorze testes, e a maioria é sobre o que não pode
-sair. O encaminhamento é testado com a rede simulada: \`fetch\` vira uma função
+`tests/feedback.test.js` tem catorze testes, e a maioria é sobre o que não pode
+sair. O encaminhamento é testado com a rede simulada: `fetch` vira uma função
 que registra cada chamada.
 
 - **O token não sai do servidor.** Nenhuma resposta o devolve, nem a de envio
   nem a de lista.
-- **A chamada só vai a \`api.github.com\`.** O repositório passa por uma regra de
-  formato \`dono/nome\`; seis tentativas de mudar o caminho ou o endereço —
-  \`../\`, \`?\`, URL inteira, \`@host\` — não geram chamada nenhuma.
+- **A chamada só vai a `api.github.com`.** O repositório passa por uma regra de
+  formato `dono/nome`; seis tentativas de mudar o caminho ou o endereço —
+  `../`, `?`, URL inteira, `@host` — não geram chamada nenhuma.
 - **O link de volta só é salvo se for do GitHub.** Uma resposta com endereço de
   outro lugar é descartada: é o que vira link na lista de quem administra.
-- **Menção e referência não disparam.** \`@fulano\` notificaria alguém de fora, e
-  \`#12\` ligaria o relato a outra issue. Um espaço de largura zero depois do
+- **Menção e referência não disparam.** `@fulano` notificaria alguém de fora, e
+  `#12` ligaria o relato a outra issue. Um espaço de largura zero depois do
   sinal desliga as duas e deixa o texto legível. No banco o texto fica como a
   pessoa escreveu; a neutralização é só do que iria ao GitHub.
-- **Membro envia, só admin lê.** A lista junta o que cada um relatou, e um
-  relato pode citar o trabalho de outra pessoa.
+- **Membro envia, e desde a seção 21 também lê.** A lista virou o quadro de
+  sugestões do time, e mostrar quem relatou é de propósito. O que continua só
+  de quem administra é o link da issue, que aponta para um repositório privado.
 - **Sem sessão, nada.**
 
 ### 20.3 O freio conta no banco, e não em memória
@@ -1931,9 +1933,9 @@ que registra cada chamada.
 Doze relatos por pessoa por hora. O login tem um freio em memória, e ele não
 serviria aqui: no modo hospedado cada instância tem a sua memória, e um freio
 por instância é freio nenhum. Contar no banco dá o mesmo número nos dois modos,
-com um índice em \`(author_id, created_at)\` para a contagem não varrer a tabela.
+com um índice em `(author_id, created_at)` para a contagem não varrer a tabela.
 
-A tabela é nova, então nasceu em \`core/schema.sql\` com o índice junto. A regra
+A tabela é nova, então nasceu em `core/schema.sql` com o índice junto. A regra
 que derrubou a produção em 8 de setembro é sobre índice em **coluna** migrada;
 tabela nova e seu índice no mesmo arquivo são seguros, e o teste de migração
 confirma.
@@ -1941,6 +1943,190 @@ confirma.
 ### 20.4 Como eu leio o que chegou
 
 O aplicativo não fala comigo em tempo real. O que existe: o relato fica
-guardado, e na sessão seguinte eu leio — pela rota \`GET /api/feedback\` com uma
+guardado, e na sessão seguinte eu leio — pela rota `GET /api/feedback` com uma
 sessão de administrador, ou, com o encaminhamento ligado, pelas issues do
-repositório privado com o \`gh\`.
+repositório privado com o `gh`.
+
+Desde a seção 21, quem lê primeiro é o agente diário: ele passa pela fila uma
+vez por dia, e o que decidiu aparece na tela Sugestões.
+
+---
+
+## 21. O ciclo dos relatos: agente diário, Sugestões e versões, em 11 de setembro de 2026
+
+O relato deixou de parar no banco. Uma vez por dia, uma tarefa agendada na
+máquina de quem administra lê os relatos pendentes, decide cada um, implementa o que pode,
+publica no `main` e grava no aplicativo o que fez. Quem relatou acompanha na
+tela **Sugestões** (barra lateral, atalho 5), e o painel de versões mostra, em
+cada versão feita pelo ciclo, de que relato ela veio e de quem.
+
+### 21.1 O caminho de um relato
+
+1. Alguém relata pelo ⚑. O relato nasce **Novo**.
+2. Às 05:17 (ou quando o computador ligar, se estava desligado), a tarefa
+   agendada roda `scripts/relatos/rodar.mjs`. Ele pede a fila à API de
+   produção com um token próprio. Fila vazia: termina ali, sem chamar o Claude.
+3. **Triagem.** O Claude Code sem cabeça lê os relatos novos e decide cada um,
+   só com ferramentas de leitura, num clone do repositório que é só dele.
+4. **Política.** Relato que a triagem deu por pronto vai para a implementação
+   se quem relatou for de confiança (papel de administrador, ou usuário na
+   lista local `autoresConfiaveis`). Dos outros, vira **Registrado no TODO**,
+   com o plano, esperando alguém autorizar.
+5. **Implementação.** Um relato por vez, cada um numa conversa própria, com
+   edição e um Bash que só roda teste e git local. Cada relato vira um commit
+   com a linha `Relato: N` no fim.
+6. **Guarda.** Código, não modelo, confere cada commit (21.4). O que passa é
+   aplicado sobre o `main` de agora, a suíte inteira roda, e o push sai sem
+   `--force`. A Vercel publica sozinha.
+7. O executor grava cada decisão na API e registra a passada, que a tela
+   Sugestões mostra no alto ("Última passada do agente: há 3 h").
+
+Quem administra autoriza o que ficou no TODO pela própria tela; o relato
+autorizado entra na passada seguinte, sem passar pela triagem de novo, com o
+plano que foi lido. Quando o agente pergunta alguma coisa (**Precisa de
+detalhe**), quem relatou responde no cartão, e o relato volta para a fila.
+
+### 21.2 As situações
+
+| Situação | Quando | Quem define |
+|---|---|---|
+| Novo | acabou de chegar, ou voltou para a fila | criação, reabrir, resposta de quem relatou |
+| Autorizado | quem administra disse sim ao plano | só administrador |
+| Precisa de detalhe | falta saber alguma coisa | agente |
+| Registrado no TODO | vale fazer, mas precisa de autorização | agente |
+| Corrigido | bug resolvido, com commit | agente, só em bug |
+| Adicionado | ideia feita, com commit | agente, só em ideia |
+| Rejeitado | contraria o produto, ou não é problema | agente, ou quem administra |
+| Tecnicamente inviável | não cabe na arquitetura | agente |
+| Duplicado | é o mesmo pedido de outro relato | agente |
+| Já existe | o pedido já está no produto | agente |
+
+Cada mudança vira uma linha em `feedback_events`, que é o "histórico" do
+cartão. As chaves estão em `SITUACOES` (`server/feedback.js`) e
+`SITUACAO_RELATO` (`web/js/format.js`): mudar uma sem a outra deixa o relato
+numa situação que ninguém sabe mostrar.
+
+### 21.3 O desenho de segurança
+
+O risco que o desenho existe para evitar: **o texto do relato é de quem usa**,
+as senhas do time são fracas por escolha, e o agente publica num repositório
+público que vai direto para produção. Um relato escrito por quem adivinhou uma
+senha não pode virar código rodando na máquina de quem administra nem commit
+no `main`.
+
+- **Duas triagens, separadas por confiança.** A leva dos relatos de autor
+  confiável não lê texto de mais ninguém, nem no contexto: o plano que sai
+  dela vai direto para quem edita e roda código, e um relato de fora na mesma
+  conversa poderia ditar esse plano. A outra leva lê tudo, porque nada do que
+  ela decide chega à implementação sem uma pessoa autorizar.
+- **A triagem só lê.** `--restricted` tira Bash e WebFetch, ignora os
+  settings de usuário e de projeto e confina as ferramentas de arquivo ao
+  clone; `--tools Read,Glob,Grep`, `--strict-mcp-config` sem servidor MCP
+  nenhum, `--permission-mode dontAsk`.
+- **O clone não tem segredo.** É um `git clone` do repositório público, dentro
+  de `~/.tdah-relatos/repo`: sem `.env`, sem `*.local.md`, sem `data/`. O token
+  fica em `~/.tdah-relatos/config.json`, fora de qualquer repositório, e o
+  ambiente do Claude sai sem nenhuma variável com cara de segredo.
+- **A implementação é um relato por conversa.** O texto de um relato nunca
+  está na conversa em que outro é implementado, e cada commit tem dono
+  conhecido: o executor anota em que vez ele nasceu, e o commit feito na vez
+  do relato 8 que se assina "Relato: 9" derruba o 8, não o 9.
+- **Nomes nunca no repositório.** A triagem não recebe nome de quem relatou;
+  o commit leva só o número; o nome aparece na tela vindo do banco. A guarda
+  confere as duas coisas de novo (21.4).
+- **Nenhum gancho roda.** Todo git do executor sai com `core.hooksPath`
+  apontando para uma pasta vazia e `core.fsmonitor=false`, e o `.git/config`
+  do clone é conferido antes do push: um remoto ou um ajudante de credencial
+  trocado ali seria executado com a credencial de quem publica.
+- **O caminho do clone é conferido** antes de todo `reset --hard` e `clean`:
+  tem de ser exatamente `~/.tdah-relatos/repo`, e nunca a cópia de trabalho.
+- **Push sem `--force`, sempre.** Se o `main` andou no meio, o executor refaz
+  sobre o `main` novo uma vez; andou de novo, não publica, e os relatos voltam
+  amanhã.
+
+O que continua aceito, e é bom saber: a suíte que roda antes do push executa
+código que o agente escreveu. Isso só acontece com relato de autor confiável
+ou autorizado depois de lido. Autorizar é mandar o plano para o agente seguir
+sem ninguém olhando, e o botão diz isso.
+
+### 21.4 O que a guarda barra
+
+`scripts/relatos/guarda.mjs`, com um teste para cada regra em
+`tests/relatos-guarda.test.js`:
+
+- commit sem `Relato: N`, ou citando relato fora da fila, ou outro relato que
+  não o da vez em que nasceu;
+- assunto com acento, com mais de 72 caracteres ou com prefixo tipo `fix:`;
+  travessão na mensagem; qualquer menção a Claude, Anthropic, Co-Authored-By,
+  "Generated with"; autor do commit que seja um agente;
+- arquivo que nunca muda por aqui, nem autorizado: `package.json` (em qualquer
+  pasta e caixa), `package-lock.json`, `vercel.json`, `.gitignore`, `.npmrc`,
+  `.github/`, `.claude/`, `.env*`, `*.local.md`, `scripts/relatos/`,
+  `server/auth.js`, `server/http.js`, `api/index.js`, `node_modules/`;
+- arquivo que só muda autorizado: esquema, `server/db.js`, `server/api.js`,
+  `server/index.js`, `server/paths.js`, `server/storage.js`, `AGENTS.md`,
+  `Dockerfile`, `compose.yaml`;
+- binário, link simbólico, submódulo, teste apagado, e `test(` removido sem
+  autorização;
+- mais de 8 arquivos ou 250 linhas por relato (autorizado: 25 e 1200);
+- segredo nas linhas novas: o token do agente, token do GitHub, chave da
+  Anthropic, chave privada, JWT, `authToken=`;
+- o nome de quem relatou (sem acento e sem caixa) ou um trecho de 40
+  caracteres do relato, na mensagem ou nas linhas novas.
+
+Commit barrado reprova o relato dono dele, que volta como Registrado no TODO
+com o motivo escrito. Se o motivo é arquivo que só uma pessoa pode mudar, a
+resolução diz isso, para ninguém autorizar à toa.
+
+### 21.5 Por que na máquina de quem administra, e não na nuvem
+
+As duas alternativas foram pesadas:
+
+- **Rotina na nuvem (Claude Code) ou GitHub Actions.** Roda com o computador
+  desligado, mas o agente seria uma conversa só, com o poder de push e da API
+  dentro dela, sem uma guarda que ele não consiga pular. E no Actions, com o
+  repositório público, o log de cada passada seria público, com o texto dos
+  relatos dentro.
+- **Tarefa agendada local (escolhida).** O executor é código determinístico:
+  ele segura o token, o push e a API, e o Claude só recebe o que precisa. O
+  log fica na máquina. O custo é depender do computador ligado: se ele estava
+  desligado às 05:17, a passada roda quando ele ligar (`StartWhenAvailable`).
+
+### 21.6 O que mudou para quem usa
+
+- A tela **Sugestões**: aguardando autorização no alto, abertas, feitas (com
+  a versão e o commit) e encerradas, fechadas por padrão. "Todas" e
+  "Minhas". O número na barra lateral é, para quem administra, o que espera
+  por ela; para os outros, o que ainda está aberto.
+- A lista de relatos saiu do popup do ⚑, que agora tem só o formulário e um
+  link "Ver sugestões". O aviso depois de enviar tem "Acompanhar", que leva ao
+  cartão do relato.
+- O painel de versões marca **via relato** as versões do ciclo e mostra, sem
+  abrir o "por quê", o relato, quem relatou e o que mudou. "na v1.3.41", no
+  cartão, abre o painel já na versão certa.
+- `GET /api/feedback` passou a ser de qualquer pessoa com sessão (seção 20.2).
+
+### 21.7 Em aberto
+
+- **Ativar em produção.** Três passos, na ordem: `npm run relatos:configurar`
+  (gera o token e copia), colar como `RELATOS_AGENTE_TOKEN` na Vercel e
+  publicar de novo, `npm run relatos:agendar`. Até lá as rotas do agente
+  respondem 404 e nada acontece.
+- **Autorizar exige papel de administrador.** Em produção, hoje, só a conta
+  de administração tem esse papel: ou se autoriza entrando com ela, ou a conta
+  pessoal de quem decide vira administradora pelo console do Turso.
+- **O Claude real ainda não rodou uma passada.** Nesta sessão, o classificador
+  do modo automático recusou chamar o `claude -p` de dentro dela, então tudo
+  foi testado com um Claude falso (`tests/relatos-rodar.test.js`, sem gastar
+  token). A primeira passada de verdade deve ser um ensaio olhando:
+  `npm run relatos -- --ensaio`. O que o ensaio confirma e o teste não tem
+  como confirmar: que `--permission-mode dontAsk` com `Bash(git commit:*)`
+  deixa commitar no modo `--restricted`, e que o `--json-schema` devolve
+  `structured_output` no formato esperado.
+- **Autores confiáveis começam vazios.** Só quem é administrador implementa
+  sem autorização. Para incluir alguém:
+  `npm run relatos:configurar -- --confiar usuario1,usuario2`.
+- **Custo.** Cada passada com fila gasta uma ou duas triagens e até cinco
+  implementações de uso da conta do Claude. Fila vazia não gasta nada.
+- **Só Windows.** `agendar.ps1` é do Agendador de Tarefas. Em outro sistema,
+  um cron chamando `node scripts/relatos/rodar.mjs` faz o mesmo.

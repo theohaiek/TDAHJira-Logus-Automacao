@@ -330,8 +330,13 @@ Cinco, todas no painel da Vercel, nenhuma no repositório:
 Duas opcionais, para encaminhar os relatos de bug e ideia a um repositório:
 `FEEDBACK_GITHUB_REPO` e `FEEDBACK_GITHUB_TOKEN`. **O repositório tem de ser
 privado** — o deste projeto é público, e relato de defeito carrega trabalho
-real. Sem elas o relato fica só no banco, e o administrador lê pelo botão ⚑.
+real. Sem elas o relato fica só no banco e aparece na tela Sugestões.
 Instruções completas em `.env.example`.
+
+Uma opcional para o agente diário dos relatos: `RELATOS_AGENTE_TOKEN`, com 32
+caracteres ou mais. Sem ela as rotas `/api/agente` respondem 404 e o ciclo não
+existe. O valor não se inventa à mão: `npm run relatos:configurar` gera um e
+copia (ver "O agente diário dos relatos", abaixo).
 
 Os nomes em `.env.example` estão sempre vazios — mantenha assim.
 
@@ -339,6 +344,40 @@ Os nomes em `.env.example` estão sempre vazios — mantenha assim.
 ele os anexos cairiam num disco somente leitura, então a função recusa a subir e
 diz o que falta. Se um Preview subir com 500 em tudo logo depois de recriar o
 store de Blob, é essa a causa — a variável não foi propagada para o ambiente.
+
+### O agente diário dos relatos
+
+Uma tarefa agendada do Windows roda `scripts/relatos/rodar.mjs` todo dia às
+05:17, lê os relatos pendentes, decide, implementa, publica e grava o que fez.
+O desenho e o porquê de cada trava estão em `OPEN_POINTS.md` seção 21.
+
+Ligar, uma vez, nesta ordem:
+
+1. `npm run relatos:configurar` gera o token, grava em
+   `~/.tdah-relatos/config.json` (fora do repositório) e copia para a área de
+   transferência. `-- --confiar usuario1,usuario2` diz quem pode ter relato
+   implementado sem autorização; administrador sempre pode.
+2. Colar na Vercel como `RELATOS_AGENTE_TOKEN` (Production) e publicar de novo.
+3. `npm run relatos:verificar` confere config, Claude Code, git, repositório e
+   API, sem gastar nada.
+4. `npm run relatos -- --ensaio` roda uma passada inteira sem publicar nem
+   gravar. Vale fazer a primeira assim, olhando.
+5. `npm run relatos:agendar` registra a tarefa. `-Remover` desfaz.
+
+No dia a dia:
+
+- **Rodar agora:** `npm run relatos`, ou
+  `Start-ScheduledTask -TaskName 'TDAH Logus - relatos'`.
+- **O que aconteceu:** `~/.tdah-relatos/execucoes/<data>/log.txt`, com o
+  prompt, a saída do Claude, a guarda e as decisões de cada passada. Guarda as
+  30 últimas.
+- **A tela diz "A última passada do agente falhou"**: o motivo está na própria
+  frase e no log. Os mais comuns: token diferente do servidor (refaça o passo 2
+  com o valor do config), Claude Code deslogado (abra o `claude` uma vez), push
+  recusado por credencial (`gh auth status`).
+- **Decisão que não chegou ao servidor** fica em
+  `~/.tdah-relatos/pendentes-de-envio.json` e é reenviada no começo da passada
+  seguinte, antes de qualquer outra coisa.
 
 ---
 
@@ -366,7 +405,28 @@ campo no formulário.
 
 ---
 
-## 9. Estado em 10 de setembro de 2026
+## 9. Estado em 11 de setembro de 2026
+
+Série **v1.3**. O relato de bug e ideia deixou de parar no banco: virou um
+ciclo com agente diário.
+
+- A tela **Sugestões** (atalho 5) mostra cada relato com a situação dele: no
+  alto o que espera autorização, depois abertas, feitas (com a versão e o
+  commit) e encerradas. Quem relatou vê quem decidiu, por quê, e responde
+  quando o agente pergunta.
+- `scripts/relatos/rodar.mjs` é o agente: triagem só de leitura, implementação
+  de um relato por vez, uma guarda em código que confere cada commit antes do
+  push, e a decisão gravada na API. Como ligar e operar: seção 7, "O agente
+  diário dos relatos". O desenho e as travas: `OPEN_POINTS.md` seção 21.
+- O painel de versões marca **via relato** as versões feitas pelo ciclo, com o
+  relato, quem relatou e o que mudou. O commit só leva o número do relato; o
+  nome vem do banco.
+- **Ainda não ligado em produção:** falta o token na Vercel e o agendamento, e
+  a primeira passada com o Claude de verdade deve ser um ensaio olhando
+  (`OPEN_POINTS.md` 21.7).
+- 218 testes passando, 76 deles novos.
+
+## 9.1 Estado em 10 de setembro de 2026
 
 Série **v1.3**, marcada pelos cartões flutuantes. Produção em `v1.3.21`.
 
@@ -382,7 +442,7 @@ Série **v1.3**, marcada pelos cartões flutuantes. Produção em `v1.3.21`.
   `Handoffs/2026-09-10 - V1.3 os cartoes flutuantes/00 - Handoff.md`, com as
   cinco coisas não óbvias do trilho e o que fazer quando cada uma quebra.
 
-## 9.1 Estado em 8 de setembro de 2026
+## 9.2 Estado em 8 de setembro de 2026
 
 Marcado como `v1.0`. É a árvore que se sabe boa: se uma mudança futura derrubar
 a produção, `git revert` até aqui devolve o aplicativo ao ar.
@@ -402,7 +462,7 @@ a produção, `git revert` até aqui devolve o aplicativo ao ar.
 - Os testes deixaram de poder apagar o banco real quando escritos com `import`
   estático — armadilha reproduzida e agora barrada nos sete arquivos.
 
-## 9.2 Estado em 5 de setembro de 2026
+## 9.3 Estado em 5 de setembro de 2026
 
 - V1 completa, publicada e validada em produção de ponta a ponta: criar tarefa,
   comentar, anexar print, recuperá-lo byte a byte, e recusar acesso sem sessão.

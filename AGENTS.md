@@ -100,6 +100,7 @@ suíte: vale leitura atenta e coerência com o arquivo ao redor.
 | Evento, trilha, atividade | `EVENT_KINDS` em `server/events.js`, `EVENT_FOR` em `server/tasks.js`, e os dois dicionários que traduzem o evento para o usuário, `FRASE` (`web/js/views/fluxo.js`) e `NARRA` (`web/js/ticket.js`). `tests/trilha.test.js` cobra os quatro de uma vez |
 | Exclusão de tarefa | `deleteTask` em `server/tasks.js`: o evento nasce sem `task_id` de propósito, e a lista de visitadas é o que impede um ciclo de travar o processo |
 | Ordem dos cartões | `moveTask` e `espalhar()` em `server/tasks.js` |
+| Relatos, Sugestões, o agente diário | `OPEN_POINTS.md` seção 21. As situações existem em dois lugares, `SITUACOES` (`server/feedback.js`) e `SITUACAO_RELATO` (`web/js/format.js`), e o formato `Relato: N` do commit só em `relatosDoCommit` (`server/versao.js`). Em `scripts/relatos/`, a guarda (`guarda.mjs`) é a última barreira entre o texto de quem usa e o `main` público: regra nova de commit entra lá, com teste, e nunca só no prompt do agente |
 | Ciclo de desenho | `app.js` e `ticket.js`: cada um tem sua instância do represamento que protege o campo em foco, e mexer numa só faz metade da tela apagar o que a pessoa digita |
 | Qualquer listagem | `visiveis()` em `web/js/store.js` — sem argumento, traz só `kind: "task"` |
 | Filtro de tela | `state.quadro` e `aplicarFiltroQuadro()` em `web/js/store.js`: é do quadro e de mais ninguém, e só da **cena geral** do trilho. Pôr filtro dentro de `visiveis()` faz o "o que faço agora" mudar junto, sem explicação na tela |
