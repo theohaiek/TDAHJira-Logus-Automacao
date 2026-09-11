@@ -297,12 +297,24 @@ arbitrárias e não são.
 
 ### Perdi a senha do administrador
 
-Não há recuperação por e-mail. Duas saídas:
+Não há recuperação por e-mail. Três saídas:
 
 1. Outra pessoa com papel `admin` cria um acesso novo pelo menu.
-2. Apagar a linha do usuário direto no Turso (painel → o banco do projeto) e
+2. Definir `ADMIN_USERNAME` no painel da Vercel com o nome de uma conta que já
+   existe e publicar de novo: ela vira administradora na subida. É o caminho
+   sem console de banco (ver "Tornar alguém administrador").
+3. Apagar a linha do usuário direto no Turso (painel → o banco do projeto) e
    reiniciar a função: sem nenhuma conta, a primeira requisição cria o
    administrador de novo e imprime a senha no log da Vercel.
+
+### Tornar alguém administrador
+
+`ADMIN_USERNAME=<usuario>` no painel da Vercel, e publicar de novo. Na subida,
+a conta com esse nome de usuário ganha o papel `admin` se ainda não tiver. A
+variável só promove: não rebaixa ninguém e não cria conta.
+
+O papel decide quem apaga tarefa, quem cria acesso e quem autoriza o que o
+agente de relatos vai implementar.
 
 ### Onde vejo erro de produção
 

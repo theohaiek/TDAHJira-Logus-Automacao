@@ -190,3 +190,42 @@ test("nome de usuário sem caractere válido responde 400", async () => {
     }
   );
 });
+
+// --- Promover alguém sem console de banco -----------------------------------
+
+test("ADMIN_USERNAME promove a conta que já existe, e não rebaixa nem cria ninguém", async () => {
+  const antes = process.env.ADMIN_USERNAME;
+  const { garantirAdministrador } = await import("../server/auth.js");
+  const membro = await createUser({
+    username: "promovido",
+    displayName: "Pessoa Promovida",
+    password: "uma-senha-boa",
+  });
+  const chefia = await createUser({
+    username: "chefia-existente",
+    displayName: "Chefia",
+    password: "uma-senha-boa",
+    role: "admin",
+  });
+
+  try {
+    delete process.env.ADMIN_USERNAME;
+    assert.equal(await garantirAdministrador(), null, "sem a variável, mexeu em alguém");
+    assert.equal((await one("SELECT role FROM users WHERE id = ?", [membro.id])).role, "member");
+
+    process.env.ADMIN_USERNAME = "nao-existe";
+    assert.equal(await garantirAdministrador(), null);
+    assert.equal((await one("SELECT COUNT(*) AS n FROM users WHERE username = ?", ["nao-existe"])).n, 0, "criou conta");
+
+    process.env.ADMIN_USERNAME = "promovido";
+    assert.equal(await garantirAdministrador(), "promovido");
+    assert.equal((await one("SELECT role FROM users WHERE id = ?", [membro.id])).role, "admin");
+    // Segunda subida: não tem o que promover, e a função diz isso.
+    assert.equal(await garantirAdministrador(), null);
+    // E quem já era administrador continua sendo.
+    assert.equal((await one("SELECT role FROM users WHERE id = ?", [chefia.id])).role, "admin");
+  } finally {
+    if (antes === undefined) delete process.env.ADMIN_USERNAME;
+    else process.env.ADMIN_USERNAME = antes;
+  }
+});

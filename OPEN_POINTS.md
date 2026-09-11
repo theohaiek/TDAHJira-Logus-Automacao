@@ -2161,9 +2161,11 @@ Riscos residuais aceitos, com o porquê:
   (gera o token e copia), colar como `RELATOS_AGENTE_TOKEN` na Vercel e
   publicar de novo, `npm run relatos:agendar`. Até lá as rotas do agente
   respondem 404 e nada acontece.
-- **Autorizar exige papel de administrador.** Em produção, hoje, só a conta
-  de administração tem esse papel: ou se autoriza entrando com ela, ou a conta
-  pessoal de quem decide vira administradora pelo console do Turso.
+- **Autorizar exige papel de administrador.** Quem decide precisa do papel
+  `admin`. O caminho sem console de banco é `ADMIN_USERNAME=<usuario>` no
+  painel da Vercel: na subida seguinte a conta com esse nome vira
+  administradora (server/auth.js, garantirAdministrador). Só promove, nunca
+  rebaixa, e nunca cria conta.
 - **A primeira passada real foi local, em 11 de setembro de 2026.** Com o
   servidor e um repositório bare locais, sem tocar em produção. A triagem
   decidiu certo e devolveu o formato pedido (US$ 0,24), mas escreveu sem

@@ -16,6 +16,7 @@ import {
   generatePassword,
   newInstallId,
   purgeExpiredSessions,
+  garantirAdministrador,
 } from "../server/auth.js";
 import { handleApi } from "../server/api.js";
 import { parseCookies, sendError, sameOrigin } from "../server/http.js";
@@ -67,6 +68,11 @@ async function pronto() {
         }
         console.log("");
       }
+
+      // A conta apontada por ADMIN_USERNAME é sempre administradora, exista ela
+      // desde agora ou desde antes. É o caminho para promover alguém sem passar
+      // pelo console do banco.
+      await garantirAdministrador();
 
       // Cada login grava uma linha com validade de 30 dias e nada as apaga: no
       // modo autônomo isso acontece a cada subida do servidor, aqui a subida a

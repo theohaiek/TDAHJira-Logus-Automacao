@@ -141,6 +141,27 @@ export async function purgeExpiredSessions() {
   await run("DELETE FROM sessions WHERE expires_at <= ?", [nowIso()]);
 }
 
+// A conta apontada por ADMIN_USERNAME é sempre administradora.
+//
+// A variável já nomeava a conta criada na primeira subida. Agora ela também
+// promove, e é por um motivo prático: sem isto, virar administrador de uma
+// instalação que já existe só era possível pelo console do banco, que quem
+// administra o produto pode não ter à mão. O papel decide quem apaga tarefa,
+// quem cria acesso e quem autoriza o que o agente de relatos vai implementar.
+//
+// Só promove: não rebaixa ninguém e não cria conta. Quem cria é o preparo da
+// primeira subida, logo antes de cada chamada desta função.
+export async function garantirAdministrador() {
+  const username = String(process.env.ADMIN_USERNAME || "").trim();
+  if (!username) return null;
+
+  const r = await run("UPDATE users SET role = 'admin' WHERE username = ? AND role <> 'admin'", [username]);
+  if (!r?.changes) return null;
+
+  console.log(`  Conta "${username}" promovida a administradora por ADMIN_USERNAME.`);
+  return username;
+}
+
 export async function createUser({
   username,
   displayName,

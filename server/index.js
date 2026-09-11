@@ -28,6 +28,7 @@ import {
   userFromToken,
   purgeExpiredSessions,
   newInstallId,
+  garantirAdministrador,
 } from "./auth.js";
 import { handleApi } from "./api.js";
 import { parseCookies, sendError, serveStatic, sameOrigin } from "./http.js";
@@ -76,6 +77,10 @@ async function iniciar() {
     if (!flag("serve")) process.exit(0);
   }
 
+  // A conta apontada por ADMIN_USERNAME é sempre administradora, tenha ela
+  // nascido agora ou já existisse. É o caminho para promover alguém sem passar
+  // pelo console do banco.
+  await garantirAdministrador();
   await purgeExpiredSessions();
   subirServidor();
 }
