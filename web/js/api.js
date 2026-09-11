@@ -52,6 +52,9 @@ export const api = {
   // botão de atualizar nunca acha nada.
   versao: () => request("GET", "versao", { cache: "no-store" }),
 
+  enviarRelato: (relato) => request("POST", "feedback", { body: relato }),
+  relatos: () => request("GET", "feedback"),
+
   state: () => request("GET", "state"),
   sync: (cursor) => request("GET", `sync?cursor=${cursor || 0}`),
   activity: (limit = 60) => request("GET", `activity?limit=${limit}`),

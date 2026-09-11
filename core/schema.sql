@@ -166,6 +166,28 @@ CREATE TABLE IF NOT EXISTS task_assignees (
 -- que não é o primeiro responsável varre a tabela inteira.
 CREATE INDEX IF NOT EXISTS idx_task_assignees_user ON task_assignees(user_id);
 
+-- --- Relatos de quem usa -----------------------------------------------------
+-- Bug ou ideia, escritos de dentro do próprio aplicativo. Ficam aqui primeiro,
+-- e só aqui, a menos que quem administra configure um repositório para
+-- recebê-los: o banco é o único lugar que se sabe privado por construção.
+--
+-- page e version são capturados sozinhos no envio. Um relato de defeito sem a
+-- tela em que ele aconteceu e sem a versão que estava no ar é metade de um
+-- relato, e quem escreve raramente lembra de dizer as duas coisas.
+CREATE TABLE IF NOT EXISTS feedback (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  kind       TEXT    NOT NULL,   -- bug | ideia
+  body       TEXT    NOT NULL,
+  author_id  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  page       TEXT,
+  version    TEXT,
+  issue_url  TEXT,               -- preenchido só se foi encaminhado ao GitHub
+  created_at TEXT    NOT NULL
+);
+
+-- Para o freio de envio: "quantos esta pessoa mandou na última hora".
+CREATE INDEX IF NOT EXISTS idx_feedback_autor ON feedback(author_id, created_at);
+
 -- --- Etiquetas -------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS labels (
   id    INTEGER PRIMARY KEY AUTOINCREMENT,

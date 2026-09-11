@@ -63,6 +63,7 @@ import {
 } from "./events.js";
 import { readJson, readBody, sendJson, sendError, cookieHeader, parseCookies } from "./http.js";
 import { versao } from "./versao.js";
+import { registrarFeedback, listarFeedback, encaminhamentoConfigurado } from "./feedback.js";
 
 export async function handleApi(req, res, { path, query, user }) {
   const seg = path.split("/").filter(Boolean); // ["api", ...]
@@ -83,6 +84,26 @@ export async function handleApi(req, res, { path, query, user }) {
   // correções que ela ainda não tem.
   if (head === "versao" && method === "GET") {
     return sendJson(res, 200, await versao());
+  }
+
+  // Relatos de bug e ideia. Qualquer pessoa com sessão escreve; só quem
+  // administra lê a lista, porque ela junta o que cada um relatou — e um
+  // relato pode citar o trabalho de outra pessoa ou de um cliente.
+  //
+  // A resposta do envio diz se o relato foi ao GitHub, e mais nada sobre ele:
+  // nem o endereço do repositório, nem o token, nem o link da issue.
+  if (head === "feedback") {
+    if (method === "POST") {
+      const body = await readJson(req);
+      return sendJson(res, 201, await registrarFeedback(body, user));
+    }
+    if (method === "GET") {
+      if (user.role !== "admin") return sendError(res, 403, "Apenas administradores leem os relatos.");
+      return sendJson(res, 200, {
+        feedback: await listarFeedback(),
+        encaminhamento: encaminhamentoConfigurado(),
+      });
+    }
   }
 
   // --- Estado completo -----------------------------------------------------

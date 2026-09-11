@@ -1881,3 +1881,66 @@ receber clique, e a altura útil do painel continua 957 px, a mesma de antes.
 
 A lição vale além daqui: **`el.click()` não prova que alguém consegue clicar em
 `el`.** Para isso, `elementFromPoint` no centro dele tem de devolver ele.
+
+## 20. Relatar bug ou ideia, de dentro do aplicativo, em 11 de setembro de 2026
+
+Um botão ⚑ na barra de cima abre um popup com dois botões — Bug e Ideia — e um
+campo de texto. A tela em que a pessoa estava e a versão no ar vão junto
+sozinhas: um relato de defeito sem esses dois é metade de um relato, e quem
+escreve raramente lembra de dizer os dois.
+
+### 20.1 Para onde o relato vai, e por que não para o repositório
+
+**Fica no banco do aplicativo.** Quem administra lê pelo mesmo botão, que para
+essa pessoa mostra também a lista do que chegou.
+
+Encaminhar ao GitHub existe e fica **desligado por padrão**, porque o
+repositório deste projeto é público — e um relato de defeito quase sempre
+carrega um pedaço do trabalho real: o nome de um cliente, o título de uma
+tarefa. Publicar isso sem querer é o risco que o desenho existe para não correr.
+Para ligar, \`FEEDBACK_GITHUB_REPO\` aponta para um repositório **privado** à
+parte, e \`FEEDBACK_GITHUB_TOKEN\` é um token com permissão só de Issues, só
+nele. Instruções em \`.env.example\`.
+
+O relato já está salvo quando o encaminhamento é tentado. Se o GitHub falhar,
+quem escreveu não perde o que escreveu.
+
+### 20.2 O que não pode acontecer, e o teste que segura cada coisa
+
+\`tests/feedback.test.js\` tem catorze testes, e a maioria é sobre o que não pode
+sair. O encaminhamento é testado com a rede simulada: \`fetch\` vira uma função
+que registra cada chamada.
+
+- **O token não sai do servidor.** Nenhuma resposta o devolve, nem a de envio
+  nem a de lista.
+- **A chamada só vai a \`api.github.com\`.** O repositório passa por uma regra de
+  formato \`dono/nome\`; seis tentativas de mudar o caminho ou o endereço —
+  \`../\`, \`?\`, URL inteira, \`@host\` — não geram chamada nenhuma.
+- **O link de volta só é salvo se for do GitHub.** Uma resposta com endereço de
+  outro lugar é descartada: é o que vira link na lista de quem administra.
+- **Menção e referência não disparam.** \`@fulano\` notificaria alguém de fora, e
+  \`#12\` ligaria o relato a outra issue. Um espaço de largura zero depois do
+  sinal desliga as duas e deixa o texto legível. No banco o texto fica como a
+  pessoa escreveu; a neutralização é só do que iria ao GitHub.
+- **Membro envia, só admin lê.** A lista junta o que cada um relatou, e um
+  relato pode citar o trabalho de outra pessoa.
+- **Sem sessão, nada.**
+
+### 20.3 O freio conta no banco, e não em memória
+
+Doze relatos por pessoa por hora. O login tem um freio em memória, e ele não
+serviria aqui: no modo hospedado cada instância tem a sua memória, e um freio
+por instância é freio nenhum. Contar no banco dá o mesmo número nos dois modos,
+com um índice em \`(author_id, created_at)\` para a contagem não varrer a tabela.
+
+A tabela é nova, então nasceu em \`core/schema.sql\` com o índice junto. A regra
+que derrubou a produção em 8 de setembro é sobre índice em **coluna** migrada;
+tabela nova e seu índice no mesmo arquivo são seguros, e o teste de migração
+confirma.
+
+### 20.4 Como eu leio o que chegou
+
+O aplicativo não fala comigo em tempo real. O que existe: o relato fica
+guardado, e na sessão seguinte eu leio — pela rota \`GET /api/feedback\` com uma
+sessão de administrador, ou, com o encaminhamento ligado, pelas issues do
+repositório privado com o \`gh\`.

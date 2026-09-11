@@ -327,6 +327,12 @@ Cinco, todas no painel da Vercel, nenhuma no repositório:
 `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, `BLOB_READ_WRITE_TOKEN`,
 `BLOB_STORE_ID`, `BLOB_WEBHOOK_PUBLIC_KEY`.
 
+Duas opcionais, para encaminhar os relatos de bug e ideia a um repositório:
+`FEEDBACK_GITHUB_REPO` e `FEEDBACK_GITHUB_TOKEN`. **O repositório tem de ser
+privado** — o deste projeto é público, e relato de defeito carrega trabalho
+real. Sem elas o relato fica só no banco, e o administrador lê pelo botão ⚑.
+Instruções completas em `.env.example`.
+
 Os nomes em `.env.example` estão sempre vazios — mantenha assim.
 
 `BLOB_READ_WRITE_TOKEN` não é opcional quando `TURSO_DATABASE_URL` existe: sem

@@ -2903,3 +2903,169 @@ input[type="color"] {
 .linha__fim {
   height: var(--sp-4);
 }
+
+/* ==========================================================================
+   Relatar um bug ou uma ideia
+   ========================================================================== */
+
+.popup--relato {
+  width: min(560px, 94vw);
+}
+
+.relato {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  margin-top: var(--sp-2);
+}
+
+/* Dois botões que alternam. Os dois à vista, sempre: quem abre para relatar
+   um defeito precisa saber que dali também sai uma ideia, e vice-versa. */
+.relato__tipos {
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px;
+  width: fit-content;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+}
+.relato__tipo {
+  padding: 5px 16px;
+  border-radius: 999px;
+  color: var(--text-3);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.relato__tipo:hover {
+  color: var(--text-1);
+}
+.relato__tipo.is-on {
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-weight: 600;
+}
+.relato__tipo:active {
+  transform: scale(0.96);
+}
+
+.relato__texto {
+  width: 100%;
+  min-height: 120px;
+  padding: var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-1);
+  font: inherit;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  resize: vertical;
+}
+.relato__texto:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--brilho-fraco);
+}
+
+.relato__rodape {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+/* O contexto que segue sozinho, em voz baixa: está ali para a pessoa saber
+   que não precisa explicar em que tela estava, e não para ser lido. */
+.relato__contexto {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+/* O que chegou, para quem administra. */
+.relato__recebidos {
+  margin-top: var(--sp-5);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--border-soft);
+}
+.relato__recebidostopo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--sp-3);
+}
+.relato__destino {
+  font-size: var(--text-xs);
+  color: var(--text-faint);
+}
+.relato__lista {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.relato__item {
+  padding: var(--sp-3);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.relato__itemtopo {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: 4px;
+  font-size: var(--text-xs);
+}
+.relato__selo {
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+}
+.relato__item--bug .relato__selo {
+  background: var(--alert-bg);
+  color: var(--alert);
+}
+.relato__item--ideia .relato__selo {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+.relato__quem {
+  color: var(--text-2);
+}
+.relato__quando {
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+.relato__issue {
+  margin-left: auto;
+  color: var(--accent);
+}
+.relato__corpo {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-1);
+  white-space: pre-wrap;
+  text-wrap: pretty;
+}
+.relato__onde {
+  display: block;
+  margin-top: 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-faint);
+}
+.relato__vazio {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-3);
+}

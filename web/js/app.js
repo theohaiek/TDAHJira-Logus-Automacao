@@ -35,6 +35,7 @@ import { parseCaptura, dicas } from "./capture.js";
 import { abrirHoje, abrirHojeSePrimeiraVezNoDia, redesenharHoje, popupAberto } from "./popup.js";
 import { toast, erro } from "./toast.js";
 import { iniciarVersao } from "./versao.js";
+import { ligarRelato } from "./feedback.js";
 import { pedir } from "./dialog.js";
 
 // O Hoje não está aqui, e é de propósito. Ele não é uma tela: é a pergunta
@@ -82,6 +83,7 @@ async function entrar() {
   // aplicativo por causa de um rótulo de rodapé seria trocar o essencial pelo
   // acessório.
   iniciarVersao();
+  ligarRelato();
 
   rota();
   window.addEventListener("hashchange", rota);
