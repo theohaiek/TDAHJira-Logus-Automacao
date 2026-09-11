@@ -273,7 +273,9 @@ test("nome de conta que é palavra comum do código não barra o commit", () => 
   const relatos = fila({ nomes: ["Administrador", "admin"] });
   const r = avaliar(commit({ adicionadas: ['if (user.role !== "admin") return;'] }), relatos);
   assert.deepEqual(r.aprovados, [1]);
-  assert.deepEqual(nomesProibidos(["admin", "Ana", "Márcia Vitória"]), ["marcia", "vitoria"]);
+  // Nome curto de uma palavra só conta inteiro: "Ana" escapava do piso de
+  // quatro letras, e nome de quem relatou não pode ir para o repositório.
+  assert.deepEqual(nomesProibidos(["admin", "Ana", "Márcia Vitória"]), ["ana", "marcia", "vitoria"]);
 });
 
 test("trecho copiado do relato é barrado; uma palavra em comum não", () => {
@@ -317,4 +319,49 @@ test("o commit impostor derruba o relato em cuja vez nasceu, e não o que ele di
   assert.deepEqual(r.aprovados, [1]);
   assert.deepEqual(r.commitsAprovados, ["1".repeat(40)]);
   assert.deepEqual(r.reprovados.map((x) => x.id), [2]);
+});
+
+// --- O que a revisão adversarial de 11 de setembro de 2026 achou ------------
+
+test("segredo partido em duas linhas é barrado igual ao inteiro", () => {
+  const inteiro = `const t = "gh${"p"}_${"A".repeat(36)}";`;
+  assert.ok(barrou(avaliar(commit({ adicionadas: [inteiro] })), "credencial"));
+
+  const partido = [`const a = "gh${"p"}_${"A".repeat(20)}" +`, `  "${"A".repeat(16)}";`];
+  assert.ok(barrou(avaliar(commit({ adicionadas: partido })), "credencial"), "segredo quebrado em duas linhas passou");
+
+  const doAgente = [`const meio = "${TOKEN.slice(0, 20)}" +`, `  "${TOKEN.slice(20)}";`];
+  assert.ok(barrou(avaliar(commit({ adicionadas: doAgente })), "token"), "o token do agente quebrado em duas linhas passou");
+});
+
+test("o nome de quem relatou é barrado mesmo sem o espaço no meio", () => {
+  const relatos = fila({ nomes: ["Marcia Vitoria", "marcia_vitoria"] });
+  for (const linha of ["const autor = 'MarciaVitoria';", "// pedido de marcia-vitoria", "const marciaVitoria = 1;"]) {
+    assert.ok(barrou(avaliar(commit({ adicionadas: [linha] }), relatos), "nome"), `deixou passar: ${linha}`);
+  }
+});
+
+test("commit de junção não entra: a guarda não tem o que ler nele", () => {
+  const c = { ...commit(), pais: ["a".repeat(40), "b".repeat(40)] };
+  assert.ok(barrou(avaliar(c), "junção"));
+  assert.deepEqual(avaliar(c).commitsAprovados, []);
+});
+
+test("espaço ou ponto no fim do caminho não tira a proteção do arquivo", () => {
+  for (const caminho of ["package.json ", "package.json.", "scripts/relatos/guarda.mjs ", "server/feedback.js "]) {
+    const arquivos = [{ caminho, adicionadas: 1, removidas: 0, status: "A", binario: false, modo: "100644" }];
+    const r = avaliar(commit({ arquivos }), fila({ autorizado: true }));
+    assert.deepEqual(r.aprovados, [], `deixou passar ${JSON.stringify(caminho)}`);
+  }
+});
+
+test("o arquivo que define a regra e a porta do agente nunca muda por aqui", () => {
+  const arquivos = [{ caminho: "server/feedback.js", adicionadas: 3, removidas: 1, status: "M", binario: false, modo: "100644" }];
+  const r = avaliar(commit({ arquivos }), fila({ autorizado: true }));
+  assert.deepEqual(r.aprovados, []);
+  assert.ok(barrou(r, "só uma pessoa pode mudar"));
+
+  const versao = [{ caminho: "server/versao.js", adicionadas: 3, removidas: 1, status: "M", binario: false, modo: "100644" }];
+  assert.deepEqual(avaliar(commit({ arquivos: versao })).aprovados, [], "versao.js passou sem autorização");
+  assert.deepEqual(avaliar(commit({ arquivos: versao }), fila({ autorizado: true })).aprovados, [1]);
 });

@@ -544,3 +544,31 @@ function corpoJson(objeto) {
     headers: { "content-type": "application/json", origin: "https://exemplo.test" },
   };
 }
+
+test("caractere invisível e de direção não entra no relato nem na resolução", async () => {
+  const rlo = String.fromCharCode(0x202e);
+  const pdf = String.fromCharCode(0x202c);
+  const zw = String.fromCharCode(0x200b);
+  const bom = String.fromCharCode(0xfeff);
+
+  const id = await novoRelato("bug", `O bot${zw}ão ${rlo}esrevni ed otxet${pdf} some${bom}`);
+  const r = await relatoNaLista(id);
+  for (const ch of [rlo, pdf, zw, bom]) {
+    assert.ok(!r.body.includes(ch), "caractere invisível ficou no corpo do relato");
+  }
+  assert.ok(r.body.startsWith("O botão "));
+
+  const decidido = await decidir(id, { status: "detalhe", resolution: `Em qual ${rlo}alet${pdf}?${zw}` });
+  assert.equal(decidido.statusCode, 200);
+  for (const ch of [rlo, pdf, zw]) {
+    assert.ok(!decidido.dados.relato.resolution.includes(ch), "caractere invisível ficou na resolução");
+  }
+
+  const resposta = await chamar(`/api/feedback/${id}/complemento`, {
+    user: membro,
+    method: "POST",
+    ...corpoJson({ texto: `No ${rlo}emorhC${pdf}` }),
+  });
+  assert.equal(resposta.statusCode, 200);
+  assert.ok(!resposta.dados.relato.body.includes(rlo), "caractere de direção entrou pelo complemento");
+});

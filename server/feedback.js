@@ -122,7 +122,7 @@ export async function registrarFeedback(entrada, user) {
   const kind = String(entrada?.kind || "").trim();
   if (!TIPOS.includes(kind)) throw badRequest("Diga se é um bug ou uma ideia.");
 
-  const body = String(entrada?.body || "").trim();
+  const body = semInvisiveis(entrada?.body || "").trim();
   if (!body) throw badRequest("Escreva o que aconteceu, ou o que você teve em mente.");
   if (body.length > TETO_DO_TEXTO) {
     throw badRequest(`Ficou longo demais: o limite é ${TETO_DO_TEXTO} caracteres.`);
@@ -336,7 +336,7 @@ export async function acaoDoAdmin(id, entrada, user) {
 // relato, e não só na história: é o texto do relato que o agente lê na
 // passada seguinte, e ele precisa ver a pergunta respondida junto do pedido.
 export async function complementar(id, entrada, user) {
-  const texto = String(entrada?.texto ?? "").trim();
+  const texto = semInvisiveis(entrada?.texto).trim();
   if (!texto) throw badRequest("Escreva a resposta.");
   if (texto.length > TETO_DO_COMPLEMENTO) {
     throw badRequest(`Ficou longo demais: o limite é ${TETO_DO_COMPLEMENTO} caracteres.`);
@@ -611,11 +611,19 @@ function falha(status, mensagem) {
   return erro;
 }
 
+// Caracteres que mudam a leitura sem aparecer: os de direção, que invertem
+// visualmente um trecho do texto, os de largura zero e a marca de ordem de
+// byte. Um relato pode chegar com eles de propósito, e o texto é lido por
+// gente na tela e por um modelo no prompt do agente.
+function semInvisiveis(valor) {
+  return String(valor ?? "").replace(/[\u200B-\u200F\u061C\u2028\u2029\u202A-\u202E\u2066-\u2069\uFEFF]/g, "");
+}
+
 // Tira caractere de controle, menos a quebra de linha: a resolução é lida em
 // parágrafos, e o resto (retorno de carro, tabulação, nulo) só atrapalha quem
 // lê e quem guarda.
 function semControle(valor) {
-  return String(valor ?? "")
+  return semInvisiveis(valor)
     .replace(/\r\n?/g, "\n")
     .replace(/[\u0000-\u0009\u000B-\u001F\u007F]/g, "")
     .trim();

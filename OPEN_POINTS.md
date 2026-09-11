@@ -2106,6 +2106,55 @@ As duas alternativas foram pesadas:
   cartão, abre o painel já na versão certa.
 - `GET /api/feedback` passou a ser de qualquer pessoa com sessão (seção 20.2).
 
+### 21.8 A revisão adversarial, em 11 de setembro de 2026
+
+Antes de ligar o ciclo, quatro revisões independentes atacaram o desenho
+(guarda, injeção e fluxo de dados, executor no Windows, servidor e tela), e
+cada achado passou por dois céticos. Treze achados, doze de pé. O que virou
+código:
+
+- **Segredo partido em duas linhas passava.** Os padrões de credencial só
+  casavam texto contíguo, e `const a = "ghp_AAA" + "BBB";` não é contíguo.
+  Agora a conferência roda também sobre o texto sem espaço e sem a pontuação
+  de concatenação, e o mesmo vale para o token do próprio agente.
+- **Nome de quem relatou sem o espaço no meio passava.** A busca era por
+  palavra inteira, e "AnaSouza" é uma palavra só. Agora o nome inteiro também
+  é procurado corrido, e nome ou conta de uma palavra conta a partir de três
+  letras (o piso de quatro deixava "Ana" e "Kai" de fora).
+- **`server/feedback.js` não estava na lista de arquivos proibidos.** É o
+  arquivo que autentica o agente e diz o que ele pode decidir sozinho: quem
+  reescreve a própria regra não tem regra. `server/versao.js`, que guarda o
+  formato `Relato: N`, passou a exigir autorização.
+- **Espaço ou ponto no fim do caminho.** "package.json " é package.json no
+  disco do Windows e não era para a guarda. Cada pedaço do caminho agora é
+  comparado sem esses restos.
+- **Commit de junção.** Ele não tem diff próprio para a guarda ler. Implementar
+  um relato nunca precisa de um, então agora é recusado de cara.
+- **Ganchos do git só estavam desligados nos comandos do executor**, e o agente
+  commita sozinho. O ambiente do filho agora força `core.hooksPath` para uma
+  pasta vazia, por variável de ambiente.
+- **O ambiente do filho deixava passar qualquer `ANTHROPIC_*` e `CLAUDE_*`.**
+  Virou lista explícita: só as variáveis que o Claude Code de fato usa.
+- **A triagem dos relatos confiáveis era uma conversa só para todos eles.** Um
+  relato de conta confiável comprometida podia ditar o plano de outro relato
+  confiável. Agora é uma conversa por relato, como a implementação.
+- **Caractere invisível e de direção no texto do relato.** Um trecho entre
+  U+202E e U+202C inverte visualmente a leitura na tela e no prompt do agente.
+  O corpo do relato, o complemento e a resolução agora entram sem eles.
+
+Riscos residuais aceitos, com o porquê:
+
+- **Nome de terceiro.** A guarda só conhece o nome de quem relatou; um relato
+  que peça para "creditar" outra pessoa num comentário não é pego por ela. O
+  que segura é o prompt ("nunca escreva nome de pessoa") e a revisão de quem
+  lê o commit depois.
+- **Soma do dia.** O teto é por relato (250 linhas confiável, 1200 autorizado)
+  e a passada faz no máximo cinco. Cinco mudanças pequenas e coordenadas no
+  mesmo dia cabem nesse teto; o que as pega é ler o histórico, e o ciclo existe
+  para ser lido.
+- **A suíte roda código escrito pelo agente.** É o preço de testar antes de
+  publicar, e só acontece com relato de autor confiável ou já autorizado.
+
 ### 21.7 Em aberto
 
 - **Ativar em produção.** Três passos, na ordem: `npm run relatos:configurar`

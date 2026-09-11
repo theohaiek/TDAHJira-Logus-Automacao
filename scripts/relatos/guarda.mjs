@@ -46,6 +46,9 @@ const PROIBIDOS = [
   { casa: (p) => p === "server/auth.js", motivo: "login e sessão" },
   { casa: (p) => p === "server/http.js", motivo: "cabeçalhos de segurança" },
   { casa: (p) => p === "api/index.js", motivo: "entrada do modo hospedado" },
+  // O arquivo que autentica o próprio agente e diz o que ele pode decidir
+  // sozinho. Quem reescreve a própria regra não tem regra.
+  { casa: (p) => p === "server/feedback.js", motivo: "a regra e a porta do agente de relatos" },
 ];
 
 // Arquivos que mudam só quando quem administra leu o plano e autorizou:
@@ -59,6 +62,9 @@ const SO_AUTORIZADO = [
   "server/index.js",
   "server/paths.js",
   "server/storage.js",
+  // relatosDoCommit mora aqui, e é o que liga commit a relato: a guarda lê
+  // esse formato, e mudá-lo muda a própria conferência das próximas passadas.
+  "server/versao.js",
   "agents.md",
   "dockerfile",
   "compose.yaml",
@@ -110,6 +116,9 @@ export function avaliarCommits({ commits, relatos, segredos = [], limites = LIMI
     const motivos = [];
 
     if (!ids.length) motivos.push("commit sem a linha Relato: N");
+    // Commit de junção não tem diff próprio para a guarda ler: o conteúdo dele
+    // vem dos pais, e implementar um relato nunca precisa de junção.
+    if ((c.pais || []).length > 1) motivos.push("commit de junção (merge)");
     const fora = ids.filter((id) => !relatos.has(id));
     if (fora.length) motivos.push(`cita relato fora da fila (${fora.join(", ")})`);
 
@@ -259,29 +268,43 @@ function conferirConteudo(c, { relatos, segredos }) {
   const motivos = [];
   const adicionado = c.linhasAdicionadas.map((l) => l.texto).join("\n");
   const tudo = `${c.mensagem}\n${adicionado}`;
+  // O mesmo texto sem espaço e sem a pontuação com que se cola string em
+  // código. Um segredo partido em duas linhas ("const a = 'ghp_AAA' + 'BBB';")
+  // não casa com nenhum padrão contíguo, e quem lê o repositório junta as duas
+  // metades num segundo.
+  const colado = semJuncao(tudo);
 
   for (const valor of segredos) {
-    if (valor && String(valor).length >= 8 && tudo.includes(valor)) motivos.push("o token do agente aparece no commit");
+    const v = String(valor || "");
+    if (v.length >= 8 && (tudo.includes(v) || colado.includes(semJuncao(v)))) {
+      motivos.push("o token do agente aparece no commit");
+    }
   }
   for (const padrao of SEGREDOS) {
-    if (padrao.test(tudo)) {
+    if (padrao.test(tudo) || padrao.test(colado)) {
       motivos.push("algo com cara de credencial nas linhas novas");
       break;
     }
   }
 
   const palavras = new Set(palavrasDe(tudo));
+  // Sem acento, sem caixa e sem separador: é onde "Ana Souza" e "AnaSouza"
+  // viram a mesma coisa, que é como quem lê o commit também entende.
+  const corrido = palavrasDe(tudo).join("");
   for (const r of relatos) {
-    for (const n of nomesProibidos(r.nomes)) {
-      if (palavras.has(n)) {
-        motivos.push("o nome de quem relatou aparece no commit");
-        break;
-      }
+    const nomes = nomesProibidos(r.nomes);
+    const inteiros = nomesInteiros(r.nomes);
+    if (nomes.some((n) => palavras.has(n)) || inteiros.some((n) => corrido.includes(n))) {
+      motivos.push("o nome de quem relatou aparece no commit");
     }
     if (temTrechoDoRelato(r.texto, tudo)) motivos.push("trecho copiado do relato no commit");
   }
 
   return motivos;
+}
+
+function semJuncao(texto) {
+  return String(texto || "").replace(/[\s"'`+\\,]/g, "");
 }
 
 // As palavras de um nome que vale procurar: quatro letras ou mais (menos que
@@ -291,9 +314,24 @@ export function nomesProibidos(nomes = []) {
   const saida = new Set();
   for (const nomeCompleto of nomes) {
     if (!nomeCompleto) continue;
-    for (const p of palavrasDe(nomeCompleto)) {
+    const partes = palavrasDe(nomeCompleto);
+    for (const p of partes) {
       if (p.length >= 4 && !NOMES_GENERICOS.has(p)) saida.add(p);
     }
+    // Um nome de conta é escolhido, não é palavra do idioma: vale inteiro, com
+    // três letras ou mais. "Kai" e "ana" escapavam do piso de quatro.
+    if (partes.length === 1 && partes[0].length >= 3 && !NOMES_GENERICOS.has(partes[0])) saida.add(partes[0]);
+  }
+  return [...saida];
+}
+
+// O nome inteiro, sem separador: procurado como pedaço contínuo do commit,
+// também sem separador. Cobre "AnaSouza", "ana_souza" e "ana-souza" de uma vez.
+export function nomesInteiros(nomes = []) {
+  const saida = new Set();
+  for (const nomeCompleto of nomes) {
+    const junto = palavrasDe(nomeCompleto).join("");
+    if (junto.length >= 5 && !NOMES_GENERICOS.has(junto)) saida.add(junto);
   }
   return [...saida];
 }
@@ -334,7 +372,13 @@ function normalizar(caminho) {
     .split(String.fromCharCode(92))
     .join("/")
     .replace(/^[.][/]/, "")
-    .toLowerCase();
+    .toLowerCase()
+    .split("/")
+    // Espaço ou ponto no fim de um pedaço do caminho: o Windows os descarta ao
+    // criar o arquivo, então "package.json " é package.json no disco e não era
+    // package.json para a guarda.
+    .map((parte) => parte.replace(/[ .]+$/, "") || parte)
+    .join("/");
 }
 
 function nome(p) {

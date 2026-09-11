@@ -83,6 +83,18 @@ const PADRAO = {
   comandoDeTeste: null,
 };
 
+// As únicas variáveis de Claude que passam. Uma lista explícita, e não o
+// prefixo inteiro: "CLAUDE_ALGUMA_API_KEY" de outra integração da máquina não
+// tem por que viajar para dentro desta.
+const DO_CLAUDE = new Set([
+  "ANTHROPIC_API_KEY",
+  "ANTHROPIC_AUTH_TOKEN",
+  "ANTHROPIC_BASE_URL",
+  "ANTHROPIC_MODEL",
+  "CLAUDE_CODE_OAUTH_TOKEN",
+  "CLAUDE_CONFIG_DIR",
+]);
+
 // --- O que cada agente pode usar -------------------------------------------------
 //
 // As duas chaves de atribuição repetem a regra da casa (nenhum crédito a
@@ -252,15 +264,19 @@ async function passada({ ensaio }) {
     // e roda código, e um relato de fora lido na mesma conversa poderia ditar
     // esse plano. A outra leva lê tudo, porque nada do que ela decide chega à
     // implementação sem uma pessoa autorizar antes.
+    // E a leva confiável vai um relato por conversa, como a implementação: se
+    // uma conta confiável for tomada, o relato dela não fica na mesma conversa
+    // em que o plano de outra pessoa é escrito.
     const confiavel = (autor) => ehConfiavel(autor, config.autoresConfiaveis);
     const confiaveis = novos.filter((p) => confiavel(p.autor));
     const outros = novos.filter((p) => !confiavel(p.autor));
+    const contextoConfiavel = contexto.filter((c) => confiavel(c.autor));
     const levas = [
-      {
-        etapa: "triagem-confiaveis",
-        relatos: confiaveis,
-        contexto: contexto.filter((c) => confiavel(c.autor)),
-      },
+      ...confiaveis.map((p) => ({
+        etapa: `triagem-confiavel-${p.id}`,
+        relatos: [p],
+        contexto: contextoConfiavel,
+      })),
       {
         etapa: "triagem",
         relatos: outros,
@@ -630,15 +646,30 @@ async function coletarCommits(clone, base) {
 
 async function commitsEntre(clone, de, ate) {
   const saida = (
-    await git(clone, ["log", "--reverse", `--format=%H${US}%an${US}%ae${US}%cn${US}%ce${US}%B${RS}`, `${de}..${ate}`])
+    await git(clone, [
+      "log",
+      "--reverse",
+      // %P são os pais: a guarda recusa commit de junção, que não tem diff
+      // próprio para ela ler.
+      `--format=%H${US}%P${US}%an${US}%ae${US}%cn${US}%ce${US}%B${RS}`,
+      `${de}..${ate}`,
+    ])
   ).saida;
   return saida
     .split(RS)
     .map((r) => r.replace(/^\s+/, ""))
     .filter(Boolean)
     .map((r) => {
-      const [sha, autorNome, autorEmail, commitNome, commitEmail, mensagem] = r.split(US);
-      return { sha, autorNome, autorEmail, commitNome, commitEmail, mensagem: (mensagem || "").trim() };
+      const [sha, pais, autorNome, autorEmail, commitNome, commitEmail, mensagem] = r.split(US);
+      return {
+        sha,
+        pais: String(pais || "").split(" ").filter(Boolean),
+        autorNome,
+        autorEmail,
+        commitNome,
+        commitEmail,
+        mensagem: (mensagem || "").trim(),
+      };
     });
 }
 
@@ -859,14 +890,23 @@ function resolverClaude(config) {
 function ambienteDoFilho() {
   const env = {};
   for (const [chave, v] of Object.entries(process.env)) {
-    if (/^(ANTHROPIC|CLAUDE)_/i.test(chave)) {
+    if (DO_CLAUDE.has(chave.toUpperCase())) {
       env[chave] = v;
       continue;
     }
-    if (/TOKEN|SECRET|PASSWORD|SENHA|KEY|TURSO|VERCEL|GITHUB|GH_|RELATOS_AGENTE/i.test(chave)) continue;
+    if (/TOKEN|SECRET|PASSWORD|SENHA|KEY|TURSO|VERCEL|GITHUB|GH_|RELATOS_AGENTE|ANTHROPIC|CLAUDE/i.test(chave)) continue;
     env[chave] = v;
   }
   env.GIT_TERMINAL_PROMPT = "0";
+  // Os ganchos também ficam desligados nos git que o próprio agente roda, e
+  // não só nos do executor: ele commita sozinho, e um pre-commit escrito no
+  // clone seria código rodando fora de qualquer lista de permissão.
+  mkdirSync(SEM_GANCHOS, { recursive: true });
+  env.GIT_CONFIG_COUNT = "2";
+  env.GIT_CONFIG_KEY_0 = "core.hooksPath";
+  env.GIT_CONFIG_VALUE_0 = SEM_GANCHOS;
+  env.GIT_CONFIG_KEY_1 = "core.fsmonitor";
+  env.GIT_CONFIG_VALUE_1 = "false";
   return env;
 }
 
