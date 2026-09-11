@@ -59,6 +59,11 @@ function comandos() {
     { rotulo: "Ir para o Quadro", atalho: "2", acao: () => irPara("quadro") },
     { rotulo: "Ir para a Planilha", atalho: "3", acao: () => irPara("planilha") },
     { rotulo: "Ir para o Fluxo", atalho: "4", acao: () => irPara("fluxo") },
+    { rotulo: "Ir para Sugestões", atalho: "5", acao: () => irPara("sugestoes") },
+    {
+      rotulo: "Relatar um bug ou uma ideia",
+      acao: () => document.getElementById("relato-btn").click(),
+    },
     {
       rotulo: "Alternar tema claro e escuro",
       acao: () => document.getElementById("theme-btn").click(),

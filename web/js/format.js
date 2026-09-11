@@ -23,6 +23,22 @@ export const STATUS_COLOR = {
   done: "var(--st-done)",
 };
 
+// O que foi feito com cada relato de bug ou ideia. As chaves são as do
+// servidor (SITUACOES em server/feedback.js); o tom vira a cor da etiqueta, e
+// o grupo, a seção da tela Sugestões em que o relato aparece.
+export const SITUACAO_RELATO = {
+  novo: { rotulo: "Novo", tom: "neutro", grupo: "abertas" },
+  autorizado: { rotulo: "Autorizado", tom: "acento", grupo: "abertas" },
+  detalhe: { rotulo: "Precisa de detalhe", tom: "atencao", grupo: "abertas" },
+  todo: { rotulo: "Registrado no TODO", tom: "atencao", grupo: "aguardando" },
+  corrigido: { rotulo: "Corrigido", tom: "sucesso", grupo: "feitas" },
+  adicionado: { rotulo: "Adicionado", tom: "sucesso", grupo: "feitas" },
+  rejeitado: { rotulo: "Rejeitado", tom: "perigo", grupo: "encerradas" },
+  inviavel: { rotulo: "Tecnicamente inviável", tom: "apagado", grupo: "encerradas" },
+  duplicado: { rotulo: "Duplicado", tom: "apagado", grupo: "encerradas" },
+  ja_existe: { rotulo: "Já existe", tom: "apagado", grupo: "encerradas" },
+};
+
 // "task" é o fluxo do dia. Os outros três são horizontes mais longos e vivem
 // em quadros próprios na tela inicial, na ordem abaixo.
 export const KIND_LABEL = {

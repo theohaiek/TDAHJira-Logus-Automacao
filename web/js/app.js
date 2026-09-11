@@ -27,6 +27,7 @@ import {
 } from "./views/quadro.js";
 import { viewPlanilha } from "./views/planilha.js";
 import { viewFluxo } from "./views/fluxo.js";
+import { viewSugestoes, contagemSugestoes, carregarSugestoes } from "./views/sugestoes.js";
 import { fecharTicket, ticketAberto, rerenderTicket } from "./ticket.js";
 import { abrirFoco, fecharFoco, focoAtivo } from "./focus.js";
 import { abrirPaleta, fecharPaleta, paletaAberta, iniciarPaleta } from "./palette.js";
@@ -47,6 +48,10 @@ const VIEWS = {
   quadro: { titulo: "Quadro", icone: "▦", render: viewQuadro },
   planilha: { titulo: "Planilha", icone: "▤", render: viewPlanilha },
   fluxo: { titulo: "Fluxo", icone: "◈", render: viewFluxo },
+  // O que foi feito com cada relato do ⚑. É uma tela, e não um popup como o
+  // Hoje, porque se lê com calma e se volta a ela: é onde quem pediu descobre
+  // o que aconteceu com o pedido.
+  sugestoes: { titulo: "Sugestões", icone: "⚑", render: viewSugestoes },
 };
 
 // --- Início -----------------------------------------------------------------
@@ -84,6 +89,9 @@ async function entrar() {
   // acessório.
   iniciarVersao();
   ligarRelato();
+  // Também sem await, pelo mesmo motivo: é só o número ao lado de Sugestões
+  // na barra lateral, e ele aparece quando chegar.
+  carregarSugestoes();
 
   rota();
   window.addEventListener("hashchange", rota);
@@ -239,6 +247,7 @@ function desenharNav() {
     quadro: visiveis().filter((t) => t.status !== "done").length,
     planilha: visiveis().length,
     fluxo: visiveis().filter((t) => t.status !== "done").length,
+    sugestoes: contagemSugestoes(),
   };
   // O Hoje não está nesta lista nem em nenhuma: ele é uma ação da barra de
   // cima. Aqui ficam as telas para onde se navega, e ele não é uma delas.
@@ -496,6 +505,9 @@ function ligarAtalhos() {
       case "4":
         irPara("fluxo");
         break;
+      case "5":
+        irPara("sugestoes");
+        break;
       case "f": {
         // Foco na primeira da fila: o caminho mais curto entre abrir o
         // aplicativo e estar trabalhando.
@@ -527,7 +539,7 @@ function ligarAtalhos() {
 
 function mostrarAtalhos() {
   toast(
-    "n nova · / buscar · f focar · 1–4 telas · [ ] cenas do quadro · Esc fecha · Ctrl+K comandos",
+    "n nova · / buscar · f focar · 1 a 5 telas · [ ] cenas do quadro · Esc fecha · Ctrl+K comandos",
     { ms: 9000 }
   );
 }

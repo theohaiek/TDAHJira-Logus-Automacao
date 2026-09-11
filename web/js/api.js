@@ -53,7 +53,11 @@ export const api = {
   versao: () => request("GET", "versao", { cache: "no-store" }),
 
   enviarRelato: (relato) => request("POST", "feedback", { body: relato }),
-  relatos: () => request("GET", "feedback"),
+  // no-store pelo mesmo motivo da versão: a tela Sugestões existe para mostrar
+  // o que o agente decidiu desde a última vez que alguém olhou.
+  relatos: () => request("GET", "feedback", { cache: "no-store" }),
+  relatoAcao: (id, acao, nota) => request("POST", `feedback/${id}/acao`, { body: { acao, nota } }),
+  complementarRelato: (id, texto) => request("POST", `feedback/${id}/complemento`, { body: { texto } }),
 
   state: () => request("GET", "state"),
   sync: (cursor) => request("GET", `sync?cursor=${cursor || 0}`),

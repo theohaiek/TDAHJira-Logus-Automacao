@@ -21,6 +21,12 @@
 import { h, mount, $ } from "./dom.js";
 import { api } from "./api.js";
 import { toast, erro } from "./toast.js";
+import { SITUACAO_RELATO } from "./format.js";
+
+// O commit que o painel abre destacado, quando quem abriu veio de um relato
+// ("na v1.3.41", na tela Sugestões). Some quando o painel fecha: quem abrir
+// pelo rodapé depois não herda o destaque de antes.
+let destaque = null;
 
 // O que o servidor disse quando esta aba carregou. É a régua: a comparação de
 // "mudou?" é contra este valor, e não contra a última verificação, senão duas
@@ -70,7 +76,7 @@ export async function iniciarVersao() {
   const btn = $("#version-btn");
   if (!btn) return;
 
-  btn.addEventListener("click", () => abrirVersao());
+  btn.addEventListener("click", () => abrirVersao({ fase: "parado", destaque: null }));
 
   try {
     aoCarregar = await api.versao();
@@ -109,6 +115,9 @@ function garantirCaixa() {
   caixa.addEventListener("click", (e) => {
     if (e.target === caixa) caixa.close();
   });
+  caixa.addEventListener("close", () => {
+    destaque = null;
+  });
   return caixa;
 }
 
@@ -129,6 +138,9 @@ function garantirCaixa() {
 export function abrirVersao(estado = { fase: "parado" }) {
   const alvo = garantirCaixa();
   const v = estado.dados || aoCarregar;
+  // Só quem chama de fora diz o destaque. As remontagens internas (a busca que
+  // chega atrasada, as fases da verificação) mantêm o que já estava.
+  if (estado.destaque !== undefined) destaque = estado.destaque || null;
 
   mount(
     alvo,
@@ -154,6 +166,7 @@ export function abrirVersao(estado = { fase: "parado" }) {
   );
 
   if (!alvo.open) alvo.showModal();
+  if (destaque) destacar(alvo, destaque);
 
   // Só a leitura que faltou, e nada além dela.
   //
@@ -241,7 +254,7 @@ function frase(estado, v) {
     }
     if (v.atras) {
       return h("span", {
-        text: `O servidor está ${v.atras} versão${v.atras > 1 ? "ões" : ""} atrás do repositório — o deploy ainda não chegou.`,
+        text: `O servidor está ${v.atras} versão${v.atras > 1 ? "ões" : ""} atrás do repositório: o deploy ainda não chegou.`,
       });
     }
     return h("span", {
@@ -260,7 +273,7 @@ function frase(estado, v) {
     return h("span", {
       text: `Cache limpo. O servidor está ${v.atras} commit${
         v.atras > 1 ? "s" : ""
-      } atrás do repositório — o deploy ainda não chegou.`,
+      } atrás do repositório: o deploy ainda não chegou.`,
     });
   }
   return h("span", { text: "Cache limpo. Você está na versão mais recente." });
@@ -314,7 +327,7 @@ function linhaDoTempo(v) {
     commits.map((c) =>
       h(
         "li",
-        { class: `linha__item${c.sha === atual ? " is-atual" : ""}` },
+        { class: `linha__item${c.sha === atual ? " is-atual" : ""}`, dataset: { sha: c.sha || "" } },
         h("span", { class: "linha__ponto", "aria-hidden": "true" }),
         h(
           "div",
@@ -330,9 +343,11 @@ function linhaDoTempo(v) {
               title: `commit ${c.sha}`,
             }),
             h("span", { class: "linha__data", text: data(c.data, true) || "" }),
-            c.sha === atual ? h("span", { class: "linha__marca", text: "no ar" }) : null
+            c.sha === atual ? h("span", { class: "linha__marca", text: "no ar" }) : null,
+            c.relatos?.length ? h("span", { class: "linha__via", text: "via relato", title: "Feito pelo ciclo de relatos" }) : null
           ),
           h("span", { class: "linha__titulo", text: c.titulo || "(sem mensagem)" }),
+          relatosDoCommit(c),
           // O corpo fica fechado. Neste repositório ele costuma ter parágrafos,
           // e vinte commits abertos dariam nove mil pixels de rolagem para
           // achar a data de um deles — que é o que a pessoa veio ver. O <details>
@@ -361,6 +376,55 @@ function linhaDoTempo(v) {
     // borda, e agora ele vem do preenchimento da própria lista.
     h("li", { class: "linha__fim", "aria-hidden": "true" })
   );
+}
+
+// De que relato veio a versão, e de quem. Fica à vista, sem abrir o "por quê":
+// é a resposta que quem relatou veio procurar, e escondê-la atrás de um clique
+// a mais seria esconder a única linha que interessa a essa pessoa.
+//
+// O nome vem do banco, junto com a linha do tempo (server/feedback.js,
+// comRelatos). No commit, que é público, só existe o número do relato.
+function relatosDoCommit(c) {
+  const relatos = c.relatos || [];
+  if (!relatos.length) return null;
+  return h(
+    "ul",
+    { class: "linha__relatos" },
+    relatos.map((r) => {
+      const s = SITUACAO_RELATO[r.status] || SITUACAO_RELATO.novo;
+      // "O que mudou" só enquanto o relato está como feito. Um relato que foi
+      // reaberto depois guarda outro texto, e ele não descreve esta versão.
+      const feito = r.status === "corrigido" || r.status === "adicionado";
+      return h(
+        "li",
+        { class: "linha__relato" },
+        h(
+          "a",
+          {
+            class: "linha__relatolink",
+            href: `#/sugestoes/${r.id}`,
+            title: "Ver o relato em Sugestões",
+            onClick: () => caixa?.close(),
+          },
+          h("span", { class: "linha__relatotipo", text: `${r.kind === "bug" ? "Bug" : "Ideia"} #${r.id}` }),
+          h("span", { class: "linha__relatoautor", text: r.autor ? `de ${r.autor}` : "de alguém que saiu do time" }),
+          h("span", { class: `situacao situacao--${s.tom}`, text: s.rotulo })
+        ),
+        feito && r.resolution ? h("p", { class: "linha__relatonota", text: `O que mudou: ${r.resolution}` }) : null
+      );
+    })
+  );
+}
+
+// Acende e centraliza a versão pedida. O identificador da linha do tempo pode
+// ter mais de sete caracteres no git local, então a busca é pelo começo.
+function destacar(alvo, sha) {
+  const curto = String(sha).slice(0, 7);
+  if (!/^[0-9a-f]{7}$/i.test(curto)) return;
+  const item = [...alvo.querySelectorAll(".linha__item")].find((li) => (li.dataset.sha || "").startsWith(curto));
+  if (!item) return;
+  item.classList.add("is-destaque");
+  item.scrollIntoView({ block: "center" });
 }
 
 // --- A verificação ----------------------------------------------------------

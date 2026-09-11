@@ -2986,44 +2986,140 @@ input[type="color"] {
   color: var(--text-faint);
 }
 
-/* O que chegou, para quem administra. */
-.relato__recebidos {
-  margin-top: var(--sp-5);
-  padding-top: var(--sp-4);
-  border-top: 1px solid var(--border-soft);
+/* O atalho para a tela Sugestões, ao lado do fechar: quem acabou de relatar
+   quase sempre quer saber o que aconteceu com o relato de ontem. */
+.relato__topoacoes {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
 }
-.relato__recebidostopo {
+.relato__ver {
+  font-size: var(--text-xs);
+  color: var(--text-3);
+  text-decoration: none;
+  transition: color var(--dur) var(--ease);
+}
+.relato__ver:hover {
+  color: var(--accent);
+}
+
+/* ==========================================================================
+   Sugestões: o que foi feito com cada relato
+   ========================================================================== */
+
+.sugestoes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+  max-width: 880px;
+}
+
+.sugestoes__barra {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: var(--sp-3);
+  gap: var(--sp-3);
+  flex-wrap: wrap;
 }
-.relato__destino {
+/* Se o agente está vivo. Em voz baixa: é para quem se pergunta, e não para
+   disputar atenção com os relatos. */
+.sugestoes__passada {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.sugestoes__acoes {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+
+.sugestoes__secao {
+  margin-bottom: 0;
+}
+.sugestoes__sub {
+  margin: calc(-1 * var(--sp-2)) 0 var(--sp-3);
   font-size: var(--text-xs);
   color: var(--text-faint);
 }
-.relato__lista {
+.sugestoes__lista {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+/* As encerradas, fechadas por padrão. O cabeçalho é o próprio summary, com a
+   mesma seta do "por quê" do painel de versões. */
+.sugestoes__encerradas > summary {
+  cursor: pointer;
+  list-style: none;
+}
+.sugestoes__encerradas > summary::-webkit-details-marker {
+  display: none;
+}
+.sugestoes__encerradas > summary::before {
+  content: "▸";
+  font-size: 9px;
+  color: var(--text-faint);
+  transition: transform var(--dur) var(--ease);
+}
+.sugestoes__encerradas[open] > summary::before {
+  transform: rotate(90deg);
+}
+.sugestoes__encerradas > summary:hover .section__title {
+  color: var(--accent);
+}
+
+/* O cartão. A borda da esquerda é a cor da situação, como a do cartão de
+   tarefa é a do estado: a lista se lê de longe antes de se ler de perto. */
+.sugestao {
+  --situacao-cor: var(--st-inbox);
   display: flex;
   flex-direction: column;
   gap: var(--sp-2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.relato__item {
-  padding: var(--sp-3);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-sm);
+  padding: var(--sp-3) var(--sp-4);
   background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--situacao-cor);
+  border-radius: var(--radius);
+  scroll-margin: var(--sp-8);
+  transition: box-shadow var(--dur-slow) var(--ease);
 }
-.relato__itemtopo {
+.sugestao--neutro {
+  --situacao-cor: var(--st-inbox);
+}
+.sugestao--acento {
+  --situacao-cor: var(--accent-vivo);
+}
+.sugestao--atencao {
+  --situacao-cor: var(--st-waiting);
+}
+.sugestao--sucesso {
+  --situacao-cor: var(--st-done);
+}
+.sugestao--perigo {
+  --situacao-cor: var(--alert);
+}
+.sugestao--apagado {
+  --situacao-cor: var(--border-strong);
+}
+/* O relato para onde um link levou (o painel de versões, um "duplicado do
+   #N"): o mesmo ciano vivo da tela ativa, para o olho achar sem procurar. */
+.sugestao.is-destaque {
+  box-shadow: 0 0 0 1px var(--accent-vivo),
+    0 0 22px color-mix(in srgb, var(--accent-vivo) 28%, transparent);
+}
+
+.sugestao__topo {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  margin-bottom: 4px;
+  flex-wrap: wrap;
   font-size: var(--text-xs);
 }
-.relato__selo {
+.sugestao__tipo {
   padding: 1px 7px;
   border-radius: 999px;
   font-size: 10px;
@@ -3031,41 +3127,281 @@ input[type="color"] {
   text-transform: uppercase;
   letter-spacing: var(--tracking-wide);
 }
-.relato__item--bug .relato__selo {
+.sugestao__tipo--bug {
   background: var(--alert-bg);
   color: var(--alert);
 }
-.relato__item--ideia .relato__selo {
+.sugestao__tipo--ideia {
   background: var(--accent-dim);
   color: var(--accent);
 }
-.relato__quem {
+.sugestao__numero {
+  font-family: var(--font-mono);
+  color: var(--text-faint);
+}
+.sugestao__autor {
   color: var(--text-2);
 }
-.relato__quando {
+.sugestao__quando {
+  margin-left: auto;
   color: var(--text-faint);
   font-variant-numeric: tabular-nums;
 }
-.relato__issue {
-  margin-left: auto;
-  color: var(--accent);
+
+.sugestao__corpo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
-.relato__corpo {
+.sugestao__texto {
   margin: 0;
   font-size: var(--text-sm);
   color: var(--text-1);
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
   text-wrap: pretty;
 }
-.relato__onde {
-  display: block;
-  margin-top: 4px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--text-faint);
+.sugestao__mais {
+  align-self: flex-start;
+  padding: 0;
+  font-size: var(--text-xs);
+  color: var(--text-3);
+  transition: color var(--dur) var(--ease);
 }
-.relato__vazio {
+.sugestao__mais:hover {
+  color: var(--accent);
+}
+
+/* A resposta: o que mudou, o porquê, o plano ou a pergunta. Um fundo leve na
+   cor da situação separa o que a pessoa escreveu do que foi respondido. */
+.sugestao__resolucao {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--situacao-cor) 9%, transparent);
+}
+.sugestao__rotulo {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--situacao-cor);
+}
+.sugestao__resposta {
   margin: 0;
   font-size: var(--text-sm);
+  color: var(--text-1);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+.sugestao__duplicado {
+  width: fit-content;
+  font-size: var(--text-xs);
+  color: var(--accent);
+}
+
+.sugestao__entrega {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  font-size: var(--text-xs);
+}
+.sugestao__versao {
+  padding: 1px 8px;
+  border: 1px solid color-mix(in srgb, var(--accent-vivo) 40%, transparent);
+  border-radius: 999px;
+  color: var(--accent-vivo);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  transition: background var(--dur) var(--ease);
+}
+.sugestao__versao:hover {
+  background: var(--accent-dim);
+}
+.sugestao__commit {
+  font-family: var(--font-mono);
   color: var(--text-3);
+  text-decoration: none;
+  transition: color var(--dur) var(--ease);
+}
+a.sugestao__commit:hover {
+  color: var(--accent);
+}
+
+.sugestao__acoes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.sugestao__botoes {
+  display: flex;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+.sugestao__responder {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-2);
+}
+.sugestao__campo {
+  min-height: 72px;
+}
+
+.sugestao__historico summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: fit-content;
+  font-size: var(--text-xs);
+  color: var(--text-faint);
+  cursor: pointer;
+  list-style: none;
+  transition: color var(--dur) var(--ease);
+}
+.sugestao__historico summary::-webkit-details-marker {
+  display: none;
+}
+.sugestao__historico summary::before {
+  content: "▸";
+  font-size: 9px;
+  transition: transform var(--dur) var(--ease);
+}
+.sugestao__historico[open] summary::before {
+  transform: rotate(90deg);
+}
+.sugestao__historico summary:hover {
+  color: var(--accent);
+}
+.sugestao__eventos {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin: var(--sp-2) 0 0;
+  padding: 0 0 0 var(--sp-3);
+  list-style: none;
+  border-left: 1px solid var(--border-soft);
+}
+.sugestao__eventotopo {
+  font-size: var(--text-xs);
+  color: var(--text-3);
+}
+.sugestao__eventonota {
+  margin: 2px 0 0;
+  font-size: var(--text-xs);
+  color: var(--text-2);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* A etiqueta da situação: a mesma na tela Sugestões e no painel de versões. */
+.situacao {
+  --tom: var(--st-inbox);
+  padding: 1px 8px;
+  border-radius: 999px;
+  color: var(--tom);
+  background: color-mix(in srgb, var(--tom) 14%, transparent);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.situacao--neutro {
+  --tom: var(--st-inbox);
+}
+.situacao--acento {
+  --tom: var(--accent-vivo);
+}
+.situacao--atencao {
+  --tom: var(--st-waiting);
+}
+.situacao--sucesso {
+  --tom: var(--st-done);
+}
+.situacao--perigo {
+  --tom: var(--alert);
+}
+.situacao--apagado {
+  --tom: var(--text-faint);
+}
+
+/* O painel de versões: a versão que veio de um relato diz de qual, e de quem,
+   sem precisar abrir o "por quê". */
+.linha__via {
+  padding: 1px 6px;
+  border: 1px solid color-mix(in srgb, var(--accent-vivo) 45%, transparent);
+  border-radius: 999px;
+  color: var(--accent-vivo);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+}
+.linha__relatos {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 4px 0 2px;
+  padding: 0;
+  list-style: none;
+}
+.linha__relato {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 10px;
+  border: 1px solid color-mix(in srgb, var(--accent-vivo) 18%, transparent);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent-vivo) 6%, transparent);
+}
+.linha__relatolink {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  font-size: var(--text-xs);
+  color: var(--text-2);
+  text-decoration: none;
+}
+.linha__relatotipo {
+  font-weight: 600;
+  color: var(--text-1);
+  transition: color var(--dur) var(--ease);
+}
+.linha__relatolink:hover .linha__relatotipo {
+  color: var(--accent-vivo);
+}
+.linha__relatoautor {
+  color: var(--text-3);
+}
+.linha__relatonota {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--text-2);
+  white-space: pre-wrap;
+  text-wrap: pretty;
+}
+/* A versão para onde a tela Sugestões mandou. */
+.linha__item.is-destaque {
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent-vivo) 7%, transparent);
+}
+.linha__item.is-destaque .linha__ponto {
+  background: var(--accent-vivo);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-vivo) 28%, transparent);
+}
+
+@media (max-width: 520px) {
+  .sugestao {
+    padding: var(--sp-3);
+  }
+  .sugestao__quando {
+    margin-left: 0;
+  }
+  .sugestoes__barra {
+    align-items: flex-start;
+  }
 }

@@ -5,11 +5,13 @@
 // escrever, ela já não lembra em que tela estava nem o que tinha clicado. Por
 // isso a tela e a versão vão junto sozinhas, sem ninguém precisar escrever.
 //
-// Quem administra vê, no mesmo lugar, o que chegou.
+// O que acontece com cada relato depois (corrigido, recusado, esperando uma
+// resposta) aparece na tela Sugestões, e não aqui: este popup é só a porta de
+// entrada, e uma porta que também é sala de espera fica cheia demais para
+// quem só queria contar uma coisa rápida.
 
 import { h, mount, $ } from "./dom.js";
 import { api } from "./api.js";
-import { state } from "./store.js";
 import { toast, erro } from "./toast.js";
 
 let caixa = null;
@@ -43,10 +45,9 @@ export function abrirRelato() {
   if (!alvo.open) alvo.showModal();
   // O cursor já no campo: quem abriu isto veio escrever.
   alvo.querySelector("textarea")?.focus();
-  if (state.me?.role === "admin") carregarRecebidos();
 }
 
-function desenhar(recebidos = null) {
+function desenhar() {
   const campoAntes = caixa.querySelector("textarea");
   // O texto sobrevive ao redesenho: trocar de bug para ideia no meio da frase
   // não pode apagar o que já foi escrito.
@@ -61,13 +62,24 @@ function desenhar(recebidos = null) {
         "div",
         { class: "popup__topo" },
         h("span", { class: "popup__eyebrow", text: "Relatar" }),
-        h("button", {
-          class: "icon-btn",
-          text: "✕",
-          title: "Fechar (Esc)",
-          "aria-label": "Fechar",
-          onClick: () => caixa.close(),
-        })
+        h(
+          "div",
+          { class: "relato__topoacoes" },
+          h("a", {
+            class: "relato__ver",
+            href: "#/sugestoes",
+            text: "Ver sugestões",
+            title: "O que foi feito com cada relato (5)",
+            onClick: () => caixa.close(),
+          }),
+          h("button", {
+            class: "icon-btn",
+            text: "✕",
+            title: "Fechar (Esc)",
+            "aria-label": "Fechar",
+            onClick: () => caixa.close(),
+          })
+        )
       ),
 
       h(
@@ -113,9 +125,7 @@ function desenhar(recebidos = null) {
             disabled: enviando,
           })
         )
-      ),
-
-      recebidos ? listaDeRecebidos(recebidos) : null
+      )
     )
   );
 }
@@ -132,7 +142,7 @@ function botaoDeTipo(valor, rotulo, descricao) {
       title: descricao,
       onClick: () => {
         tipo = valor;
-        desenhar(ultimosRecebidos);
+        desenhar();
         caixa.querySelector("textarea")?.focus();
       },
     },
@@ -157,97 +167,27 @@ async function enviar(e) {
   if (!body) return;
 
   enviando = true;
-  desenhar(ultimosRecebidos);
+  desenhar();
   try {
     const r = await api.enviarRelato({ kind: tipo, body, ...contexto() });
     caixa.close();
     // Limpa para o próximo, e só depois de dar certo: um erro de rede não pode
     // levar junto o que a pessoa escreveu.
     caixa.querySelector("textarea").value = "";
-    toast(
-      r.encaminhado
-        ? `${tipo === "bug" ? "Bug" : "Ideia"} recebido e encaminhado. Obrigado.`
-        : `${tipo === "bug" ? "Bug" : "Ideia"} recebido. Obrigado.`
-    );
+    // A tela Sugestões escuta este aviso e busca a lista de novo. Por evento,
+    // e não por import: este popup não precisa saber que ela existe.
+    window.dispatchEvent(new CustomEvent("relato:enviado", { detail: { id: r.id } }));
+    const nome = tipo === "bug" ? "Bug" : "Ideia";
+    toast(r.encaminhado ? `${nome} recebido e encaminhado. Obrigado.` : `${nome} recebido. Obrigado.`, {
+      acao: "Acompanhar",
+      aoClicar: () => {
+        location.hash = r.id ? `#/sugestoes/${r.id}` : "#/sugestoes";
+      },
+    });
   } catch (err) {
     erro(err.message);
   } finally {
     enviando = false;
-    if (caixa.open) desenhar(ultimosRecebidos);
+    if (caixa.open) desenhar();
   }
-}
-
-// --- O que chegou, para quem administra ------------------------------------
-
-let ultimosRecebidos = null;
-
-async function carregarRecebidos() {
-  try {
-    const r = await api.relatos();
-    ultimosRecebidos = r;
-    if (caixa?.open) desenhar(r);
-  } catch {
-    // Não é essencial: o formulário de relatar continua funcionando mesmo que
-    // a lista não carregue.
-  }
-}
-
-const QUANDO = new Intl.DateTimeFormat("pt-BR", {
-  day: "2-digit",
-  month: "short",
-  hour: "2-digit",
-  minute: "2-digit",
-});
-
-function listaDeRecebidos({ feedback = [], encaminhamento = false }) {
-  return h(
-    "section",
-    { class: "relato__recebidos" },
-    h(
-      "div",
-      { class: "relato__recebidostopo" },
-      h("span", { class: "popup__eyebrow", text: `Recebidos · ${feedback.length}` }),
-      h("span", {
-        class: "relato__destino",
-        text: encaminhamento ? "encaminhando ao GitHub" : "só no aplicativo",
-        title: encaminhamento
-          ? "Cada relato também vira uma issue no repositório configurado."
-          : "Para encaminhar ao GitHub, configure FEEDBACK_GITHUB_REPO e FEEDBACK_GITHUB_TOKEN no servidor.",
-      })
-    ),
-    feedback.length
-      ? h(
-          "ol",
-          { class: "relato__lista" },
-          feedback.map((f) =>
-            h(
-              "li",
-              { class: `relato__item relato__item--${f.kind}` },
-              h(
-                "div",
-                { class: "relato__itemtopo" },
-                h("span", { class: "relato__selo", text: f.kind === "bug" ? "bug" : "ideia" }),
-                h("span", { class: "relato__quem", text: f.autor || "alguém que saiu do time" }),
-                h("span", { class: "relato__quando", text: QUANDO.format(new Date(f.createdAt)) }),
-                // O link só entra se o servidor devolveu um endereço do GitHub,
-                // e ele só aceita esses: nada aqui aponta para outro lugar.
-                f.issueUrl
-                  ? h("a", {
-                      class: "relato__issue",
-                      href: f.issueUrl,
-                      target: "_blank",
-                      rel: "noopener noreferrer",
-                      text: "issue ↗",
-                    })
-                  : null
-              ),
-              h("p", { class: "relato__corpo", text: f.body }),
-              f.page || f.version
-                ? h("span", { class: "relato__onde", text: [f.page, f.version].filter(Boolean).join(" · ") })
-                : null
-            )
-          )
-        )
-      : h("p", { class: "relato__vazio", text: "Nenhum relato ainda." })
-  );
 }
