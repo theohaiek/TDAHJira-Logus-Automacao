@@ -222,7 +222,10 @@ async function remoto() {
 // variáveis de sistema da plataforma são opcionais — dá para desligá-las no
 // painel, e sem esta rede o histórico abriria vazio no modo hospedado sem que
 // nada no código explicasse por quê.
-async function repoConfigurado() {
+//
+// Exportada para a tela de Sugestões montar o link do commit que resolveu um
+// relato mesmo quando a linha do tempo inteira ainda não chegou do GitHub.
+export async function repoConfigurado() {
   if (process.env.GIT_REPO) return process.env.GIT_REPO;
 
   const dono = process.env.VERCEL_GIT_REPO_OWNER;
@@ -333,4 +336,23 @@ async function totalDeCommits(repo, ramo) {
   } catch {
     return 0;
   }
+}
+
+// Quais relatos um commit resolve, lidos das linhas "Relato: 12" da mensagem.
+//
+// O número vai sem cerquilha de propósito: no GitHub, "#12" numa mensagem de
+// commit vira link para a issue 12 do repositório público, que não tem nada a
+// ver com o relato 12 do banco. E vai só o número, nunca o nome de quem
+// relatou: a mensagem de commit é pública, o nome de quem usa não é.
+//
+// Serve aos dois lados da mesma conversa: ao painel de versões, que mostra de
+// que relato veio cada mudança, e à guarda do agente noturno
+// (scripts/relatos/guarda.mjs), que recusa commit sem relato.
+export function relatosDoCommit(mensagem) {
+  const ids = new Set();
+  for (const linha of String(mensagem || "").split("\n")) {
+    const m = linha.trim().match(/^Relato:[ \t]*([0-9]+)$/i);
+    if (m) ids.add(Number(m[1]));
+  }
+  return [...ids].filter((n) => Number.isSafeInteger(n) && n > 0);
 }

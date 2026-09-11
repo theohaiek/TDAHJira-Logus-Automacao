@@ -221,6 +221,16 @@ const MIGRACOES = [
   // sobre coluna que nasce aqui, escrito no esquema, foi o que derrubou a
   // produção em 8 de setembro de 2026.
   { tabela: "companies", coluna: "avatar", ddl: "ALTER TABLE companies ADD COLUMN avatar TEXT" },
+  // O que foi feito com cada relato (server/feedback.js). O relato que já
+  // estava no banco antes destas colunas entra como "novo", que é a verdade:
+  // ninguém tinha olhado para ele ainda. Nenhum índice, e é de propósito: a
+  // tabela tem dezenas de linhas, não milhares, e índice de coluna migrada é
+  // justamente o que não pode ir para o esquema.
+  { tabela: "feedback", coluna: "status", ddl: "ALTER TABLE feedback ADD COLUMN status TEXT NOT NULL DEFAULT 'novo'" },
+  { tabela: "feedback", coluna: "resolution", ddl: "ALTER TABLE feedback ADD COLUMN resolution TEXT" },
+  { tabela: "feedback", coluna: "commit_sha", ddl: "ALTER TABLE feedback ADD COLUMN commit_sha TEXT" },
+  { tabela: "feedback", coluna: "duplicate_of", ddl: "ALTER TABLE feedback ADD COLUMN duplicate_of INTEGER" },
+  { tabela: "feedback", coluna: "updated_at", ddl: "ALTER TABLE feedback ADD COLUMN updated_at TEXT" },
 ];
 
 async function aplicarMigracoes() {

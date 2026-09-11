@@ -63,7 +63,18 @@ import {
 } from "./events.js";
 import { readJson, readBody, sendJson, sendError, cookieHeader, parseCookies } from "./http.js";
 import { versao } from "./versao.js";
-import { registrarFeedback, listarFeedback, encaminhamentoConfigurado } from "./feedback.js";
+import {
+  registrarFeedback,
+  quadroDeSugestoes,
+  acaoDoAdmin,
+  complementar,
+  agenteLigado,
+  credencialDoAgente,
+  pendentesDoAgente,
+  decisaoDoAgente,
+  registrarPassada,
+  comRelatos,
+} from "./feedback.js";
 
 export async function handleApi(req, res, { path, query, user }) {
   const seg = path.split("/").filter(Boolean); // ["api", ...]
@@ -76,33 +87,55 @@ export async function handleApi(req, res, { path, query, user }) {
   if (head === "session" && method === "DELETE") return logout(req, res);
   if (head === "boot" && method === "GET") return boot(req, res, user);
 
+  // O agente diário dos relatos. Fica antes da checagem de sessão porque ele
+  // não tem sessão: entra pelo token, e só nestas rotas. Ver rotaDoAgente.
+  if (head === "agente") return rotaDoAgente(req, res, parts, method);
+
   if (!user) return sendError(res, 401, "Sessão expirada ou inexistente.");
 
   // Que versão está no ar e o que mudou até aqui. Fica atrás da sessão, e não
   // ao lado de /boot: o repositório é público, mas dizer a estranhos qual
   // commit exato uma instalação está rodando é entregar de graça a lista de
   // correções que ela ainda não tem.
+  //
+  // Cada versão feita pelo ciclo de relatos sai daqui com os relatos que ela
+  // resolveu, e quem relatou: é o banco completando o que o commit, por ser
+  // público, não pode dizer.
   if (head === "versao" && method === "GET") {
-    return sendJson(res, 200, await versao());
+    return sendJson(res, 200, await comRelatos(await versao()));
   }
 
-  // Relatos de bug e ideia. Qualquer pessoa com sessão escreve; só quem
-  // administra lê a lista, porque ela junta o que cada um relatou — e um
-  // relato pode citar o trabalho de outra pessoa ou de um cliente.
+  // Relatos de bug e ideia. Qualquer pessoa com sessão escreve e lê: a lista é
+  // o quadro de sugestões do time, e mostrar quem relatou é de propósito. Um
+  // pedido que some sem resposta ensina a não pedir de novo.
   //
   // A resposta do envio diz se o relato foi ao GitHub, e mais nada sobre ele:
-  // nem o endereço do repositório, nem o token, nem o link da issue.
+  // nem o endereço do repositório, nem o token, nem o link da issue. O link da
+  // issue, na lista, só vai para quem administra.
   if (head === "feedback") {
-    if (method === "POST") {
-      const body = await readJson(req);
-      return sendJson(res, 201, await registrarFeedback(body, user));
+    const fid = Number(parts[1]);
+
+    if (!parts[1]) {
+      if (method === "POST") {
+        const body = await readJson(req);
+        return sendJson(res, 201, await registrarFeedback(body, user));
+      }
+      if (method === "GET") return sendJson(res, 200, await quadroDeSugestoes(user));
     }
-    if (method === "GET") {
-      if (user.role !== "admin") return sendError(res, 403, "Apenas administradores leem os relatos.");
-      return sendJson(res, 200, {
-        feedback: await listarFeedback(),
-        encaminhamento: encaminhamentoConfigurado(),
-      });
+
+    // Autorizar, recusar, reabrir: decidir o destino de um pedido é de quem
+    // administra, e de mais ninguém.
+    if (fid && parts[2] === "acao" && !parts[3] && method === "POST") {
+      if (user.role !== "admin") return sendError(res, 403, "Apenas administradores decidem sobre relatos.");
+      const body = await readJson(req);
+      return sendJson(res, 200, { relato: await acaoDoAdmin(fid, body, user) });
+    }
+
+    // Quem relatou responde à pergunta do agente. Quem pode é conferido lá
+    // dentro, contra o autor gravado no relato.
+    if (fid && parts[2] === "complemento" && !parts[3] && method === "POST") {
+      const body = await readJson(req);
+      return sendJson(res, 200, { relato: await complementar(fid, body, user) });
     }
   }
 
@@ -785,4 +818,42 @@ function safeJson(raw) {
   } catch {
     return {};
   }
+}
+
+// --- O agente diário dos relatos --------------------------------------------
+//
+// Três rotas, e nenhuma outra: ler a fila, gravar uma decisão, registrar a
+// passada. O agente não enxerga tarefa, pessoa nem configuração, e não
+// consegue aprovar a si mesmo: "autorizado" não está entre as decisões dele
+// (server/feedback.js).
+//
+// A ordem das duas recusas é de propósito. Sem RELATOS_AGENTE_TOKEN no
+// servidor, tudo aqui é 404, a mesma resposta de um caminho inventado: quem
+// sonda uma instalação que não usa o agente não descobre que ele existe. Com o
+// token configurado, credencial errada ou ausente é 401.
+async function rotaDoAgente(req, res, parts, method) {
+  if (!agenteLigado()) return sendError(res, 404, "Recurso não encontrado.");
+  if (!credencialDoAgente(req.headers.authorization)) {
+    return sendError(res, 401, "Credencial do agente inválida.");
+  }
+
+  const [, recurso, alvo, resto] = parts;
+
+  if (recurso === "relatos" && !alvo && method === "GET") {
+    return sendJson(res, 200, await pendentesDoAgente());
+  }
+
+  const id = Number(alvo);
+  if (recurso === "relatos" && Number.isSafeInteger(id) && id > 0 && !resto && method === "POST") {
+    const body = await readJson(req);
+    return sendJson(res, 200, { relato: await decisaoDoAgente(id, body) });
+  }
+
+  if (recurso === "passada" && !alvo && method === "POST") {
+    const body = await readJson(req);
+    await registrarPassada(body);
+    return sendJson(res, 200, { ok: true });
+  }
+
+  return sendError(res, 404, "Recurso não encontrado.");
 }

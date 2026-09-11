@@ -244,6 +244,100 @@ codifica mais gordo, e não para virar porta de entrada de arquivo grande.
 | `POST` | `/focus/stop` — `{completed}` |
 | `GET` | `/focus` — total concluído hoje |
 
+### Versão
+
+| Método | Rota | Retorno |
+|---|---|---|
+| `GET` | `/versao` | `{fonte, repo, atual, commits, total, atras, app}` |
+
+Cada item de `commits` traz `{sha, data, titulo, corpo, versao}`. O commit feito
+pelo ciclo de relatos traz também `relatos: [{id, kind, status, autor,
+resolution}]`, montado a partir das linhas `Relato: N` da mensagem (sem
+cerquilha: `#12` no GitHub viraria link para a issue 12 do repositório público).
+O nome de quem relatou vem do banco, nunca do commit.
+
+### Relatos e sugestões
+
+| Método | Rota | Quem | Retorno |
+|---|---|---|---|
+| `POST` | `/feedback` — `{kind, body, page?, version?}` | qualquer sessão | `201 {id, encaminhado}` |
+| `GET` | `/feedback` | qualquer sessão | `{feedback, passada, encaminhamento, repo}` |
+| `POST` | `/feedback/{id}/acao` — `{acao, nota?}` | só administrador | `{relato}` |
+| `POST` | `/feedback/{id}/complemento` — `{texto}` | só quem relatou | `{relato}` |
+
+`kind` é `bug` ou `ideia`. O envio tem freio de 12 por pessoa por hora (`429`),
+contado no banco. `GET` devolve a lista inteira, mais novo primeiro: é o quadro
+de sugestões do time, e mostrar quem relatou é de propósito.
+
+O relato:
+
+```json
+{
+  "id": 12, "kind": "bug", "body": "…", "page": "/quadro", "version": "v1.3.30",
+  "createdAt": "…", "updatedAt": "…",
+  "autor": "Nome de exibição", "autorId": 3,
+  "status": "corrigido",
+  "resolution": "O que mudou, o porquê, o plano ou a pergunta, conforme a situação.",
+  "commit": { "sha": "40 hex", "curto": "7 hex", "url": "https://github.com/dono/nome/commit/…" },
+  "versaoResolvida": "1.3.41",
+  "duplicadoDe": null,
+  "issueUrl": null,
+  "eventos": [ { "status": "novo", "nota": null, "commit": null, "ator": "autor", "atorNome": "…", "em": "…" } ]
+}
+```
+
+`issueUrl` só vem preenchido para administrador (aponta para um repositório
+privado). `versaoResolvida` pode vir `null` quando a linha do tempo não chega em
+2,5 s. `passada` é a última passada do agente: `{inicio, fim, analisados,
+decididos, publicados, erro}` ou `null`.
+
+Situações: `novo`, `autorizado`, `detalhe`, `todo` ("Registrado no TODO"),
+`corrigido` (só bug), `adicionado` (só ideia), `rejeitado`, `inviavel`,
+`duplicado`, `ja_existe`.
+
+As ações de administrador, e de onde cada uma parte (fora disso, `409`):
+
+| `acao` | de | para |
+|---|---|---|
+| `autorizar` | `todo` | `autorizado`, e o plano em `resolution` fica |
+| `recusar` | `novo`, `todo`, `autorizado`, `detalhe` | `rejeitado`, com `nota` (ou uma frase padrão) em `resolution` |
+| `reabrir` | `todo` e as finais | `novo`, limpando `resolution`, `commit` e `duplicadoDe` |
+
+O complemento só vale em `detalhe` (`409` fora dela) e só para o autor (`403`).
+Ele entra no fim do `body` como "Complemento: …" e devolve o relato para `novo`.
+
+### O agente diário
+
+Rotas do executor `scripts/relatos/rodar.mjs`, que roda numa máquina de quem
+administra. Não usam cookie: autenticam por `Authorization: Bearer <token>`,
+comparado em tempo constante com `RELATOS_AGENTE_TOKEN`.
+
+Sem a variável no servidor, ou com menos de 32 caracteres, **as três rotas
+respondem `404`**, igual a um caminho que não existe. Com ela, credencial
+ausente ou errada é `401`.
+
+| Método | Rota | Retorno |
+|---|---|---|
+| `GET` | `/agente/relatos` | `{pendentes, contexto}` |
+| `POST` | `/agente/relatos/{id}` — `{status, resolution, commit?, duplicadoDe?}` | `{relato}` |
+| `POST` | `/agente/passada` — `{inicio, fim, analisados, decididos, publicados, erro?}` | `{ok: true}` |
+
+`pendentes` são os relatos em `novo` e `autorizado`, inteiros, com
+`autor: {id, username, nome, role, ativo}`. `contexto` são os 80 mais novos das
+outras situações, com `resumo` (até 280 caracteres) e `autor: {username, role,
+ativo}`, para o agente reconhecer um pedido repetido. O autor vai junto porque
+a triagem dos relatos de autor confiável só recebe contexto de autor confiável.
+
+A decisão aceita `detalhe`, `todo`, `corrigido`, `adicionado`, `rejeitado`,
+`inviavel`, `duplicado` e `ja_existe` — nunca `novo` nem `autorizado`, que é
+decisão de gente. `resolution` é obrigatória, até 1500 caracteres, sem
+caractere de controle além da quebra de linha. `corrigido` e `adicionado`
+exigem `commit` (7 a 40 hexadecimais). `duplicado` exige `duplicadoDe` de outro
+relato que exista. O relato precisa estar em `novo` ou `autorizado` (`409`
+fora disso), exceto a repetição idêntica da decisão que já está gravada, que
+responde `200` sem registrar nada de novo: é o executor reenviando o que ficou
+sem resposta na passada anterior.
+
 ---
 
 ## Regras que valem em qualquer modo

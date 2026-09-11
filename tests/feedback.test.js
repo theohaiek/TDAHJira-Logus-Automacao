@@ -197,7 +197,13 @@ test("sem sessão, o envio é recusado", async () => {
   assert.equal(res.statusCode, 401);
 });
 
-test("qualquer pessoa com sessão envia, e só quem administra lê", async () => {
+// A lista virou o quadro de sugestões do time: todo mundo lê, e quem relatou
+// aparece. O que continua só de quem administra é o link da issue, que aponta
+// para um repositório privado.
+test("qualquer pessoa com sessão envia e lê, e o link da issue fica com quem administra", async () => {
+  ligarEncaminhamento();
+  simularGithub();
+
   const envio = await chamar("/api/feedback", {
     user: membro,
     method: "POST",
@@ -206,11 +212,17 @@ test("qualquer pessoa com sessão envia, e só quem administra lê", async () =>
   assert.equal(envio.statusCode, 201);
 
   const deMembro = await chamar("/api/feedback", { user: membro });
-  assert.equal(deMembro.statusCode, 403);
+  assert.equal(deMembro.statusCode, 200);
+  const vistoPeloMembro = deMembro.dados.feedback.find((f) => f.body === "Pela rota");
+  assert.ok(vistoPeloMembro, "o membro não viu o próprio relato na lista");
+  assert.equal(vistoPeloMembro.autor, "Bruno");
+  assert.equal(vistoPeloMembro.status, "novo");
+  assert.equal(vistoPeloMembro.issueUrl, null, "o link da issue privada vazou para quem não administra");
 
   const deAdmin = await chamar("/api/feedback", { user: admin });
   assert.equal(deAdmin.statusCode, 200);
-  assert.ok(deAdmin.dados.feedback.some((f) => f.body === "Pela rota"));
+  const vistoPeloAdmin = deAdmin.dados.feedback.find((f) => f.body === "Pela rota");
+  assert.ok(vistoPeloAdmin.issueUrl?.startsWith("https://github.com/"));
 });
 
 test("o token não aparece em resposta nenhuma", async () => {
@@ -234,8 +246,8 @@ test("o token não aparece em resposta nenhuma", async () => {
   assert.ok(!envio.corpo.includes("dono/relatos"), "o repositório vazou na resposta de envio");
   assert.deepEqual(Object.keys(envio.dados).sort(), ["encaminhado", "id"]);
 
-  // Na lista ele aparece, e é de propósito: ela é só de quem administra, e o
-  // link de cada issue é o que essa pessoa vai clicar para abrir o relato.
+  // Na lista de quem administra ele aparece, e é de propósito: o link de cada
+  // issue é o que essa pessoa vai clicar para abrir o relato.
   assert.equal(lista.dados.encaminhamento, true);
   assert.ok(lista.dados.feedback.some((f) => f.issueUrl?.startsWith("https://github.com/")));
 });

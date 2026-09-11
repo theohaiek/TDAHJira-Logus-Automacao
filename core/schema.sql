@@ -182,11 +182,43 @@ CREATE TABLE IF NOT EXISTS feedback (
   page       TEXT,
   version    TEXT,
   issue_url  TEXT,               -- preenchido só se foi encaminhado ao GitHub
+  -- O que foi feito com o relato. A situação vai de novo até uma das finais
+  -- (corrigido, adicionado, rejeitado e as outras de server/feedback.js), e
+  -- resolution é o texto dela: o que mudou, o porquê, o plano ou a pergunta.
+  -- As quatro colunas também estão em MIGRACOES, que é por onde chegam ao
+  -- banco que já existia. Comentário em linha própria, e não no fim da linha
+  -- da coluna, para o teste de migração conseguir tirar a coluna inteira.
+  status       TEXT    NOT NULL DEFAULT 'novo',
+  resolution   TEXT,
+  -- O commit que resolveu, com os 40 caracteres. Só em corrigido e adicionado.
+  commit_sha   TEXT,
+  -- De qual relato este repete. Só em duplicado.
+  duplicate_of INTEGER,
+  updated_at   TEXT,
   created_at TEXT    NOT NULL
 );
 
 -- Para o freio de envio: "quantos esta pessoa mandou na última hora".
 CREATE INDEX IF NOT EXISTS idx_feedback_autor ON feedback(author_id, created_at);
+
+-- A história de cada relato: cada mudança de situação, quem fez e por quê.
+-- É o que a tela Sugestões mostra em "histórico", e o que responde "quem
+-- autorizou isto?" depois que a situação já andou de novo.
+--
+-- actor diz de que lado veio: o agente diário (actor_id vazio), quem
+-- administra ou quem relatou. Tabela nova, então o índice pode morar aqui.
+CREATE TABLE IF NOT EXISTS feedback_events (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  feedback_id INTEGER NOT NULL REFERENCES feedback(id) ON DELETE CASCADE,
+  status      TEXT    NOT NULL,
+  note        TEXT,
+  commit_sha  TEXT,
+  actor       TEXT    NOT NULL,
+  actor_id    INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at  TEXT    NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_feedback_events ON feedback_events(feedback_id, id);
 
 -- --- Etiquetas -------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS labels (
