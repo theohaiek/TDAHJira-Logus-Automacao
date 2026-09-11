@@ -316,10 +316,8 @@ function cartao(r, alvo) {
       })
     ),
     corpo(r),
-    resolucao(r),
-    entrega(r),
-    acoes(r, meu),
-    historico(r)
+    pilha(r),
+    acoes(r, meu)
   );
 }
 
@@ -346,40 +344,82 @@ function corpo(r) {
   );
 }
 
-// O rótulo diz o que o texto é, porque a mesma coluna guarda coisas
-// diferentes conforme a situação: o que mudou, o plano, o porquê, a pergunta.
-const ROTULO_DA_RESOLUCAO = {
-  novo: "A pergunta que foi respondida",
-  corrigido: "O que mudou",
-  adicionado: "O que mudou",
-  todo: "O plano",
-  autorizado: "O plano, autorizado",
-  detalhe: "O que falta saber",
-  rejeitado: "Por quê",
-  inviavel: "Por quê",
-  ja_existe: "Por quê",
-  duplicado: "Por quê",
-};
-
-function resolucao(r) {
-  const s = SITUACAO_RELATO[r.status] || SITUACAO_RELATO.novo;
+// A pilha de atualizações: a mais nova em cima, empurrando as anteriores para
+// baixo. É o que faz o processo ser lido de relance, sem abrir nada: o plano
+// que estava no topo desce quando o agente implementa, e no lugar dele entra o
+// "Corrigido" com a versão e o commit.
+//
+// A fonte é a história do relato (feedback_events), e não o texto da situação
+// atual: só ela guarda o que foi dito em cada passo.
+function pilha(r) {
+  const eventos = r.eventos || [];
   const duplicado =
     r.status === "duplicado" && r.duplicadoDe
-      ? h("a", { class: "sugestao__duplicado", href: `#/sugestoes/${r.duplicadoDe}`, text: `Duplicado do #${r.duplicadoDe}` })
+      ? h("a", {
+          class: "sugestao__duplicado",
+          href: `#/sugestoes/${r.duplicadoDe}`,
+          text: `Duplicado do #${r.duplicadoDe}`,
+        })
       : null;
-  if (!r.resolution && !duplicado) return null;
+
+  if (!eventos.length) {
+    // Relato anterior à história por evento: mostra o que existe.
+    if (!r.resolution && !duplicado) return null;
+    const s = SITUACAO_RELATO[r.status] || SITUACAO_RELATO.novo;
+    return h(
+      "ol",
+      { class: "sugestao__pilha" },
+      h(
+        "li",
+        { class: `sugestao__passo sugestao__passo--${s.tom} is-atual` },
+        duplicado,
+        r.resolution ? h("p", { class: "sugestao__resposta", text: r.resolution }) : null,
+        entrega(r)
+      )
+    );
+  }
 
   return h(
-    "div",
-    { class: `sugestao__resolucao sugestao__resolucao--${s.tom}` },
-    duplicado,
-    r.resolution
-      ? [
-          h("span", { class: "sugestao__rotulo", text: ROTULO_DA_RESOLUCAO[r.status] || "Resposta" }),
-          h("p", { class: "sugestao__resposta", text: r.resolution }),
-        ]
-      : null
+    "ol",
+    { class: "sugestao__pilha" },
+    [...eventos].reverse().map((e, i) => passo(e, r, i === 0, i === eventos.length - 1, duplicado))
   );
+}
+
+function passo(e, r, atual, primeiro, duplicado) {
+  const s = SITUACAO_RELATO[e.status] || SITUACAO_RELATO.novo;
+  const quem =
+    e.ator === "agente" ? "pelo agente" : e.atorNome ? `por ${e.atorNome}` : e.ator === "autor" ? "por quem relatou" : "por quem administra";
+
+  return h(
+    "li",
+    { class: `sugestao__passo sugestao__passo--${s.tom}${atual ? " is-atual" : ""}` },
+    h(
+      "div",
+      { class: "sugestao__passotopo" },
+      h("span", { class: `situacao situacao--${s.tom}`, text: rotuloDoPasso(e, primeiro) }),
+      h("span", { class: "sugestao__passoquem", text: quem }),
+      h("time", {
+        class: "sugestao__quando",
+        datetime: e.em,
+        title: dataHoraLonga(e.em),
+        text: desde(e.em),
+      })
+    ),
+    atual && duplicado ? duplicado : null,
+    e.nota ? h("p", { class: "sugestao__resposta", text: e.nota }) : null,
+    atual ? entrega(r) : null
+  );
+}
+
+// "Novo" quer dizer coisas diferentes conforme onde está na pilha: o primeiro
+// é o pedido chegando; os de depois são o relato voltando para a fila, porque
+// quem relatou respondeu ou quem administra reabriu.
+function rotuloDoPasso(e, primeiro) {
+  const s = SITUACAO_RELATO[e.status] || SITUACAO_RELATO.novo;
+  if (e.status !== "novo") return s.rotulo;
+  if (primeiro) return "Relatado";
+  return e.ator === "autor" ? "Respondido, de volta à fila" : "Reaberto";
 }
 
 // Em que versão a mudança entrou, e o commit. O número abre o painel de
@@ -485,45 +525,6 @@ function formularioDeResposta(r) {
       text: ocupado ? "Enviando…" : "Responder",
       disabled: ocupado,
     })
-  );
-}
-
-function historico(r) {
-  const eventos = r.eventos || [];
-  if (!eventos.length) return null;
-  const chave = `historico:${r.id}`;
-  return h(
-    "details",
-    { class: "sugestao__historico", open: abertos.has(chave), onToggle: lembrar(chave) },
-    h("summary", { text: `histórico · ${eventos.length}` }),
-    h(
-      "ol",
-      { class: "sugestao__eventos" },
-      eventos.map((e, i) => {
-        const s = SITUACAO_RELATO[e.status] || { rotulo: e.status };
-        const quem =
-          e.ator === "agente"
-            ? "pelo agente"
-            : e.atorNome
-              ? `por ${e.atorNome}`
-              : e.ator === "autor"
-                ? "por quem relatou"
-                : "por quem administra";
-        // A nota do último evento é, quase sempre, o próprio texto que já está
-        // no cartão. Repetir embaixo seria ler a mesma coisa duas vezes.
-        const repetida = i === eventos.length - 1 && e.nota === r.resolution;
-        return h(
-          "li",
-          { class: "sugestao__evento" },
-          h("span", {
-            class: "sugestao__eventotopo",
-            title: dataHoraLonga(e.em),
-            text: `${s.rotulo} · ${quem} · ${desde(e.em)}`,
-          }),
-          e.nota && !repetida ? h("p", { class: "sugestao__eventonota", text: e.nota }) : null
-        );
-      })
-    )
   );
 }
 

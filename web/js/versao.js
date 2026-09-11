@@ -344,7 +344,16 @@ function linhaDoTempo(v) {
             }),
             h("span", { class: "linha__data", text: data(c.data, true) || "" }),
             c.sha === atual ? h("span", { class: "linha__marca", text: "no ar" }) : null,
-            c.relatos?.length ? h("span", { class: "linha__via", text: "via relato", title: "Feito pelo ciclo de relatos" }) : null
+            // Uma etiqueta por relato, com o nome de quem sugeriu: é o
+            // crédito de quem apontou a coisa, e ele só existe aqui porque
+            // vem do banco. No commit, que é público, há só o número.
+            (c.relatos || []).map((r) =>
+              h("span", {
+                class: "linha__via",
+                text: r.autor ? `Sugestão externa - ${r.autor}` : "Sugestão externa",
+                title: `Veio do relato #${r.id}`,
+              })
+            )
           ),
           h("span", { class: "linha__titulo", text: c.titulo || "(sem mensagem)" }),
           relatosDoCommit(c),
@@ -407,7 +416,6 @@ function relatosDoCommit(c) {
             onClick: () => caixa?.close(),
           },
           h("span", { class: "linha__relatotipo", text: `${r.kind === "bug" ? "Bug" : "Ideia"} #${r.id}` }),
-          h("span", { class: "linha__relatoautor", text: r.autor ? `de ${r.autor}` : "de alguém que saiu do time" }),
           h("span", { class: `situacao situacao--${s.tom}`, text: s.rotulo })
         ),
         feito && r.resolution ? h("p", { class: "linha__relatonota", text: `O que mudou: ${r.resolution}` }) : null

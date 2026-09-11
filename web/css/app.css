@@ -2731,6 +2731,7 @@ input[type="color"] {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
+  flex-wrap: wrap;
 }
 .linha__versao {
   font-family: var(--font-mono);
@@ -3172,22 +3173,67 @@ input[type="color"] {
   color: var(--accent);
 }
 
-/* A resposta: o que mudou, o porquê, o plano ou a pergunta. Um fundo leve na
-   cor da situação separa o que a pessoa escreveu do que foi respondido. */
-.sugestao__resolucao {
+/* A pilha de atualizações: a mais nova em cima, empurrando as anteriores para
+   baixo. O passo atual vem cheio; os de trás ficam mais apagados, que é como o
+   olho separa "o que aconteceu agora" de "o que já aconteceu" sem ler. */
+.sugestao__pilha {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sugestao__passo {
+  --situacao-cor: var(--st-inbox);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   padding: var(--sp-2) var(--sp-3);
+  border-left: 2px solid color-mix(in srgb, var(--situacao-cor) 50%, transparent);
   border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--situacao-cor) 9%, transparent);
+  background: color-mix(in srgb, var(--situacao-cor) 6%, transparent);
+  opacity: 0.7;
+}
+.sugestao__passo.is-atual {
+  border-left-width: 3px;
+  background: color-mix(in srgb, var(--situacao-cor) 12%, transparent);
+  opacity: 1;
+}
+.sugestao__passo--neutro {
+  --situacao-cor: var(--st-inbox);
+}
+.sugestao__passo--acento {
+  --situacao-cor: var(--accent-vivo);
+}
+.sugestao__passo--atencao {
+  --situacao-cor: var(--st-waiting);
+}
+.sugestao__passo--sucesso {
+  --situacao-cor: var(--st-done);
+}
+.sugestao__passo--perigo {
+  --situacao-cor: var(--alert);
+}
+.sugestao__passo--apagado {
+  --situacao-cor: var(--text-faint);
+}
+.sugestao__passotopo {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  font-size: var(--text-xs);
+}
+.sugestao__passoquem {
+  color: var(--text-3);
 }
 .sugestao__rotulo {
   font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: var(--tracking-wide);
-  color: var(--situacao-cor);
+  color: var(--situacao-cor, var(--text-3));
 }
 .sugestao__resposta {
   margin: 0;
@@ -3252,52 +3298,6 @@ a.sugestao__commit:hover {
   min-height: 72px;
 }
 
-.sugestao__historico summary {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  width: fit-content;
-  font-size: var(--text-xs);
-  color: var(--text-faint);
-  cursor: pointer;
-  list-style: none;
-  transition: color var(--dur) var(--ease);
-}
-.sugestao__historico summary::-webkit-details-marker {
-  display: none;
-}
-.sugestao__historico summary::before {
-  content: "▸";
-  font-size: 9px;
-  transition: transform var(--dur) var(--ease);
-}
-.sugestao__historico[open] summary::before {
-  transform: rotate(90deg);
-}
-.sugestao__historico summary:hover {
-  color: var(--accent);
-}
-.sugestao__eventos {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-2);
-  margin: var(--sp-2) 0 0;
-  padding: 0 0 0 var(--sp-3);
-  list-style: none;
-  border-left: 1px solid var(--border-soft);
-}
-.sugestao__eventotopo {
-  font-size: var(--text-xs);
-  color: var(--text-3);
-}
-.sugestao__eventonota {
-  margin: 2px 0 0;
-  font-size: var(--text-xs);
-  color: var(--text-2);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
 /* A etiqueta da situação: a mesma na tela Sugestões e no painel de versões. */
 .situacao {
   --tom: var(--st-inbox);
@@ -3332,13 +3332,12 @@ a.sugestao__commit:hover {
 /* O painel de versões: a versão que veio de um relato diz de qual, e de quem,
    sem precisar abrir o "por quê". */
 .linha__via {
-  padding: 1px 6px;
+  padding: 1px 7px;
   border: 1px solid color-mix(in srgb, var(--accent-vivo) 45%, transparent);
   border-radius: 999px;
   color: var(--accent-vivo);
   font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
+  white-space: nowrap;
 }
 .linha__relatos {
   display: flex;
@@ -3373,9 +3372,6 @@ a.sugestao__commit:hover {
 }
 .linha__relatolink:hover .linha__relatotipo {
   color: var(--accent-vivo);
-}
-.linha__relatoautor {
-  color: var(--text-3);
 }
 .linha__relatonota {
   margin: 0;

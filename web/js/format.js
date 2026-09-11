@@ -30,7 +30,7 @@ export const SITUACAO_RELATO = {
   novo: { rotulo: "Novo", tom: "neutro", grupo: "abertas" },
   autorizado: { rotulo: "Autorizado", tom: "acento", grupo: "abertas" },
   detalhe: { rotulo: "Precisa de detalhe", tom: "atencao", grupo: "abertas" },
-  todo: { rotulo: "Registrado no TODO", tom: "atencao", grupo: "aguardando" },
+  todo: { rotulo: "Exige permissão do dev - Adicionado ao TODO", tom: "atencao", grupo: "aguardando" },
   corrigido: { rotulo: "Corrigido", tom: "sucesso", grupo: "feitas" },
   adicionado: { rotulo: "Adicionado", tom: "sucesso", grupo: "feitas" },
   rejeitado: { rotulo: "Rejeitado", tom: "perigo", grupo: "encerradas" },
