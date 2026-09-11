@@ -14,6 +14,8 @@ import {
   decisoesDaFila,
   juntarPlano,
   limparTexto,
+  mensagemDeCommit,
+  validarLeitura,
   TETO_DA_RESOLUCAO,
 } from "../scripts/relatos/plano.mjs";
 
@@ -218,4 +220,49 @@ test("o plano junto do texto nunca passa do teto da resolução", () => {
 test("limparTexto troca travessão por vírgula e mantém a quebra de linha", () => {
   assert.equal(limparTexto("A — B\r\nC–D"), "A, B\nC-D");
   assert.equal(limparTexto(null), "");
+});
+
+// --- A mensagem do commit ----------------------------------------------------------------
+
+test("a mensagem de commit sai sem acento, sem prefixo e com a linha do relato por último", () => {
+  const m = mensagemDeCommit("fix: Corrige a contagem de Hoje à noite", "A lista era montada só na carga.", 12);
+  const linhas = m.split("\n");
+  assert.equal(linhas[0], "Corrige a contagem de Hoje a noite");
+  assert.equal(linhas[1], "");
+  assert.equal(linhas[2], "A lista era montada só na carga.", "o corpo pode ter acento; só o assunto não");
+  assert.equal(linhas[4], "Relato: 12");
+  assert.ok(!/[^ -~]/.test(linhas[0]), "sobrou caractere fora do ASCII no assunto");
+});
+
+test("assunto vazio ainda vira uma mensagem válida, e o assunto longo é cortado em 72", () => {
+  assert.match(mensagemDeCommit("", "", 7), /^Aplica o pedido do relato 7\n\nRelato: 7\n$/);
+  const longo = mensagemDeCommit("Ajusta " + "palavra ".repeat(20), "", 8).split("\n")[0];
+  assert.ok(longo.length <= 72, longo);
+});
+
+test("nem o assunto nem o corpo conseguem pôr o trabalho na conta de outro relato", () => {
+  const m = mensagemDeCommit("Ajusta outra constante (Relato: 91)", "Feito.\nRelato: 91\nE mais.", 92);
+  assert.equal(m.split("Relato:").length, 2, "apareceu uma segunda linha de relato");
+  assert.ok(m.endsWith("Relato: 92\n"));
+});
+
+// --- A leitura ---------------------------------------------------------------------------
+
+test("a leitura vem cortada, com os sinais em booleano e tamanho conhecido", () => {
+  const d = validarLeitura({
+    onde: "z".repeat(600),
+    hoje: "a constante está fixa",
+    plausivel: "sim",
+    jaExiste: true,
+    areaSensivel: 1,
+    tamanho: "gigante",
+    observacao: null,
+  });
+  assert.equal(d.onde.length, 400);
+  assert.equal(d.plausivel, false, "só o true de verdade conta");
+  assert.equal(d.jaExiste, true);
+  assert.equal(d.areaSensivel, false);
+  assert.equal(d.tamanho, "medio");
+  assert.equal(d.observacao, null);
+  assert.equal(validarLeitura(null), null);
 });

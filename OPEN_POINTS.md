@@ -1966,19 +1966,30 @@ cada versão feita pelo ciclo, de que relato ela veio e de quem.
 2. Às 05:17 (ou quando o computador ligar, se estava desligado), a tarefa
    agendada roda `scripts/relatos/rodar.mjs`. Ele pede a fila à API de
    produção com um token próprio. Fila vazia: termina ali, sem chamar o Claude.
-3. **Triagem.** O Claude Code sem cabeça lê os relatos novos e decide cada um,
-   só com ferramentas de leitura, num clone do repositório que é só dele.
-4. **Política.** Relato que a triagem deu por pronto vai para a implementação
+3. **Leitura.** Um agente barato (Sonnet, esforço baixo), um por relato, procura
+   no código o que o relato cita e devolve um dossiê curto: onde fica, o que o
+   código faz hoje, se o defeito é plausível, se já existe, se a área é
+   sensível, o tamanho da mudança. É a parte que se repete, e é a que roda no
+   modelo barato.
+4. **Triagem.** O Claude Code sem cabeça (Opus, esforço máximo) recebe os
+   relatos e os dossiês e decide cada um, só com ferramentas de leitura, num
+   clone do repositório que é só dele. Ele confere no código o que decidir a
+   resposta, e não relê o repositório inteiro: para isso serve a leitura.
+5. **Política.** Relato que a triagem deu por pronto vai para a implementação
    se quem relatou for de confiança (papel de administrador, ou usuário na
    lista local `autoresConfiaveis`). Dos outros, vira **Registrado no TODO**,
    com o plano, esperando alguém autorizar.
-5. **Implementação.** Um relato por vez, cada um numa conversa própria, com
-   edição e um Bash que só roda teste e git local. Cada relato vira um commit
-   com a linha `Relato: N` no fim.
-6. **Guarda.** Código, não modelo, confere cada commit (21.4). O que passa é
+6. **Implementação.** Um relato por vez, cada um numa conversa própria, com
+   edição e um Bash que só roda teste e git de leitura. O agente **não
+   commita**: ele deixa a mudança na árvore e devolve assunto e corpo. Quem
+   commita é o executor, com `mensagemDeCommit` (`plano.mjs`), que monta o
+   assunto em ASCII de até 72, o corpo, e a linha `Relato: N` no fim. Assim o
+   formato não depende de o modelo lembrar dele, e nenhum texto do agente
+   consegue pôr o trabalho na conta de outro relato.
+7. **Guarda.** Código, não modelo, confere cada commit (21.4). O que passa é
    aplicado sobre o `main` de agora, a suíte inteira roda, e o push sai sem
    `--force`. A Vercel publica sozinha.
-7. O executor grava cada decisão na API e registra a passada, que a tela
+8. O executor grava cada decisão na API e registra a passada, que a tela
    Sugestões mostra no alto ("Última passada do agente: há 3 h").
 
 Quem administra autoriza o que ficou no TODO pela própria tela; o relato
@@ -2019,6 +2030,9 @@ no `main`.
   dela vai direto para quem edita e roda código, e um relato de fora na mesma
   conversa poderia ditar esse plano. A outra leva lê tudo, porque nada do que
   ela decide chega à implementação sem uma pessoa autorizar.
+- **A leitura é por relato.** Cada dossiê nasce de um relato só, sem nome de
+  ninguém e sem o texto dos outros, e chega à triagem cortado e limpo
+  (`validarLeitura`): é texto de modelo, e texto de modelo entra conferido.
 - **A triagem só lê.** `--restricted` tira Bash e WebFetch, ignora os
   settings de usuário e de projeto e confina as ferramentas de arquivo ao
   clone; `--tools Read,Glob,Grep`, `--strict-mcp-config` sem servidor MCP

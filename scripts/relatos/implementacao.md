@@ -6,9 +6,10 @@ administra, que leu o plano e autorizou.
 
 Você está num clone do repositório. Pode ler, editar e criar arquivos, e o Bash
 só roda: `npm test`, `node --test`, `node --check`, e `git status`, `git diff`,
-`git log`, `git show`, `git add`, `git commit`, `git restore`. Nada além disso
-roda. Não há ninguém acompanhando: a sua resposta e os seus commits são lidos
-por um programa.
+`git log`, `git show`, `git restore`. Nada além disso roda.
+
+**Você não commita.** Quem commita é o programa que chamou você, com o assunto
+e o corpo que você devolver na resposta. Deixe a mudança na árvore e pronto.
 
 ## Os itens
 
@@ -62,42 +63,36 @@ um teste existente só quando o comportamento que ele cobra mudou de propósito.
   `npm test`. Falhou e você não sabe consertar com segurança: desfaça o que
   mudou naquele item (`git restore` e `git restore --staged`) e responda
   `feito: false` com o motivo.
-- Um commit por item, feito só depois de a suíte passar.
-- No fim, a árvore limpa: `git status` sem nada.
+- Só responda `feito: true` depois de a suíte passar. O que estiver na árvore
+  nesse momento é o que vai virar commit.
+- Não fez? Desfaça o que mudou e responda `feito: false` com o motivo.
 
-## A mensagem de commit
+## O assunto e o corpo do commit
 
-- Assunto em português, terceira pessoa do presente, **sem acento**, até 72
-  caracteres, sem prefixo do tipo `fix:`.
-- Linha em branco, e um corpo de duas ou três linhas: a causa e o que mudou,
-  com as suas palavras. É o texto que o painel de versões mostra como "por
-  quê", então ele é curto e seco. Nunca copie o texto do relato, nunca escreva
-  nome de pessoa, nunca use travessão.
-- Linha em branco, e por último a linha `Relato: <id>` (sem cerquilha).
-- Nada de `Co-Authored-By`, "Generated with" ou qualquer menção a IA ou agente.
+Você devolve os dois na resposta; o programa monta a mensagem, acrescenta a
+linha `Relato: N` e commita.
 
-Exemplo:
+- `assunto`: português, terceira pessoa do presente, até 72 caracteres, sem
+  prefixo do tipo `fix:`. Pode escrever com acento: o programa tira.
+- `corpo`: **duas ou três linhas, no máximo.** A causa e o que mudou, com as
+  suas palavras. É o que o painel de versões mostra como "por quê". Nunca copie
+  o texto do relato, não repita o assunto, não liste arquivos (o diff já
+  mostra), sem nome de pessoa e sem travessão.
 
-```
-Mantem a contagem de Hoje em dia ao concluir uma tarefa
+Exemplo de assunto: "Mantem a contagem de Hoje em dia ao concluir uma tarefa".
+Exemplo de corpo: "A contagem saia de uma lista montada so na carga da pagina.
+Agora ela e refeita a cada desenho, como as outras contagens da barra."
 
-A contagem saia de uma lista montada so na carga da pagina, e concluir
-uma tarefa nao refazia a lista. Agora ela e recalculada a cada desenho,
-como as outras contagens da barra.
-
-Relato: 12
-```
-
-O programa que chamou você confere cada commit depois de você terminar. Commit
-sem `Relato: N`, com acento no assunto, com travessão, com nome de pessoa, com
-trecho copiado do relato, grande demais ou em arquivo proibido é descartado, e
-o item volta para quem administra.
+Depois que você terminar, uma guarda confere o commit. Commit com nome de
+pessoa, com trecho copiado do relato, grande demais ou em arquivo proibido é
+descartado, e o item volta para quem administra.
 
 ## A resposta
 
 Um resultado para cada item, com o `id` dele:
 
-- `feito`: `true` só se o commit do item está feito e a suíte passou.
+- `feito`: `true` só se a mudança está na árvore e a suíte passou.
+- `assunto` e `corpo` (quando feito): a mensagem do commit, como acima.
 - `resumo` (quando feito): **uma frase, duas no máximo, até 280 caracteres.** O
   que mudou, na língua de quem relatou, sem nome de função e sem enfeite. É o
   que aparece no cartão e no histórico de versões. Português com todos os

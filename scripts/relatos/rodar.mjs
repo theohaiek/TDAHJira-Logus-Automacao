@@ -38,8 +38,10 @@ import { fileURLToPath } from "node:url";
 import { relatosDoCommit } from "../../server/versao.js";
 import { avaliarCommits } from "./guarda.mjs";
 import {
+  validarLeitura,
   validarTriagem,
   validarImplementacao,
+  mensagemDeCommit,
   aplicarPolitica,
   decisoesDaFila,
   ehConfiavel,
@@ -82,6 +84,11 @@ const PADRAO = {
   // conta de uma passada por dia cabe nisso.
   modelo: "opus",
   esforco: "max",
+  // A parte mecânica, que é reler o repositório para montar o dossiê, roda no
+  // modelo barato e no esforço mínimo: é leitura, não julgamento, e é ela que
+  // fazia o custo de uma passada.
+  modeloDeLeitura: "sonnet",
+  esforcoDeLeitura: "low",
   autoresConfiaveis: [],
   claude: null,
   comandoDeTeste: null,
@@ -128,11 +135,14 @@ const PERMISSOES_DA_IMPLEMENTACAO = {
     "Bash(git diff:*)",
     "Bash(git log:*)",
     "Bash(git show:*)",
-    "Bash(git add:*)",
-    "Bash(git commit:*)",
     "Bash(git restore:*)",
   ],
   deny: [
+    // Quem commita é o executor, com o assunto e o corpo que o agente devolve:
+    // dois turnos a menos por relato, e uma mensagem que não tem como sair fora
+    // do formato que a guarda cobra.
+    "Bash(git add:*)",
+    "Bash(git commit:*)",
     "Bash(git push:*)",
     "Bash(git remote:*)",
     "Bash(git config:*)",
@@ -143,6 +153,22 @@ const PERMISSOES_DA_IMPLEMENTACAO = {
     "WebFetch",
     "WebSearch",
   ],
+};
+
+// O dossiê que a leitura devolve. Curto de propósito: o valor dele é poupar o
+// modelo bom de reler o repositório inteiro, não substituir o julgamento dele.
+const SCHEMA_DA_LEITURA = {
+  type: "object",
+  properties: {
+    onde: { type: "string", maxLength: 400 },
+    hoje: { type: "string", maxLength: 400 },
+    plausivel: { type: "boolean" },
+    areaSensivel: { type: "boolean" },
+    jaExiste: { type: "boolean" },
+    tamanho: { type: "string", enum: ["pequeno", "medio", "grande"] },
+    observacao: { type: "string", maxLength: 300 },
+  },
+  required: ["onde", "hoje", "plausivel", "areaSensivel", "jaExiste", "tamanho"],
 };
 
 const SCHEMA_DA_TRIAGEM = {
@@ -176,6 +202,8 @@ const SCHEMA_DA_IMPLEMENTACAO = {
         properties: {
           id: { type: "integer" },
           feito: { type: "boolean" },
+          assunto: { type: "string", maxLength: 72 },
+          corpo: { type: "string", maxLength: 400 },
           resumo: { type: "string", maxLength: 280 },
           motivo: { type: "string", maxLength: 280 },
           inviavel: { type: "boolean" },
@@ -261,56 +289,63 @@ async function passada({ ensaio }) {
     const base = (await git(clone, ["rev-parse", "HEAD"])).saida.trim();
     const configDoGit = resumoDoConfigDoGit(clone);
 
-    // Triagem: só leitura, sem nome de quem relatou, e em duas levas.
+    // Cada relato novo passa por duas conversas, e o motivo é dinheiro somado a
+    // segurança.
     //
-    // A leva dos relatos de autor confiável não lê texto de mais ninguém, nem
-    // no contexto: o plano que ela escreve vai direto para o agente que edita
-    // e roda código, e um relato de fora lido na mesma conversa poderia ditar
-    // esse plano. A outra leva lê tudo, porque nada do que ela decide chega à
-    // implementação sem uma pessoa autorizar antes.
-    // E a leva confiável vai um relato por conversa, como a implementação: se
-    // uma conta confiável for tomada, o relato dela não fica na mesma conversa
-    // em que o plano de outra pessoa é escrito.
+    // A parte cara de decidir não é decidir: é reler o repositório inteiro toda
+    // vez (AGENTS.md, o produto, o código em volta do que o relato cita). Isso é
+    // trabalho mecânico, e vai num modelo barato no esforço mínimo, que devolve
+    // um dossiê curto. A decisão em si, que escolhe o que fazer e escreve o que
+    // as pessoas leem, roda no modelo bom lendo o dossiê em vez do repositório.
+    //
+    // Uma conversa por relato, e não uma por leva: se uma conta confiável for
+    // tomada, o texto dela não divide conversa com o relato de mais ninguém. O
+    // contexto de um relato confiável também só traz relatos confiáveis.
     const confiavel = (autor) => ehConfiavel(autor, config.autoresConfiaveis);
-    const confiaveis = novos.filter((p) => confiavel(p.autor));
-    const outros = novos.filter((p) => !confiavel(p.autor));
     const contextoConfiavel = contexto.filter((c) => confiavel(c.autor));
-    const levas = [
-      ...confiaveis.map((p) => ({
-        etapa: `triagem-confiavel-${p.id}`,
-        relatos: [p],
-        contexto: contextoConfiavel,
-      })),
-      {
-        etapa: "triagem",
-        relatos: outros,
-        contexto: [...contexto, ...confiaveis.map(comoContexto)],
-      },
-    ];
 
     const decisoes = [];
-    for (const leva of levas) {
-      if (!leva.relatos.length) continue;
+    for (const relato of novos) {
+      const daVez = confiavel(relato.autor);
+      const contextoDele = daVez ? contextoConfiavel : contexto;
+
+      const l = await chamarClaude({
+        config,
+        clone,
+        pasta,
+        log,
+        etapa: `leitura-${relato.id}`,
+        modelo: config.modeloDeLeitura,
+        esforco: config.esforcoDeLeitura,
+        prompt: promptDaLeitura(relato),
+        ferramentas: "Read,Glob,Grep",
+        permissoes: PERMISSOES_DA_TRIAGEM,
+        schema: SCHEMA_DA_LEITURA,
+        tempo: TEMPO_DA_TRIAGEM,
+      });
+      const dossie = l.ok ? validarLeitura(l.dados) : null;
+      if (!l.ok) log(`A leitura do relato #${relato.id} falhou (${l.erro}). A triagem vai sem dossiê.`);
+
       const t = await chamarClaude({
         config,
         clone,
         pasta,
         log,
-        etapa: leva.etapa,
-        prompt: promptDaTriagem(leva.relatos, leva.contexto),
+        etapa: `triagem-${relato.id}`,
+        prompt: promptDaTriagem([relato], contextoDele, dossie),
         ferramentas: "Read,Glob,Grep",
         permissoes: PERMISSOES_DA_TRIAGEM,
         schema: SCHEMA_DA_TRIAGEM,
         tempo: TEMPO_DA_TRIAGEM,
       });
       if (t.ok) {
-        const v = validarTriagem(t.dados, leva.relatos.map((p) => p.id));
-        for (const p of v.problemas) log(`Triagem: ${p}`);
+        const v = validarTriagem(t.dados, [relato.id]);
+        for (const p of v.problemas) log(`Triagem #${relato.id}: ${p}`);
         decisoes.push(...v.decisoes);
         resumo.analisados += v.decisoes.length;
       } else {
-        log(`A ${leva.etapa} falhou (${t.erro}). Esses relatos continuam novos.`);
-        resumo.erro = `${leva.etapa}: ${t.erro}`;
+        log(`A triagem do relato #${relato.id} falhou (${t.erro}). Ele continua novo.`);
+        resumo.erro = `triagem #${relato.id}: ${t.erro}`;
       }
     }
 
@@ -392,35 +427,70 @@ async function implementar({ config, clone, base, configDoGit, fila, pendentes, 
       tempo: TEMPO_POR_ITEM,
     });
 
-    // O próximo começa do zero: o que ficou sem commit não é de ninguém.
-    if ((await git(clone, ["status", "--porcelain"])).saida.trim()) {
-      log(`O agente deixou mudança sem commit no relato #${item.id}; ela foi descartada.`);
-      await git(clone, ["reset", "--quiet", "--hard", "HEAD"]);
-      await git(clone, ["clean", "-fdq"]);
+    let resultado = null;
+    if (im.ok) {
+      const v = validarImplementacao(im.dados, [item.id]);
+      for (const p of v.problemas) log(`Implementação #${item.id}: ${p}`);
+      resultado = v.resultados.get(item.id) || null;
+    } else {
+      log(`A implementação do relato #${item.id} falhou (${im.erro}).`);
     }
 
-    // O histórico precisa continuar sendo o de antes mais commits novos. Um
-    // "commit --amend" reescreveria um commit que já é de todo mundo.
+    const sujo = (await git(clone, ["status", "--porcelain"])).saida.trim();
+
+    // Não fez, não disse que fez, ou nem terminou: o que sobrou na árvore não é
+    // de ninguém, e o próximo item começa do ponto de antes.
+    if (!resultado?.feito) {
+      if (sujo) {
+        log(`O relato #${item.id} não foi dado por feito; o que ficou na árvore foi descartado.`);
+        await git(clone, ["reset", "--quiet", "--hard", "HEAD"]);
+        await git(clone, ["clean", "-fdq"]);
+      }
+      resultados.set(
+        item.id,
+        resultado || {
+          id: item.id,
+          feito: false,
+          motivo: im.ok ? "não disse se fez" : `não terminou (${im.erro})`,
+          inviavel: false,
+        }
+      );
+      continue;
+    }
+
+    if (!sujo) {
+      log(`O relato #${item.id} foi dado por feito sem mudar arquivo nenhum.`);
+      resultados.set(item.id, { ...resultado, feito: false, motivo: "disse que fez, mas não mudou nenhum arquivo" });
+      continue;
+    }
+
+    // O commit é do executor, e não do agente: assunto e corpo vêm da resposta
+    // dele, a linha "Relato: N" e o formato vêm daqui. O agente não tem git de
+    // escrita, então não há como o commit sair torto nem parar na conta de
+    // outro relato.
+    const mensagem = mensagemDeCommit(resultado.assunto, resultado.corpo, item.id);
+    const arquivoDaMensagem = join(pasta, `commit-${item.id}.txt`);
+    writeFileSync(arquivoDaMensagem, mensagem);
+    await git(clone, ["add", "-A"]);
+    const feito = await git(clone, ["commit", "--quiet", "-F", arquivoDaMensagem], { permitirFalha: true });
+    if (feito.codigo !== 0) {
+      log(`Não consegui commitar o relato #${item.id}: ${resumir(feito.erro || feito.saida)}`);
+      await git(clone, ["reset", "--quiet", "--hard", "HEAD"]);
+      await git(clone, ["clean", "-fdq"]);
+      resultados.set(item.id, { ...resultado, feito: false, motivo: "a mudança não pôde ser commitada" });
+      continue;
+    }
+
+    // O histórico precisa continuar sendo o de antes mais o commit novo.
     const descende = await git(clone, ["merge-base", "--is-ancestor", antes, "HEAD"], { permitirFalha: true });
     if (descende.codigo !== 0) {
       log(`O histórico foi reescrito na vez do relato #${item.id}. Voltei ao ponto de antes.`);
       await git(clone, ["reset", "--quiet", "--hard", antes]);
-      resultados.set(item.id, { id: item.id, feito: false, motivo: "reescreveu o histórico do repositório", inviavel: false });
+      resultados.set(item.id, { ...resultado, feito: false, motivo: "o histórico do repositório foi reescrito" });
       continue;
     }
     for (const c of await commitsEntre(clone, antes, "HEAD")) vez.set(c.sha, item.id);
-
-    if (!im.ok) {
-      log(`A implementação do relato #${item.id} falhou (${im.erro}).`);
-      resultados.set(item.id, { id: item.id, feito: false, motivo: `não terminou (${im.erro})`, inviavel: false });
-      continue;
-    }
-    const v = validarImplementacao(im.dados, [item.id]);
-    for (const p of v.problemas) log(`Implementação #${item.id}: ${p}`);
-    resultados.set(
-      item.id,
-      v.resultados.get(item.id) || { id: item.id, feito: false, motivo: "não disse se fez", inviavel: false }
-    );
+    resultados.set(item.id, resultado);
   }
 
   const commits = (await coletarCommits(clone, base)).map((c) => ({ ...c, vez: vez.get(c.sha) ?? null }));
@@ -755,7 +825,9 @@ function lerLinhas(patch) {
 
 // --- O Claude --------------------------------------------------------------------
 
-async function chamarClaude({ config, clone, pasta, log, etapa, prompt, ferramentas, permissoes, schema, tempo }) {
+async function chamarClaude({ config, clone, pasta, log, etapa, prompt, ferramentas, permissoes, schema, tempo, modelo, esforco }) {
+  const modeloDaVez = modelo || config.modelo;
+  const esforcoDaVez = esforco || config.esforco;
   const comando = resolverClaude(config);
   if (!comando) return { ok: false, erro: "não achei o executável do Claude Code" };
 
@@ -780,16 +852,16 @@ async function chamarClaude({ config, clone, pasta, log, etapa, prompt, ferramen
     "--permission-mode",
     "dontAsk",
     "--model",
-    config.modelo,
+    modeloDaVez,
     "--effort",
-    config.esforco,
+    esforcoDaVez,
     "--output-format",
     "json",
     "--json-schema",
     JSON.stringify(schema),
   ];
 
-  log(`Chamando o Claude para a ${etapa} (${config.modelo}, esforço ${config.esforco}).`);
+  log(`Chamando o Claude para a ${etapa} (${modeloDaVez}, esforço ${esforcoDaVez}).`);
   const r = await executar(comando[0], args, { cwd: clone, env: ambienteDoFilho(), entrada: prompt, tempo });
   writeFileSync(join(pasta, `${etapa}.saida.json`), r.saida);
   if (r.erro) writeFileSync(join(pasta, `${etapa}.erro.txt`), r.erro);
@@ -813,7 +885,19 @@ async function chamarClaude({ config, clone, pasta, log, etapa, prompt, ferramen
   return { ok: true, dados };
 }
 
-function promptDaTriagem(novos, contexto) {
+function promptDaLeitura(relato) {
+  const dados = {
+    id: relato.id,
+    tipo: relato.kind,
+    texto: relato.body,
+    tela: relato.page,
+    versao: relato.version,
+    respostaAnterior: relato.resolution,
+  };
+  return `${instrucoes("leitura.md")}\n\n<dados-do-relato>\n${jsonSeguro(dados)}\n</dados-do-relato>\n`;
+}
+
+function promptDaTriagem(novos, contexto, dossie) {
   const dados = {
     relatos: novos.map((p) => ({
       id: p.id,
@@ -831,7 +915,10 @@ function promptDaTriagem(novos, contexto) {
       resolucao: c.resolution,
     })),
   };
-  return `${instrucoes("triagem.md")}\n\n<dados-dos-relatos>\n${jsonSeguro(dados)}\n</dados-dos-relatos>\n`;
+  const comDossie = dossie
+    ? `\n\n<leitura-do-codigo>\n${jsonSeguro(dossie)}\n</leitura-do-codigo>\n`
+    : "";
+  return `${instrucoes("triagem.md")}\n\n<dados-dos-relatos>\n${jsonSeguro(dados)}\n</dados-dos-relatos>\n${comDossie}`;
 }
 
 function promptDaImplementacao(fila) {
@@ -1098,9 +1185,12 @@ function lerConfig() {
   if (!c.repoUrl) throw new Error("repoUrl vazio no config.");
   if (!/^[A-Za-z0-9._/-]+$/.test(String(c.ramo)) || String(c.ramo).startsWith("-")) throw new Error("ramo inválido no config.");
   if (!/^[A-Za-z0-9._-]+$/.test(String(c.modelo))) throw new Error("modelo inválido no config.");
-  if (!["low", "medium", "high", "xhigh", "max"].includes(String(c.esforco))) {
-    throw new Error("esforco do config precisa ser low, medium, high, xhigh ou max.");
+  for (const campo of ["esforco", "esforcoDeLeitura"]) {
+    if (!["low", "medium", "high", "xhigh", "max"].includes(String(c[campo]))) {
+      throw new Error(`${campo} do config precisa ser low, medium, high, xhigh ou max.`);
+    }
   }
+  if (!/^[A-Za-z0-9._-]+$/.test(String(c.modeloDeLeitura))) throw new Error("modeloDeLeitura inválido no config.");
   if (!Array.isArray(c.autoresConfiaveis)) c.autoresConfiaveis = [];
   return c;
 }

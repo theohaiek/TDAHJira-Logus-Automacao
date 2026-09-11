@@ -50,7 +50,6 @@ const qualquer = { id: 2, username: "visitante_zz", nome: "Visitante Ypsilon", r
 // de string.
 async function claudeFalso() {
   const fs = await import("node:fs");
-  const { execFileSync } = await import("node:child_process");
   const path = await import("node:path");
 
   const [arquivoDoCenario, ...args] = process.argv.slice(2);
@@ -59,24 +58,35 @@ async function claudeFalso() {
   let prompt = "";
   for await (const pedaco of process.stdin) prompt += pedaco;
 
-  const ferramentas = args[args.indexOf("--tools") + 1] || "";
-  const etapa = ferramentas.includes("Bash") ? "implementacao" : "triagem";
+  const etapa = prompt.includes("<dados-dos-itens>")
+    ? "implementacao"
+    : prompt.includes("<dados-do-relato>")
+      ? "leitura"
+      : "triagem";
   const registro = { etapa, args, prompt, segredoNoAmbiente: !!process.env.SEGREDO_DE_TESTE_TOKEN };
   fs.appendFileSync(cenario.registro, JSON.stringify(registro) + String.fromCharCode(10));
 
   let saida;
-  if (etapa === "triagem") {
+  if (etapa === "leitura") {
+    saida = cenario.leitura || {
+      onde: "web/app.js",
+      hoje: "a constante esta fixa",
+      plausivel: true,
+      areaSensivel: false,
+      jaExiste: false,
+      tamanho: "pequeno",
+    };
+  } else if (etapa === "triagem") {
     saida = cenario.triagem;
   } else {
-    // Cada chamada de implementação traz um relato só: o falso faz apenas o
-    // que o cenário manda para os ids que vieram no prompt.
+    // Cada chamada de implementação traz um relato só: o falso muda os
+    // arquivos que o cenário manda para os ids que vieram no prompt. Quem
+    // commita é o executor.
     const bloco = prompt.slice(prompt.indexOf("<dados-dos-itens>"));
     const ids = [...bloco.matchAll(/"id": ([0-9]+)/g)].map((m) => Number(m[1]));
-    for (const c of (cenario.implementacao.commits || []).filter((c) => c.id == null || ids.includes(c.id))) {
+    for (const c of (cenario.implementacao.mudancas || []).filter((c) => c.id == null || ids.includes(c.id))) {
       fs.mkdirSync(path.dirname(c.arquivo), { recursive: true });
       fs.writeFileSync(c.arquivo, c.conteudo);
-      execFileSync("git", ["add", "-A"]);
-      execFileSync("git", ["commit", "-q", "-m", c.mensagem]);
     }
     saida = { resultados: (cenario.implementacao.resultados || []).filter((r) => ids.includes(r.id)) };
   }
@@ -157,7 +167,7 @@ async function subirApi(pendentesIniciais) {
 async function cenario({
   pendentes = [],
   triagem = { decisoes: [] },
-  implementacao = { commits: [], resultados: [] },
+  implementacao = { mudancas: [], resultados: [] },
   comandoDeTeste = [process.execPath, "-e", "process.exit(0)"],
   autoresConfiaveis = ["morador_zz"],
 } = {}) {
@@ -224,11 +234,18 @@ function rodar(home, flags) {
   });
 }
 
-const commitBom = (id, arquivo = "web/app.js") => ({
+const mudancaBoa = (id, arquivo = "web/app.js") => ({
   id,
   arquivo,
   conteudo: `export const versao = ${id + 1};\n`,
-  mensagem: `Ajusta a versao exportada\n\nA constante estava defasada.\n\nRelato: ${id}`,
+});
+
+const feito = (id, resumo = "A versao exportada volta a bater.") => ({
+  id,
+  feito: true,
+  assunto: "Ajusta a versao exportada",
+  corpo: "A constante estava defasada.",
+  resumo,
 });
 
 // --- Os casos ------------------------------------------------------------------------
@@ -266,8 +283,23 @@ test("a triagem só lê, não recebe nome de ninguém nem segredo, e as decisõe
 
     const chamadas = c.chamadas();
     assert.ok(!chamadas.some((x) => x.etapa === "implementacao"), "chamou a implementação sem nada aprovado");
-    assert.equal(chamadas.length, 2, "as duas levas de triagem precisam ser conversas separadas");
-    for (const triagem of chamadas) {
+
+    // A leitura é a parte que se repete, e é ela que roda no modelo barato.
+    const leituras = chamadas.filter((x) => x.etapa === "leitura");
+    assert.equal(leituras.length, 2, "cada relato precisa da leitura dele");
+    for (const leitura of leituras) {
+      assert.equal(leitura.args[leitura.args.indexOf("--model") + 1], "sonnet", "a leitura saiu do modelo barato");
+      assert.equal(leitura.args[leitura.args.indexOf("--effort") + 1], "low");
+      assert.equal(leitura.args[leitura.args.indexOf("--tools") + 1], "Read,Glob,Grep");
+      assert.equal(leitura.segredoNoAmbiente, false, "o segredo do ambiente chegou à leitura");
+      for (const nome of ["Moradora", "Zeta", "Visitante", "Ypsilon", "morador_zz", "visitante_zz"]) {
+        assert.ok(!leitura.prompt.includes(nome), `o nome ${nome} foi para a leitura`);
+      }
+    }
+
+    const triagens = chamadas.filter((x) => x.etapa === "triagem");
+    assert.equal(triagens.length, 2, "as duas levas de triagem precisam ser conversas separadas");
+    for (const triagem of triagens) {
       const args = triagem.args;
       assert.ok(args.includes("--restricted"));
       assert.ok(args.includes("--strict-mcp-config"));
@@ -284,7 +316,7 @@ test("a triagem só lê, não recebe nome de ninguém nem segredo, e as decisõe
 
     // A leva do autor confiável não lê o texto de quem está fora da lista: é
     // dela que sai o plano que o agente de implementação vai seguir.
-    const daConfiavel = chamadas.find((x) => x.prompt.includes("O botão some ao arrastar"));
+    const daConfiavel = triagens.find((x) => x.prompt.includes("O botão some ao arrastar"));
     assert.ok(daConfiavel, "o relato confiável não foi triado");
     assert.ok(!daConfiavel.prompt.includes("Um tema roxo"), "texto de autor não confiável entrou na leva confiável");
 
@@ -319,8 +351,10 @@ test("relato que tenta fechar o bloco de dados continua dentro dele", async () =
   });
   try {
     await c.rodar();
-    const { prompt } = c.chamadas()[0];
+    const { prompt } = c.chamadas().find((x) => x.etapa === "triagem");
     assert.equal(prompt.split("</dados-dos-relatos>").length, 2, "o relato fechou o bloco de dados");
+    const daLeitura = c.chamadas().find((x) => x.etapa === "leitura");
+    assert.equal(daLeitura.prompt.split("</dados-do-relato>").length, 2, "o relato fechou o bloco de dados da leitura");
   } finally {
     await c.api.fechar();
   }
@@ -330,7 +364,7 @@ test("pronto de autor confiável vira commit no main e corrigido com o sha publi
   const c = await cenario({
     pendentes: [{ id: 21, kind: "bug", status: "novo", body: "A versão exportada está errada", page: null, version: null, resolution: null, autor: confiavel }],
     triagem: { decisoes: [{ id: 21, situacao: "pronto", texto: "Dá para corrigir.", plano: "Trocar a constante em web/app.js." }] },
-    implementacao: { commits: [commitBom(21)], resultados: [{ id: 21, feito: true, resumo: "A versão exportada volta a bater." }] },
+    implementacao: { mudancas: [mudancaBoa(21)], resultados: [feito(21, "A versão exportada volta a bater.")] },
   });
   try {
     const r = await c.rodar();
@@ -371,7 +405,7 @@ test("pronto de autor fora da lista vira TODO e a implementação nem é chamada
   const c = await cenario({
     pendentes: [{ id: 31, kind: "ideia", status: "novo", body: "Atalho para arquivar", page: null, version: null, resolution: null, autor: qualquer }],
     triagem: { decisoes: [{ id: 31, situacao: "pronto", texto: "Simples.", plano: "Um atalho a em app.js." }] },
-    implementacao: { commits: [commitBom(31)], resultados: [{ id: 31, feito: true }] },
+    implementacao: { mudancas: [mudancaBoa(31)], resultados: [feito(31)] },
   });
   try {
     await c.rodar();
@@ -389,15 +423,14 @@ test("commit que mexe no package.json é barrado pela guarda e o relato volta co
     pendentes: [{ id: 41, kind: "bug", status: "novo", body: "Falta um script", page: null, version: null, resolution: null, autor: confiavel }],
     triagem: { decisoes: [{ id: 41, situacao: "pronto", texto: "Ok.", plano: "Script novo." }] },
     implementacao: {
-      commits: [
+      mudancas: [
         {
           id: 41,
           arquivo: "package.json",
           conteudo: JSON.stringify({ name: "semente", scripts: { postinstall: "node -e 1" } }),
-          mensagem: "Acrescenta um script\n\nPara rodar depois.\n\nRelato: 41",
         },
       ],
-      resultados: [{ id: 41, feito: true, resumo: "Script novo." }],
+      resultados: [{ id: 41, feito: true, assunto: "Acrescenta um script", corpo: "Para rodar depois.", resumo: "Script novo." }],
     },
   });
   try {
@@ -415,7 +448,7 @@ test("com a suíte falhando nada é publicado", async () => {
   const c = await cenario({
     pendentes: [{ id: 51, kind: "bug", status: "novo", body: "Versão errada", page: null, version: null, resolution: null, autor: confiavel }],
     triagem: { decisoes: [{ id: 51, situacao: "pronto", texto: "Ok.", plano: "Trocar a constante." }] },
-    implementacao: { commits: [commitBom(51)], resultados: [{ id: 51, feito: true }] },
+    implementacao: { mudancas: [mudancaBoa(51)], resultados: [feito(51)] },
     comandoDeTeste: [process.execPath, "-e", "process.exit(1)"],
   });
   try {
@@ -432,12 +465,16 @@ test("--ensaio roda tudo e não publica nem grava nada", async () => {
   const c = await cenario({
     pendentes: [{ id: 61, kind: "bug", status: "novo", body: "Versão errada", page: null, version: null, resolution: null, autor: confiavel }],
     triagem: { decisoes: [{ id: 61, situacao: "pronto", texto: "Ok.", plano: "Trocar a constante." }] },
-    implementacao: { commits: [commitBom(61)], resultados: [{ id: 61, feito: true }] },
+    implementacao: { mudancas: [mudancaBoa(61)], resultados: [feito(61)] },
   });
   try {
     const r = await c.rodar("--ensaio");
     assert.equal(r.codigo, 0, r.saida + r.falha);
-    assert.equal(c.chamadas().length, 2, "o ensaio precisa passar pelas duas etapas");
+    assert.deepEqual(
+      c.chamadas().map((x) => x.etapa),
+      ["leitura", "triagem", "implementacao"],
+      "o ensaio precisa passar por todas as etapas"
+    );
     assert.equal(c.pontaDoMain(), c.semente);
     assert.deepEqual(c.api.estado.decisoes, []);
     assert.deepEqual(c.api.estado.passadas, []);
@@ -461,7 +498,7 @@ test("decisão que o servidor não aceitou é reenviada na passada seguinte, ant
     const r = await c.rodar();
     assert.equal(r.codigo, 0, r.saida + r.falha);
     assert.deepEqual(c.api.estado.decisoes.map((d) => [d.id, d.status]), [[71, "rejeitado"]]);
-    assert.equal(c.chamadas().length, 1, "o relato reenviado foi triado de novo");
+    assert.deepEqual(c.chamadas().map((x) => x.etapa), ["leitura", "triagem"], "o relato reenviado foi triado de novo");
     assert.ok(!existsSync(join(c.home, "pendentes-de-envio.json")));
   } finally {
     await c.api.fechar();
@@ -496,7 +533,7 @@ test("token errado não passa da primeira leitura", async () => {
   }
 });
 
-test("cada relato é implementado numa conversa própria, e commit posto na conta de outro é barrado", async () => {
+test("cada relato é implementado numa conversa própria, e cada commit sai com o relato dele", async () => {
   const c = await cenario({
     pendentes: [
       { id: 91, kind: "bug", status: "novo", body: "Versão errada no primeiro", page: null, version: null, resolution: null, autor: confiavel },
@@ -509,18 +546,12 @@ test("cada relato é implementado numa conversa própria, e commit posto na cont
       ],
     },
     implementacao: {
-      commits: [
-        commitBom(91),
-        {
-          id: 92,
-          arquivo: "web/outro.js",
-          conteudo: "export const outro = 2;\n",
-          mensagem: "Ajusta outra constante\n\nNa conta do vizinho.\n\nRelato: 91",
-        },
-      ],
+      mudancas: [mudancaBoa(91), { id: 92, arquivo: "web/outro.js", conteudo: "export const outro = 2;\n" }],
       resultados: [
-        { id: 91, feito: true, resumo: "Primeiro corrigido." },
-        { id: 92, feito: true, resumo: "Segundo corrigido." },
+        { id: 91, feito: true, assunto: "Ajusta a versao exportada", corpo: "Estava defasada.", resumo: "Primeiro corrigido." },
+        // Tenta pôr o trabalho na conta do vizinho pelo assunto: a linha
+        // Relato quem escreve é o executor, então não adianta.
+        { id: 92, feito: true, assunto: "Ajusta outra constante (Relato: 91)", corpo: "Na conta do vizinho.", resumo: "Segundo corrigido." },
       ],
     },
   });
@@ -537,9 +568,14 @@ test("cada relato é implementado numa conversa própria, e commit posto na cont
 
     const decisoes = Object.fromEntries(c.api.estado.decisoes.map((d) => [d.id, d]));
     assert.equal(decisoes[91].status, "corrigido");
-    assert.equal(decisoes[92].status, "todo");
-    assert.match(decisoes[92].resolution, /na vez do relato 92/);
-    assert.ok(!git(c.bare, ["log", "--format=%s", "main"]).includes("Ajusta outra constante"), "o commit na conta do vizinho chegou ao main");
+    assert.equal(decisoes[92].status, "corrigido");
+    assert.notEqual(decisoes[91].commit, decisoes[92].commit, "os dois relatos sairam no mesmo commit");
+
+    // Cada commit leva a linha do relato da vez, escrita pelo executor.
+    const mensagens = git(c.bare, ["log", "--format=%B%x1e", "main"]).split(String.fromCharCode(30));
+    const doNoventaEDois = mensagens.find((m) => m.includes("Ajusta outra constante"));
+    assert.ok(doNoventaEDois.includes("Relato: 92"), "o commit do 92 nao levou o relato dele");
+    assert.equal(doNoventaEDois.split("Relato:").length, 2, "o assunto conseguiu injetar uma segunda linha de relato");
   } finally {
     await c.api.fechar();
   }

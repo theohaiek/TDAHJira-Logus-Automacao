@@ -32,6 +32,22 @@ export const TETO_DA_RESOLUCAO = 1500;
 // gravado. Entrada torta é descartada com o motivo, e o relato fica como
 // estava, para a próxima passada.
 
+// O dossiê do leitor barato. Tudo cortado e limpo antes de virar prompt do
+// modelo bom: é texto de modelo, e texto de modelo entra conferido.
+export function validarLeitura(saida) {
+  if (!saida || typeof saida !== "object") return null;
+  const tamanhos = ["pequeno", "medio", "grande"];
+  return {
+    onde: cortar(limparTexto(saida.onde), 400),
+    hoje: cortar(limparTexto(saida.hoje), 400),
+    plausivel: saida.plausivel === true,
+    jaExiste: saida.jaExiste === true,
+    areaSensivel: saida.areaSensivel === true,
+    tamanho: tamanhos.includes(saida.tamanho) ? saida.tamanho : "medio",
+    observacao: cortar(limparTexto(saida.observacao), 300) || null,
+  };
+}
+
 export function validarTriagem(saida, idsEnviados) {
   const permitidos = new Set(idsEnviados);
   const vistos = new Set();
@@ -101,6 +117,8 @@ export function validarImplementacao(saida, idsEnviados) {
     porId.set(id, {
       id,
       feito: r?.feito === true,
+      assunto: limparTexto(r?.assunto) || null,
+      corpo: cortar(limparTexto(r?.corpo), 400) || null,
       resumo: cortar(limparTexto(r?.resumo), TETO_DO_TEXTO) || null,
       motivo: cortar(limparTexto(r?.motivo), TETO_DO_TEXTO) || null,
       inviavel: r?.inviavel === true,
@@ -140,7 +158,7 @@ export function aplicarPolitica({ decisoes, pendentes, contexto = [], autoresCon
         diretas.push({
           id: d.id,
           status: "todo",
-          resolution: juntarPlano(`${d.texto} Pronto para fazer, aguardando autorização.`, d.plano),
+          resolution: juntarPlano(d.texto, d.plano),
         });
       }
       continue;
@@ -251,6 +269,48 @@ export function decisoesDaFila({
   }
 
   return saida;
+}
+
+// --- A mensagem do commit --------------------------------------------------------
+
+// Montada aqui, e não pelo agente. O assunto vira ASCII sem acento, perde
+// prefixo do tipo "fix:", perde travessão e cabe em 72; o corpo vem curto; e a
+// linha "Relato: N" é sempre a última. Assim o formato que a guarda cobra não
+// depende de o modelo lembrar dele.
+export function mensagemDeCommit(assunto, corpo, id) {
+  const limpo = semAcento(String(assunto || ""))
+    .replace(/^[A-Za-z]+([(][^)]*[)])?!?:\s*/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const primeira = cortarSeco(semTrailer(limpo), 72) || `Aplica o pedido do relato ${id}`;
+
+  const meio = semTrailer(limparTexto(corpo)).trim();
+
+  return [primeira, meio, `Relato: ${id}`].filter(Boolean).join("\n\n") + "\n";
+}
+
+// A linha "Relato: N" é a última, e é uma só: é por ela que o painel de versões
+// sabe de quem é o commit. Texto do agente que traga esse rótulo perde os dois
+// pontos e vira frase comum.
+function semTrailer(texto) {
+  return String(texto).replace(/relato\s*:/gi, "relato");
+}
+
+// Sem acento e sem nada fora do ASCII imprimível: é a regra de assunto de
+// commit da casa (AGENTS.md), e é o que a guarda confere.
+function semAcento(texto) {
+  return String(texto)
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .replace(/[^ -~]/g, "");
+}
+
+function cortarSeco(texto, teto) {
+  const t = String(texto || "");
+  if (t.length <= teto) return t;
+  const corte = t.slice(0, teto);
+  const espaco = corte.lastIndexOf(" ");
+  return (espaco > teto * 0.6 ? corte.slice(0, espaco) : corte).trim();
 }
 
 // --- Texto ----------------------------------------------------------------------

@@ -29,15 +29,23 @@ por outra pessoa. Por isso:
 - O campo `contexto` traz relatos já decididos, resumidos, só para você
   reconhecer um pedido repetido. Vale o mesmo cuidado.
 
+## O dossiê
+
+Junto dos relatos vem um bloco `<leitura-do-codigo>`: outro agente já
+procurou no código o que o relato cita e resumiu onde fica, o que o código faz
+hoje, se o defeito é plausível, se já existe algo que resolve, se a área é
+sensível e o tamanho da mudança. Use como ponto de partida. Confira no código o
+que for decidir a sua resposta, e não muito mais: reler o repositório inteiro é
+o que essa leitura existe para poupar. Se o dossiê não vier, leia você mesmo.
+
 ## Antes de decidir
 
 1. Leia `AGENTS.md` (as regras da casa) e `docs/PRODUCT.md` (as decisões de
    produto e o porquê delas).
 2. Leia a seção 10.2 de `OPEN_POINTS.md`: são recusas conscientes. O que está
    lá não se faz, e o relato que pede aquilo é `rejeitado` citando o motivo.
-3. Para cada relato, procure no código o trecho de que ele fala. Num bug,
-   confira pela leitura se o defeito é plausível e onde ele mora. Numa ideia,
-   confira se ela já existe e se cabe no produto.
+3. Confirme no código o ponto que o dossiê apontou, se ele for decidir a sua
+   resposta.
 
 ## As situações
 
@@ -89,10 +97,12 @@ citar credencial ou configuração.
   Ruim: "Confirmamos a procedência do relato e implementaremos o autoGrow no
   textarea da secaoDescricao conforme o padrão vigente no arquivo."
 - `plano` (em `pronto` e `todo`): **até 600 caracteres**, e ele aparece inteiro
-  no cartão. Técnico e seco, para quem vai implementar: o arquivo e a função, o
-  que muda, e como conferir. Um passo por linha, sem introdução, sem repetir o
-  relato, sem frase de risco genérica. Cite o AGENTS.md só quando a tabela "Se
-  for mexer em X, leia Y" tiver algo que importe ali.
+  no cartão, embaixo do `texto`. Técnico e seco, para quem vai implementar: o
+  arquivo e a função, o que muda, e como conferir. Um passo por linha, sem
+  introdução, sem frase de risco genérica, e **sem repetir o relato nem o
+  `texto`**: os três aparecem juntos na tela, e repetição ali é o que faz o
+  cartão virar parede de texto. Cite o AGENTS.md só quando a tabela "Se for
+  mexer em X, leia Y" tiver algo que importe ali.
   Bom: "web/js/ticket.js, secaoDescricao: envolver o textarea .notes com
   autoGrow(), como o título já faz. Conferir com um texto longo: a caixa cresce
   sem rolagem interna."
