@@ -3380,10 +3380,20 @@ a.sugestao__commit:hover {
   white-space: pre-wrap;
   text-wrap: pretty;
 }
-/* A versão para onde a tela Sugestões mandou. */
-.linha__item.is-destaque {
+/* A versão para onde a tela Sugestões mandou.
+
+   O realce fica no texto, e não no item inteiro: pintar o item cobria também a
+   coluna do fio, e o fio, que é fraco de propósito, sumia dentro do realce. A
+   linha que liga um commit ao seguinte aparecia cortada bem no lugar para onde
+   a pessoa tinha acabado de ser mandada. */
+.linha__item.is-destaque .linha__corpo {
+  padding: var(--sp-2) var(--sp-3);
+  margin: -6px 0 0 calc(-1 * var(--sp-2));
   border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--accent-vivo) 7%, transparent);
+  background: color-mix(in srgb, var(--accent-vivo) 8%, transparent);
+}
+.linha__item.is-destaque::before {
+  background: color-mix(in srgb, var(--accent-vivo) 45%, transparent);
 }
 .linha__item.is-destaque .linha__ponto {
   background: var(--accent-vivo);

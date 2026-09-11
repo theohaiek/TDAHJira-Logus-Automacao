@@ -2179,7 +2179,9 @@ Riscos residuais aceitos, com o porquê:
 - **Autores confiáveis começam vazios.** Só quem é administrador implementa
   sem autorização. Para incluir alguém:
   `npm run relatos:configurar -- --confiar usuario1,usuario2`.
-- **Custo.** Cada passada com fila gasta uma ou duas triagens e até cinco
-  implementações de uso da conta do Claude. Fila vazia não gasta nada.
+- **Custo.** O agente roda em Opus com esforço máximo, por decisão de quem
+  administra: decidir sozinho o que entra no main pede o melhor modelo. Em
+  Sonnet, a triagem custava cerca de US$ 0,30 e a implementação US$ 0,20; em
+  Opus é várias vezes isso. Uma passada por dia, e fila vazia não gasta nada.
 - **Só Windows.** `agendar.ps1` é do Agendador de Tarefas. Em outro sistema,
   um cron chamando `node scripts/relatos/rodar.mjs` faz o mesmo.
