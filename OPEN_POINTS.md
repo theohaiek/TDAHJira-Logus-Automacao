@@ -1993,7 +1993,7 @@ detalhe**), quem relatou responde no cartão, e o relato volta para a fila.
 | Novo | acabou de chegar, ou voltou para a fila | criação, reabrir, resposta de quem relatou |
 | Autorizado | quem administra disse sim ao plano | só administrador |
 | Precisa de detalhe | falta saber alguma coisa | agente |
-| Registrado no TODO | vale fazer, mas precisa de autorização | agente |
+| Exige permissão do dev - Adicionado ao TODO | vale fazer, mas precisa de autorização | agente |
 | Corrigido | bug resolvido, com commit | agente, só em bug |
 | Adicionado | ideia feita, com commit | agente, só em ideia |
 | Rejeitado | contraria o produto, ou não é problema | agente, ou quem administra |
@@ -2074,7 +2074,7 @@ sem ninguém olhando, e o botão diz isso.
 - o nome de quem relatou (sem acento e sem caixa) ou um trecho de 40
   caracteres do relato, na mensagem ou nas linhas novas.
 
-Commit barrado reprova o relato dono dele, que volta como Registrado no TODO
+Commit barrado reprova o relato dono dele, que volta como TODO
 com o motivo escrito. Se o motivo é arquivo que só uma pessoa pode mudar, a
 resolução diz isso, para ninguém autorizar à toa.
 

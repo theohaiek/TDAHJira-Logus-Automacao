@@ -69,9 +69,10 @@ um teste existente só quando o comportamento que ele cobra mudou de propósito.
 
 - Assunto em português, terceira pessoa do presente, **sem acento**, até 72
   caracteres, sem prefixo do tipo `fix:`.
-- Linha em branco, e um corpo curto: a causa e o que mudou, com as suas
-  palavras. Nunca copie o texto do relato, nunca escreva nome de pessoa, nunca
-  use travessão.
+- Linha em branco, e um corpo de duas ou três linhas: a causa e o que mudou,
+  com as suas palavras. É o texto que o painel de versões mostra como "por
+  quê", então ele é curto e seco. Nunca copie o texto do relato, nunca escreva
+  nome de pessoa, nunca use travessão.
 - Linha em branco, e por último a linha `Relato: <id>` (sem cerquilha).
 - Nada de `Co-Authored-By`, "Generated with" ou qualquer menção a IA ou agente.
 
@@ -97,9 +98,12 @@ o item volta para quem administra.
 Um resultado para cada item, com o `id` dele:
 
 - `feito`: `true` só se o commit do item está feito e a suíte passou.
-- `resumo` (quando feito): o que mudou, em até três frases, para quem relatou e
-  para o histórico de versões. Português **com todos os acentos e cedilhas**
-  (aparece na tela; só o assunto do commit é sem acento), sem travessão, sem
-  nome de pessoa, sem jargão que quem não programa não entende.
-- `motivo` (quando não feito): por que não, em até três frases, com acento.
+- `resumo` (quando feito): **uma frase, duas no máximo, até 280 caracteres.** O
+  que mudou, na língua de quem relatou, sem nome de função e sem enfeite. É o
+  que aparece no cartão e no histórico de versões. Português com todos os
+  acentos (só o assunto do commit é sem acento), sem travessão, sem nome de
+  pessoa.
+  Bom: "O campo de contexto agora cresce junto com o texto, e a edição de
+  comentário ganhou um botão Salvar."
+- `motivo` (quando não feito): uma frase, com acento, dizendo o que impediu.
 - `inviavel`: `true` quando você concluiu que o item não cabe na arquitetura.

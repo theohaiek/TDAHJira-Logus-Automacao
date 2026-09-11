@@ -77,7 +77,11 @@ const PADRAO = {
   token: "",
   repoUrl: repoDoPacote() || "",
   ramo: "main",
-  modelo: "sonnet",
+  // Opus no esforço máximo, sempre. Decidir sozinho o que entra no main de um
+  // produto em uso e escrever a mudança pede o melhor modelo disponível, e a
+  // conta de uma passada por dia cabe nisso.
+  modelo: "opus",
+  esforco: "max",
   autoresConfiaveis: [],
   claude: null,
   comandoDeTeste: null,
@@ -151,8 +155,8 @@ const SCHEMA_DA_TRIAGEM = {
         properties: {
           id: { type: "integer" },
           situacao: { type: "string", enum: SITUACOES_DA_TRIAGEM },
-          texto: { type: "string", maxLength: 800 },
-          plano: { type: "string", maxLength: 1500 },
+          texto: { type: "string", maxLength: 280 },
+          plano: { type: "string", maxLength: 600 },
           duplicadoDe: { type: "integer" },
         },
         required: ["id", "situacao", "texto"],
@@ -172,8 +176,8 @@ const SCHEMA_DA_IMPLEMENTACAO = {
         properties: {
           id: { type: "integer" },
           feito: { type: "boolean" },
-          resumo: { type: "string", maxLength: 800 },
-          motivo: { type: "string", maxLength: 800 },
+          resumo: { type: "string", maxLength: 280 },
+          motivo: { type: "string", maxLength: 280 },
           inviavel: { type: "boolean" },
         },
         required: ["id", "feito"],
@@ -777,13 +781,15 @@ async function chamarClaude({ config, clone, pasta, log, etapa, prompt, ferramen
     "dontAsk",
     "--model",
     config.modelo,
+    "--effort",
+    config.esforco,
     "--output-format",
     "json",
     "--json-schema",
     JSON.stringify(schema),
   ];
 
-  log(`Chamando o Claude para a ${etapa} (${config.modelo}).`);
+  log(`Chamando o Claude para a ${etapa} (${config.modelo}, esforço ${config.esforco}).`);
   const r = await executar(comando[0], args, { cwd: clone, env: ambienteDoFilho(), entrada: prompt, tempo });
   writeFileSync(join(pasta, `${etapa}.saida.json`), r.saida);
   if (r.erro) writeFileSync(join(pasta, `${etapa}.erro.txt`), r.erro);
@@ -1092,6 +1098,9 @@ function lerConfig() {
   if (!c.repoUrl) throw new Error("repoUrl vazio no config.");
   if (!/^[A-Za-z0-9._/-]+$/.test(String(c.ramo)) || String(c.ramo).startsWith("-")) throw new Error("ramo inválido no config.");
   if (!/^[A-Za-z0-9._-]+$/.test(String(c.modelo))) throw new Error("modelo inválido no config.");
+  if (!["low", "medium", "high", "xhigh", "max"].includes(String(c.esforco))) {
+    throw new Error("esforco do config precisa ser low, medium, high, xhigh ou max.");
+  }
   if (!Array.isArray(c.autoresConfiaveis)) c.autoresConfiaveis = [];
   return c;
 }

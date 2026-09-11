@@ -59,7 +59,7 @@ const ROTULO = {
   novo: "Novo",
   autorizado: "Autorizado",
   detalhe: "Precisa de detalhe",
-  todo: "Registrado no TODO",
+  todo: "Exige permissão do dev - Adicionado ao TODO",
   corrigido: "Corrigido",
   adicionado: "Adicionado",
   rejeitado: "Rejeitado",

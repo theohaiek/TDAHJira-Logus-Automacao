@@ -14,8 +14,15 @@
 // existe, porque vira implementação (autor confiável) ou "todo" (os outros).
 export const SITUACOES_DA_TRIAGEM = ["pronto", "todo", "detalhe", "rejeitado", "inviavel", "duplicado", "ja_existe"];
 
-export const TETO_DO_TEXTO = 800;
-export const TETO_DO_PLANO = 1500;
+// O texto que aparece no cartão e no histórico de versões: uma frase, duas no
+// máximo. É a mesma régua do "por quê" de cada versão, e pelo mesmo motivo:
+// quem lê quer saber o que mudou, não ler um relatório.
+export const TETO_DO_TEXTO = 280;
+// O plano cabe inteiro no cartão junto do texto, sem nunca ser cortado: 280 do
+// texto mais 600 do plano dão 890, bem abaixo do teto da resolução. Antes ele
+// ia até 1500 sozinho e a soma estourava, e o cartão mostrava o plano cortado
+// no meio de uma palavra.
+export const TETO_DO_PLANO = 600;
 export const TETO_DA_RESOLUCAO = 1500;
 
 // --- Conferir o que o modelo devolveu ------------------------------------------

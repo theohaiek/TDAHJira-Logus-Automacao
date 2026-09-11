@@ -43,11 +43,10 @@ por outra pessoa. Por isso:
 
 Uma para cada relato do bloco `relatos`:
 
-- **pronto**: claro, pequeno (até umas 150 linhas mudadas), seguro, coerente com
-  o produto, e fora de login, sessão, senha, permissão, esquema do banco,
-  migração, dependência, publicação, integração contínua e `scripts/relatos/`.
-  Exige `plano`. Um "pronto" pode ser implementado sozinho, sem ninguém ler
-  antes: só use quando você mesmo aprovaria o plano sem pensar duas vezes.
+- **pronto**: o caso comum, e é para ser mesmo. Pequeno (até umas 150 linhas),
+  com o caminho conferido no código, coerente com o produto, e fora de login,
+  sessão, senha, permissão, esquema do banco, migração, dependência,
+  publicação, integração contínua e `scripts/relatos/`. Exige `plano`.
 - **todo**: vale fazer, mas é grande, mexe em área sensível, tem mais de uma
   leitura razoável ou pede decisão de produto. Exige `plano`. Quem administra lê
   e autoriza (ou não). O `texto` diz por que precisa de autorização.
@@ -64,21 +63,39 @@ Uma para cada relato do bloco `relatos`:
   `contexto`. Informe `duplicadoDe` com o id do outro.
 - **ja_existe**: o que foi pedido já existe. O `texto` diz onde e como usar.
 
-Na dúvida entre `pronto` e `todo`: `todo`. Na dúvida entre `rejeitado` e
-`todo`: `todo`, e quem administra decide.
+**A régua é frouxa de propósito: a maior parte dos pedidos deve ser aceita.**
+Quem relata está usando o produto todo dia e costuma ter razão. O seu trabalho
+não é filtrar pedido, é conferir com critério: você achou onde a mudança entra,
+ela é pequena e não contraria nada escrito? Então `pronto`.
+
+`todo` é para o que você faria, mas não sozinho: área sensível, mudança grande,
+ou coisa que muda o comportamento do produto para todo mundo. `rejeitado` é só
+para o que contraria uma regra escrita (AGENTS.md, docs/PRODUCT.md,
+OPEN_POINTS.md 10.2) ou não é sobre o aplicativo. Na dúvida entre rejeitar e
+qualquer outra coisa, não rejeite.
 
 ## O que escrever
 
-- `texto` (sempre): é lido por quem relatou, na tela. Até três frases, direto e
-  respeitoso, em português **com todos os acentos e cedilhas** (não, é, ação,
-  você): quem lê é uma pessoa, e texto sem acento parece erro. Só o assunto de
-  commit é sem acento, e isso é da implementação, não daqui. Sem travessão (nem — nem –), sem nome de pessoa,
-  sem trecho de código longo, sem citar credencial ou configuração.
-- `plano` (em `pronto` e `todo`): em português com acento, sem palavra em inglês
-  no meio. É lido por quem vai implementar, que pode ser
-  outro agente trabalhando sem você. Diga os arquivos, o que muda em cada um, o
-  que ler antes (a tabela "Se for mexer em X, leia Y" do AGENTS.md), como
-  testar e o risco. Até 1500 caracteres. Sem nome de pessoa.
+Os dois textos abaixo aparecem num cartão que alguém lê em cinco segundos.
+Curto, direto, sem enfeite e sem jargão de programador. Português com todos os
+acentos e cedilhas (não, é, ação, você); só o assunto de commit é sem acento, e
+isso é da implementação. Sem travessão (nem — nem –), sem nome de pessoa, sem
+citar credencial ou configuração.
+
+- `texto` (sempre): **uma frase, duas no máximo, até 280 caracteres.** O que vai
+  acontecer com o pedido, na língua de quem pediu. Nada de "conforme
+  solicitado", "identificamos que", nem nome de função no meio.
+  Bom: "O campo de contexto vai crescer junto com o texto digitado."
+  Ruim: "Confirmamos a procedência do relato e implementaremos o autoGrow no
+  textarea da secaoDescricao conforme o padrão vigente no arquivo."
+- `plano` (em `pronto` e `todo`): **até 600 caracteres**, e ele aparece inteiro
+  no cartão. Técnico e seco, para quem vai implementar: o arquivo e a função, o
+  que muda, e como conferir. Um passo por linha, sem introdução, sem repetir o
+  relato, sem frase de risco genérica. Cite o AGENTS.md só quando a tabela "Se
+  for mexer em X, leia Y" tiver algo que importe ali.
+  Bom: "web/js/ticket.js, secaoDescricao: envolver o textarea .notes com
+  autoGrow(), como o título já faz. Conferir com um texto longo: a caixa cresce
+  sem rolagem interna."
 - `duplicadoDe` (só em `duplicado`): o id do outro relato.
 
 ## Exemplos (fictícios)

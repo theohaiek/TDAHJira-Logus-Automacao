@@ -273,6 +273,8 @@ test("a triagem só lê, não recebe nome de ninguém nem segredo, e as decisõe
       assert.ok(args.includes("--strict-mcp-config"));
       assert.equal(args[args.indexOf("--permission-mode") + 1], "dontAsk");
       assert.equal(args[args.indexOf("--tools") + 1], "Read,Glob,Grep");
+      assert.equal(args[args.indexOf("--model") + 1], "falso");
+      assert.equal(args[args.indexOf("--effort") + 1], "max", "o agente precisa rodar no esforço do config");
       assert.equal(triagem.segredoNoAmbiente, false, "o segredo do ambiente chegou ao Claude");
       assert.ok(triagem.prompt.includes("<dados-dos-relatos>"));
       for (const nome of ["Moradora", "Zeta", "Visitante", "Ypsilon", "morador_zz", "visitante_zz"]) {

@@ -291,7 +291,7 @@ privado). `versaoResolvida` pode vir `null` quando a linha do tempo não chega e
 2,5 s. `passada` é a última passada do agente: `{inicio, fim, analisados,
 decididos, publicados, erro}` ou `null`.
 
-Situações: `novo`, `autorizado`, `detalhe`, `todo` ("Registrado no TODO"),
+Situações: `novo`, `autorizado`, `detalhe`, `todo` ("Exige permissão do dev - Adicionado ao TODO"),
 `corrigido` (só bug), `adicionado` (só ideia), `rejeitado`, `inviavel`,
 `duplicado`, `ja_existe`.
 
