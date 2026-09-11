@@ -2115,14 +2115,16 @@ As duas alternativas foram pesadas:
 - **Autorizar exige papel de administrador.** Em produção, hoje, só a conta
   de administração tem esse papel: ou se autoriza entrando com ela, ou a conta
   pessoal de quem decide vira administradora pelo console do Turso.
-- **O Claude real ainda não rodou uma passada.** Nesta sessão, o classificador
-  do modo automático recusou chamar o `claude -p` de dentro dela, então tudo
-  foi testado com um Claude falso (`tests/relatos-rodar.test.js`, sem gastar
-  token). A primeira passada de verdade deve ser um ensaio olhando:
-  `npm run relatos -- --ensaio`. O que o ensaio confirma e o teste não tem
-  como confirmar: que `--permission-mode dontAsk` com `Bash(git commit:*)`
-  deixa commitar no modo `--restricted`, e que o `--json-schema` devolve
-  `structured_output` no formato esperado.
+- **A primeira passada real foi local, em 11 de setembro de 2026.** Com o
+  servidor e um repositório bare locais, sem tocar em produção. A triagem
+  decidiu certo e devolveu o formato pedido (US$ 0,24), mas escreveu sem
+  acento: o prompt foi reforçado. A implementação teve Edit e Write negados,
+  porque no modo `dontAsk` o que não está na lista de permissões é negado, e
+  devolveu o relato como TODO, que é o comportamento de segurança certo.
+  Corrigido, com teste que lê o settings que o Claude recebe. Na segunda
+  passada, pelo caminho da autorização, ela trocou as duas linhas, a suíte
+  passou, a guarda aprovou e o commit chegou ao main local (US$ 0,16). Falta a
+  primeira passada em produção, de preferência com `--ensaio`.
 - **Autores confiáveis começam vazios.** Só quem é administrador implementa
   sem autorização. Para incluir alguém:
   `npm run relatos:configurar -- --confiar usuario1,usuario2`.

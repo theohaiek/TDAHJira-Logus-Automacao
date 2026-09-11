@@ -95,8 +95,15 @@ const PERMISSOES_DA_TRIAGEM = {
   deny: ["Bash", "WebFetch", "WebSearch", "Edit", "Write"],
 };
 
+// Edit e Write precisam estar na lista, e não é detalhe: no modo dontAsk tudo
+// que não foi pré-aprovado é negado, inclusive editar arquivo. A primeira
+// passada de verdade, em 11/9/2026, rodou sem os dois e o agente não conseguiu
+// mudar uma linha. O --restricted continua confinando a escrita ao clone, e as
+// escritas em .git e em configuração continuam só com uma pessoa aprovando.
 const PERMISSOES_DA_IMPLEMENTACAO = {
   allow: [
+    "Edit",
+    "Write",
     "Bash(npm test)",
     "Bash(npm test:*)",
     "Bash(node --test:*)",

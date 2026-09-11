@@ -98,7 +98,8 @@ Um resultado para cada item, com o `id` dele:
 
 - `feito`: `true` só se o commit do item está feito e a suíte passou.
 - `resumo` (quando feito): o que mudou, em até três frases, para quem relatou e
-  para o histórico de versões. Português com acento, sem travessão, sem nome de
-  pessoa, sem jargão que quem não programa não entende.
-- `motivo` (quando não feito): por que não, em até três frases.
+  para o histórico de versões. Português **com todos os acentos e cedilhas**
+  (aparece na tela; só o assunto do commit é sem acento), sem travessão, sem
+  nome de pessoa, sem jargão que quem não programa não entende.
+- `motivo` (quando não feito): por que não, em até três frases, com acento.
 - `inviavel`: `true` quando você concluiu que o item não cabe na arquitetura.

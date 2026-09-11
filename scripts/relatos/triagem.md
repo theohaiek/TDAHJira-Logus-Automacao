@@ -69,10 +69,13 @@ Na dúvida entre `pronto` e `todo`: `todo`. Na dúvida entre `rejeitado` e
 
 ## O que escrever
 
-- `texto` (sempre): é lido por quem relatou. Até três frases, em português com
-  acento, direto e respeitoso. Sem travessão (nem — nem –), sem nome de pessoa,
+- `texto` (sempre): é lido por quem relatou, na tela. Até três frases, direto e
+  respeitoso, em português **com todos os acentos e cedilhas** (não, é, ação,
+  você): quem lê é uma pessoa, e texto sem acento parece erro. Só o assunto de
+  commit é sem acento, e isso é da implementação, não daqui. Sem travessão (nem — nem –), sem nome de pessoa,
   sem trecho de código longo, sem citar credencial ou configuração.
-- `plano` (em `pronto` e `todo`): é lido por quem vai implementar, que pode ser
+- `plano` (em `pronto` e `todo`): em português com acento, sem palavra em inglês
+  no meio. É lido por quem vai implementar, que pode ser
   outro agente trabalhando sem você. Diga os arquivos, o que muda em cada um, o
   que ler antes (a tabela "Se for mexer em X, leia Y" do AGENTS.md), como
   testar e o risco. Até 1500 caracteres. Sem nome de pessoa.

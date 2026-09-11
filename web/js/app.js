@@ -821,7 +821,7 @@ async function criarPessoa() {
     emit();
 
     // A senha só existe em texto neste instante. Depois disso, só o hash.
-    toast(`${resposta.user.name} criada — senha: ${resposta.senhaInicial}`, { ms: 30000 });
+    toast(`${resposta.user.name} criada, senha: ${resposta.senhaInicial}`, { ms: 30000 });
   } catch (err) {
     erro(err.message);
   }

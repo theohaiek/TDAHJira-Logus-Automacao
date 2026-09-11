@@ -339,6 +339,20 @@ test("pronto de autor confiável vira commit no main e corrigido com o sha publi
     assert.equal(im.args[im.args.indexOf("--tools") + 1], "Read,Edit,Write,Glob,Grep,Bash");
     assert.equal(im.segredoNoAmbiente, false);
 
+    // No modo dontAsk, ferramenta fora da lista é negada. Sem Edit e Write na
+    // lista, a primeira passada de verdade não conseguiu mudar uma linha.
+    const settings = JSON.parse(readFileSync(im.args[im.args.indexOf("--settings") + 1], "utf8"));
+    assert.ok(settings.permissions.allow.includes("Edit"), "a implementação não pode editar");
+    assert.ok(settings.permissions.allow.includes("Write"), "a implementação não pode criar arquivo");
+    assert.ok(settings.permissions.deny.includes("Bash(git push:*)"));
+    assert.equal(settings.includeCoAuthoredBy, false);
+
+    const triagem = c.chamadas().find((x) => x.etapa === "triagem");
+    const daTriagem = JSON.parse(readFileSync(triagem.args[triagem.args.indexOf("--settings") + 1], "utf8"));
+    for (const negado of ["Bash", "Edit", "Write", "WebFetch"]) {
+      assert.ok(daTriagem.permissions.deny.includes(negado), `a triagem pode ${negado}`);
+    }
+
     const ponta = c.pontaDoMain();
     assert.notEqual(ponta, c.semente, "nada foi publicado");
     assert.match(c.mensagemDoMain(), /Relato: 21/);

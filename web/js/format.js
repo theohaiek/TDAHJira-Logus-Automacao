@@ -59,7 +59,7 @@ export const KIND_BOARD_TITLE = {
 
 export const KIND_HINT = {
   longa: "Não vence e não tem pressa. Fica aqui para não se perder.",
-  oportunidade: "Ainda não é tarefa — é algo que pode valer a pena.",
+  oportunidade: "Ainda não é tarefa: é algo que pode valer a pena.",
   meta: "Para onde isso tudo está indo.",
 };
 
