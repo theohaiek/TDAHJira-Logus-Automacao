@@ -157,7 +157,9 @@ export async function registrarFeedback(entrada, user) {
     await run("UPDATE feedback SET issue_url = ? WHERE id = ?", [issueUrl, id]);
   }
 
-  return { id, encaminhado: !!issueUrl };
+  // A agenda vai junto: quem acabou de escrever quer saber quando alguém olha
+  // para aquilo, e a resposta é a próxima passada do agente.
+  return { id, encaminhado: !!issueUrl, agenda: agendaDoAgente(await ultimaPassada()) };
 }
 
 // --- O quadro de sugestões --------------------------------------------------
@@ -203,6 +205,7 @@ export async function quadroDeSugestoes(user) {
   return {
     feedback: linhas.map((r) => formatar(r, porRelato.get(Number(r.id)) || [], { admin, ...contexto })),
     passada,
+    agenda: agendaDoAgente(passada),
     encaminhamento: encaminhamentoConfigurado(),
     repo: contexto.repo,
   };
@@ -522,6 +525,97 @@ export async function ultimaPassada() {
   } catch {
     return null;
   }
+}
+
+// --- A agenda do agente -----------------------------------------------------
+//
+// O agente não roda aqui: roda na máquina de quem administra, uma vez por dia.
+// Isso é o que a tela precisa dizer a quem relatou, porque a resposta a "quando
+// isso fica pronto?" é o horário dessa passada, e não o de agora.
+//
+// Duas coisas saem daqui: a previsão (a próxima passada mais o tempo que a
+// última levou) e o aviso de que a máquina não apareceu na hora marcada. Sem o
+// segundo, a tela prometeria uma entrega para uma máquina desligada.
+const HORARIO = /^([01]?[0-9]|2[0-3]):([0-5][0-9])$/.exec(process.env.RELATOS_HORARIO || "")?.slice(1) || ["5", "17"];
+const FUSO = process.env.RELATOS_FUSO || "America/Sao_Paulo";
+const DIA = 86400000;
+const MINUTO = 60000;
+// Quanto tempo depois da hora marcada ainda é "está rodando", e não "sumiu". A
+// tarefa do Windows espera a rede e pode levar até três horas.
+const TOLERANCIA = 4 * 60 * MINUTO;
+
+export function agendaDoAgente(passada, agora = new Date()) {
+  const anterior = slotDaPassada(agora, 0);
+  const duracao = duracaoDaPassada(passada);
+  const ultima = Date.parse(passada?.fim || passada?.inicio || "") || null;
+  const jaVeio = !!ultima && ultima >= anterior;
+
+  // Três estados, e não dois. Já passou hoje: a próxima é amanhã. Ainda não
+  // passou, mas está na janela: ela é agora, porque a tarefa roda assim que o
+  // computador liga. Ainda não passou e a janela fechou: a máquina não vai
+  // aparecer, e prometer entrega seria mentir.
+  const atrasou = !jaVeio && agora.getTime() - anterior > TOLERANCIA;
+  const inicio = jaVeio || atrasou ? slotDaPassada(agora, 1) : Math.max(anterior, agora.getTime());
+  const entrega = Math.max(inicio + duracao, agora.getTime() + 10 * MINUTO);
+
+  return {
+    horario: `${String(HORARIO[0]).padStart(2, "0")}:${HORARIO[1]}`,
+    proxima: new Date(inicio).toISOString(),
+    entrega: new Date(entrega).toISOString(),
+    duracao: Math.round(duracao / MINUTO),
+    esperando: atrasou,
+  };
+}
+
+// A próxima passada (n = 1) ou a última que já devia ter acontecido (n = 0), em
+// milissegundos. O horário é o do relógio de parede da máquina que roda o
+// agente, e por isso o fuso entra na conta.
+function slotDaPassada(agora, n) {
+  const p = relogio(agora);
+  const hoje = instanteDe({ ...p, hour: Number(HORARIO[0]), minute: Number(HORARIO[1]) });
+  const passou = agora.getTime() >= hoje;
+  return hoje + (n === 1 ? (passou ? DIA : 0) : passou ? 0 : -DIA);
+}
+
+function relogio(instante) {
+  const partes = new Intl.DateTimeFormat("en-CA", {
+    timeZone: FUSO,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).formatToParts(instante);
+  const p = {};
+  for (const x of partes) if (x.type !== "literal") p[x.type] = Number(x.value);
+  return p;
+}
+
+// O caminho de volta: de hora de parede para instante. Vai e ajusta pelo desvio
+// do fuso naquele momento, duas vezes, que é o bastante para acertar também no
+// dia em que o relógio muda de hora.
+function instanteDe(p) {
+  const comoSeFosseUtc = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, 0);
+  let t = comoSeFosseUtc;
+  for (let i = 0; i < 2; i++) t = comoSeFosseUtc - desvioDoFuso(t);
+  return t;
+}
+
+function desvioDoFuso(t) {
+  const p = relogio(new Date(t));
+  return Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) - Math.floor(t / 1000) * 1000;
+}
+
+// Quanto a passada costuma levar, pela última que rodou. Entre 20 minutos e
+// três horas: abaixo disso a previsão vira uma promessa que não se cumpre, e
+// acima o limite da própria tarefa agendada já teria cortado.
+function duracaoDaPassada(passada) {
+  const inicio = Date.parse(passada?.inicio || "");
+  const fim = Date.parse(passada?.fim || "");
+  const medida = inicio && fim && fim > inicio ? fim - inicio : 30 * MINUTO;
+  return Math.min(Math.max(medida, 20 * MINUTO), 180 * MINUTO);
 }
 
 // --- O painel de versões ----------------------------------------------------

@@ -2119,6 +2119,17 @@ As duas alternativas foram pesadas:
   abrir o "por quê", o relato, quem relatou e o que mudou. "na v1.3.41", no
   cartão, abre o painel já na versão certa.
 - `GET /api/feedback` passou a ser de qualquer pessoa com sessão (seção 20.2).
+- **Previsão de entrega.** Quem relata vê quando a resposta chega, no aviso do
+  envio e no cartão: a próxima passada mais o tempo que a última levou
+  (`agendaDoAgente`, em `server/feedback.js`). Quem autoriza vê a previsão da
+  publicação. O que espera resposta de gente (uma pergunta, uma autorização)
+  não ganha previsão: a hora ali não depende do agente.
+- **"Esperando conexão com servidor de desenvolvimento".** O agente roda na
+  máquina de quem desenvolve, e ela não fica ligada o dia inteiro. Passou da
+  hora marcada mais quatro horas sem passada nenhuma: a tela troca toda
+  previsão por essa frase, em vez de prometer uma entrega que não vai
+  acontecer. A hora e o fuso são `RELATOS_HORARIO` e `RELATOS_FUSO`, e
+  precisam bater com o que `agendar.ps1` agendou.
 
 ### 21.8 A revisão adversarial, em 11 de setembro de 2026
 

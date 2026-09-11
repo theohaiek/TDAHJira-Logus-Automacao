@@ -348,7 +348,12 @@ Instruções completas em `.env.example`.
 Uma opcional para o agente diário dos relatos: `RELATOS_AGENTE_TOKEN`, com 32
 caracteres ou mais. Sem ela as rotas `/api/agente` respondem 404 e o ciclo não
 existe. O valor não se inventa à mão: `npm run relatos:configurar` gera um e
-copia (ver "O agente diário dos relatos", abaixo).
+copia (ver "O agente diário dos relatos", abaixo). Junto dela, duas que só a
+tela usa: `RELATOS_HORARIO` e `RELATOS_FUSO` (padrão `05:17` em
+`America/Sao_Paulo`), que dizem quando a passada roda. É delas que sai a
+previsão de entrega no cartão do relato, e o aviso "Esperando conexão com
+servidor de desenvolvimento" quando a máquina do agente falta à hora marcada.
+Mudou a hora em `agendar.ps1`? Mude aqui também, senão a tela promete errado.
 
 Os nomes em `.env.example` estão sempre vazios — mantenha assim.
 

@@ -13,6 +13,7 @@
 import { h, mount, $ } from "./dom.js";
 import { api } from "./api.js";
 import { toast, erro } from "./toast.js";
+import { previsaoTexto } from "./format.js";
 
 let caixa = null;
 let tipo = "bug";
@@ -159,6 +160,15 @@ function contexto() {
   return { page, version: /^v\d/.test(version) ? version : "" };
 }
 
+// Quando o agente olha para o que acabou de ser escrito. É a diferença entre
+// "recebido" e "recebido, e alguém olha para isso hoje às 05:40": sem a hora,
+// quem escreveu fica sem saber se vale voltar amanhã ou daqui a uma semana.
+function previsao(agenda) {
+  if (!agenda) return null;
+  if (agenda.esperando) return "Esperando conexão com servidor de desenvolvimento.";
+  return `Resposta prevista ${previsaoTexto(agenda.entrega)}.`;
+}
+
 async function enviar(e) {
   e.preventDefault();
   if (enviando) return;
@@ -178,7 +188,8 @@ async function enviar(e) {
     // e não por import: este popup não precisa saber que ela existe.
     window.dispatchEvent(new CustomEvent("relato:enviado", { detail: { id: r.id } }));
     const nome = tipo === "bug" ? "Bug" : "Ideia";
-    toast(r.encaminhado ? `${nome} recebido e encaminhado. Obrigado.` : `${nome} recebido. Obrigado.`, {
+    toast([`${nome} recebido.`, r.encaminhado ? "Encaminhado." : null, previsao(r.agenda)].filter(Boolean).join(" "), {
+      ms: 7000,
       acao: "Acompanhar",
       aoClicar: () => {
         location.hash = r.id ? `#/sugestoes/${r.id}` : "#/sugestoes";

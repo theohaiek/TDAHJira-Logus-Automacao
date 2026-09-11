@@ -152,6 +152,21 @@ export function desde(isoTs) {
   return `${Math.round(meses / 12)} a`;
 }
 
+// O contrário de desde(): uma hora que ainda não chegou, dita como se fala.
+// "hoje às 05:40", "amanhã às 05:40", "quinta às 05:40". Vai dentro do cartão,
+// então é curto de propósito.
+export function previsaoTexto(isoTs) {
+  if (!isoTs) return "";
+  const d = new Date(isoTs);
+  if (Number.isNaN(d.getTime())) return "";
+  const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const n = diasAte(isoDia(d));
+  if (n === 0) return `hoje às ${hora}`;
+  if (n === 1) return `amanhã às ${hora}`;
+  if (n > 1 && n < 7) return `${SEMANA[d.getDay()]} às ${hora}`;
+  return `${d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })} às ${hora}`;
+}
+
 export function dataHoraLonga(isoTs) {
   if (!isoTs) return "";
   return new Date(isoTs).toLocaleString("pt-BR", {

@@ -244,7 +244,9 @@ test("o token não aparece em resposta nenhuma", async () => {
   // O repositório, não no envio: qualquer membro envia, e saber para onde o
   // relato foi não é informação que ele precise.
   assert.ok(!envio.corpo.includes("dono/relatos"), "o repositório vazou na resposta de envio");
-  assert.deepEqual(Object.keys(envio.dados).sort(), ["encaminhado", "id"]);
+  assert.deepEqual(Object.keys(envio.dados).sort(), ["agenda", "encaminhado", "id"]);
+  // A agenda diz quando o agente passa, e nada sobre a máquina dele.
+  assert.deepEqual(Object.keys(envio.dados.agenda).sort(), ["duracao", "entrega", "esperando", "horario", "proxima"]);
 
   // Na lista de quem administra ele aparece, e é de propósito: o link de cada
   // issue é o que essa pessoa vai clicar para abrir o relato.

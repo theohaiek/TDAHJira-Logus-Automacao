@@ -106,7 +106,7 @@ function cabecalho(d) {
       text:
         d?.tipo === "mais"
           ? "Escolha para onde ir. As cenas do trilho mostram quem tem mais trabalho aberto."
-          : `Arraste o fundo para trocar de cena, ou use [ e ]. Dois cliques no fundo do quadro o alargam.${
+          : `Arraste o fundo para trocar de cena, ou use ← e →. Dois cliques no fundo do quadro o alargam.${
               p ? ` Filtrado por ${p.name}.` : ""
             }`,
     })

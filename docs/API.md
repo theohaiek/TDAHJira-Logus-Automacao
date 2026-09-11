@@ -260,8 +260,8 @@ O nome de quem relatou vem do banco, nunca do commit.
 
 | Método | Rota | Quem | Retorno |
 |---|---|---|---|
-| `POST` | `/feedback` — `{kind, body, page?, version?}` | qualquer sessão | `201 {id, encaminhado}` |
-| `GET` | `/feedback` | qualquer sessão | `{feedback, passada, encaminhamento, repo}` |
+| `POST` | `/feedback` — `{kind, body, page?, version?}` | qualquer sessão | `201 {id, encaminhado, agenda}` |
+| `GET` | `/feedback` | qualquer sessão | `{feedback, passada, agenda, encaminhamento, repo}` |
 | `POST` | `/feedback/{id}/acao` — `{acao, nota?}` | só administrador | `{relato}` |
 | `POST` | `/feedback/{id}/complemento` — `{texto}` | só quem relatou | `{relato}` |
 
@@ -290,6 +290,14 @@ O relato:
 privado). `versaoResolvida` pode vir `null` quando a linha do tempo não chega em
 2,5 s. `passada` é a última passada do agente: `{inicio, fim, analisados,
 decididos, publicados, erro}` ou `null`.
+
+`agenda` é quando o agente passa de novo, para a tela prever a entrega:
+`{horario, proxima, entrega, duracao, esperando}`. `proxima` e `entrega` são
+instantes ISO, `duracao` está em minutos, e `esperando` vem `true` quando a
+máquina que roda o agente faltou à hora marcada: aí a tela mostra "Esperando
+conexão com servidor de desenvolvimento" no lugar da previsão. O horário e o
+fuso vêm de `RELATOS_HORARIO` e `RELATOS_FUSO` (padrão `05:17` em
+`America/Sao_Paulo`).
 
 Situações: `novo`, `autorizado`, `detalhe`, `todo` ("Exige permissão do dev - Adicionado ao TODO"),
 `corrigido` (só bug), `adicionado` (só ideia), `rejeitado`, `inviavel`,

@@ -15,7 +15,7 @@
 import { h, frag } from "../dom.js";
 import { api } from "../api.js";
 import { state, emit } from "../store.js";
-import { SITUACAO_RELATO, desde, dataHoraLonga, plural } from "../format.js";
+import { SITUACAO_RELATO, desde, dataHoraLonga, previsaoTexto, plural } from "../format.js";
 import { toast, erro } from "../toast.js";
 import { pedir } from "../dialog.js";
 import { abrirVersao } from "../versao.js";
@@ -46,6 +46,11 @@ const ocupados = new Set();
 
 let filtro = "todas";
 let rolouAte = null;
+
+// O que a tela diz no lugar de uma previsão quando a máquina que roda o agente
+// não apareceu. Uma frase só, e sempre a mesma: quem lê precisa reconhecer que
+// é isso de novo, e não um erro novo.
+const ESPERANDO = "Esperando conexão com servidor de desenvolvimento";
 
 // O ⚑ avisa por evento que um relato novo chegou, e não por import: o popup de
 // relatar não precisa saber que esta tela existe.
@@ -196,6 +201,13 @@ function botaoDeFiltro(valor, rotulo) {
 function linhaDaPassada(dados) {
   const p = dados?.passada;
   if (!dados) return "";
+  // O agente roda na máquina de quem desenvolve, e ela não fica ligada o dia
+  // inteiro. Faltou à hora marcada: isto aqui é a resposta honesta, e nenhum
+  // cartão promete entrega enquanto for verdade.
+  if (dados.agenda?.esperando) {
+    const quando = p ? desde(p.fim || p.inicio) : null;
+    return [ESPERANDO, quando ? `última passada há ${quando}` : "nenhuma passada até agora"].join(" · ");
+  }
   if (!p) return "O agente ainda não passou por aqui.";
   if (p.erro) return `A última passada do agente falhou: ${p.erro}`;
   const quando = desde(p.fim || p.inicio);
@@ -364,7 +376,8 @@ function pilha(r) {
 
   if (!eventos.length) {
     // Relato anterior à história por evento: mostra o que existe.
-    if (!r.resolution && !duplicado) return null;
+    const prevista = previsao(r);
+    if (!r.resolution && !duplicado && !prevista) return null;
     const s = SITUACAO_RELATO[r.status] || SITUACAO_RELATO.novo;
     return h(
       "ol",
@@ -374,7 +387,8 @@ function pilha(r) {
         { class: `sugestao__passo sugestao__passo--${s.tom} is-atual` },
         duplicado,
         r.resolution ? h("p", { class: "sugestao__resposta", text: r.resolution }) : null,
-        entrega(r)
+        entrega(r),
+        prevista
       )
     );
   }
@@ -408,8 +422,36 @@ function passo(e, r, atual, primeiro, duplicado) {
     ),
     atual && duplicado ? duplicado : null,
     e.nota ? h("p", { class: "sugestao__resposta", text: e.nota }) : null,
-    atual ? entrega(r) : null
+    atual ? entrega(r) : null,
+    atual ? previsao(r) : null
   );
+}
+
+// Quando isto fica pronto. Só faz sentido no que está na mão do agente: o que
+// espera resposta de gente (uma pergunta, uma autorização) depende de alguém
+// abrir a tela, e prever isso seria chute.
+//
+// O relato novo espera a resposta da próxima passada. O autorizado espera a
+// correção e a publicação dela. Se a máquina do agente faltou à hora marcada,
+// as duas viram a mesma frase de espera.
+function previsao(r) {
+  const agenda = cache.dados?.agenda;
+  if (!agenda) return null;
+  if (!["novo", "autorizado"].includes(r.status)) return null;
+
+  if (agenda.esperando) {
+    return h("p", {
+      class: "sugestao__previsao is-esperando",
+      text: ESPERANDO,
+      title: `O agente roda uma vez por dia, às ${agenda.horario}, na máquina de quem desenvolve. Ela não passou por aqui na última.`,
+    });
+  }
+
+  return h("p", {
+    class: "sugestao__previsao",
+    text: `${r.status === "autorizado" ? "Publicação prevista" : "Resposta prevista"}: ${previsaoTexto(agenda.entrega)}`,
+    title: `A passada do agente é às ${agenda.horario} e costuma levar ${plural(agenda.duracao, "minuto", "minutos")}.`,
+  });
 }
 
 // "Novo" quer dizer coisas diferentes conforme onde está na pilha: o primeiro
@@ -531,10 +573,21 @@ function formularioDeResposta(r) {
 // --- Ações ------------------------------------------------------------------
 
 const MENSAGEM_DA_ACAO = {
-  autorizar: "Autorizado. Entra na próxima passada do agente.",
+  autorizar: "Autorizado.",
   recusar: "Recusado.",
   reabrir: "Reaberto. Volta para a fila do agente.",
 };
+
+// O que vem depois de autorizar e de reabrir é uma passada do agente, e é aí
+// que a hora importa: quem autoriza quer saber quando aquilo está publicado.
+function comPrevisao(acao) {
+  const agenda = cache.dados?.agenda;
+  const base = MENSAGEM_DA_ACAO[acao];
+  if (!agenda || !["autorizar", "reabrir"].includes(acao)) return base;
+  if (agenda.esperando) return `${base} ${ESPERANDO}.`;
+  const oQue = acao === "autorizar" ? "Publicação prevista" : "Resposta prevista";
+  return `${base} ${oQue} ${previsaoTexto(agenda.entrega)}.`;
+}
 
 async function agir(r, acao) {
   if (ocupados.has(r.id)) return;
@@ -559,7 +612,7 @@ async function agir(r, acao) {
   try {
     const { relato } = await api.relatoAcao(r.id, acao, nota);
     trocar(relato);
-    toast(MENSAGEM_DA_ACAO[acao]);
+    toast(comPrevisao(acao));
   } catch (err) {
     erro(err.message);
     // Conflito quer dizer que o relato mudou desde que a tela carregou (o

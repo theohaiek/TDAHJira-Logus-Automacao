@@ -572,3 +572,39 @@ test("caractere invisível e de direção não entra no relato nem na resoluçã
   assert.equal(resposta.statusCode, 200);
   assert.ok(!resposta.dados.relato.body.includes(rlo), "caractere de direção entrou pelo complemento");
 });
+
+// --- A agenda do agente -------------------------------------------------------------
+
+// A tela promete uma hora a quem relatou. A promessa vale enquanto a máquina
+// que roda o agente aparece na hora marcada; quando ela falta, a tela precisa
+// dizer isso em vez de prometer.
+test("a agenda diz a próxima passada, e avisa quando a máquina do agente faltou", async () => {
+  const { agendaDoAgente } = await import("../server/feedback.js");
+  const passadaDe = (dia, minutos) => ({
+    inicio: `2026-09-${dia}T08:17:00Z`,
+    fim: `2026-09-${dia}T${String(8 + Math.floor((17 + minutos) / 60)).padStart(2, "0")}:${String((17 + minutos) % 60).padStart(2, "0")}:00Z`,
+  });
+
+  // Meia-noite em Brasília: a passada de hoje ainda vem, e a previsão é dela.
+  const antes = agendaDoAgente(passadaDe("10", 23), new Date("2026-09-11T03:00:00Z"));
+  assert.equal(antes.esperando, false);
+  assert.equal(antes.horario, "05:17");
+  assert.equal(antes.proxima, "2026-09-11T08:17:00.000Z");
+  assert.equal(antes.entrega, "2026-09-11T08:40:00.000Z", "a previsão é a passada mais o tempo da última");
+
+  // Já passou hoje: a próxima é a de amanhã.
+  const depois = agendaDoAgente(passadaDe("11", 35), new Date("2026-09-11T12:00:00Z"));
+  assert.equal(depois.esperando, false);
+  assert.equal(depois.proxima, "2026-09-12T08:17:00.000Z");
+
+  // Passou da hora e ela não veio, mas ainda está na janela: a tarefa roda
+  // quando o computador liga, então a previsão é para já.
+  const atrasada = agendaDoAgente(passadaDe("09", 35), new Date("2026-09-11T09:00:00Z"));
+  assert.equal(atrasada.esperando, false);
+  assert.ok(Date.parse(atrasada.entrega) - Date.parse("2026-09-11T09:00:00Z") <= 40 * 60000);
+
+  // A janela fechou: sem previsão nenhuma.
+  for (const p of [passadaDe("09", 35), null]) {
+    assert.equal(agendaDoAgente(p, new Date("2026-09-11T13:30:00Z")).esperando, true);
+  }
+});
