@@ -496,12 +496,14 @@ function secaoDescricao(t) {
     "section",
     { class: "ticket__section" },
     h("div", { class: "ticket__label" }, "Contexto"),
-    h("textarea", {
-      class: "notes",
-      value: t.description || "",
-      placeholder: "O que precisa ser sabido para fazer isso? Cole links, decisões, o que veio do cliente…",
-      onBlur: (e) => salvarTexto("description", t.description || "", e.target.value),
-    })
+    autoGrow(
+      h("textarea", {
+        class: "notes",
+        value: t.description || "",
+        placeholder: "O que precisa ser sabido para fazer isso? Cole links, decisões, o que veio do cliente…",
+        onBlur: (e) => salvarTexto("description", t.description || "", e.target.value),
+      })
+    )
   );
 }
 
@@ -696,26 +698,38 @@ function comentario(c, t) {
 }
 
 function editarComentario(c, corpo, t) {
+  const salvar = async () => {
+    try {
+      const r = await api.editComment(c.id, area.value);
+      dados.comments = r.comments;
+      render();
+    } catch (err) {
+      erro(err.message);
+    }
+  };
+
   const area = autoGrow(
     h("textarea", {
       class: "notes",
       value: c.body,
-      onKeydown: async (e) => {
+      onKeydown: (e) => {
         if (e.key === "Escape") render();
         if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
           e.preventDefault();
-          try {
-            const r = await api.editComment(c.id, area.value);
-            dados.comments = r.comments;
-            render();
-          } catch (err) {
-            erro(err.message);
-          }
+          salvar();
         }
       },
     })
   );
-  corpo.replaceWith(area);
+
+  const caixa = h(
+    "div",
+    {},
+    area,
+    h("button", { class: "btn btn--primary btn--sm", text: "Salvar", onClick: salvar })
+  );
+
+  corpo.replaceWith(caixa);
   area.focus();
 }
 
