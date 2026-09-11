@@ -1,6 +1,6 @@
 {
   "name": "tdah-logus",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Gerenciador de tarefas visual: a simplicidade de uma planilha com a rastreabilidade de um issue tracker.",
   "private": true,
   "type": "module",

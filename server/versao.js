@@ -61,6 +61,11 @@ export async function versao() {
 // Em ordem decrescente: a busca pega a primeira série que começa em ou antes do
 // commit, e a primeira da lista é a mais recente.
 const SERIES = [
+  // O relato de dentro do aplicativo: o ⚑ na barra de cima, e daí para o ciclo
+  // inteiro (tela Sugestões, agente diário). O produto deixou de só receber
+  // trabalho e passou a responder a quem usa. ("Deixa relatar bug ou ideia de
+  // dentro do aplicativo")
+  { minor: "1.4", doCommit: 68 },
   // Os cartões flutuantes: o quadro virou uma pilha de painéis. É outra forma
   // de usar o produto, não um ajuste — a tela principal deixou de ser um
   // quadro só. ("Transforma as cenas do quadro em paineis flutuantes")

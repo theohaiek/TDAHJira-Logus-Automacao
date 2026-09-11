@@ -407,8 +407,9 @@ campo no formulário.
 
 ## 9. Estado em 11 de setembro de 2026
 
-Série **v1.3**. O relato de bug e ideia deixou de parar no banco: virou um
-ciclo com agente diário.
+Série **v1.4**, que começa no commit do botão de relatar: o produto deixou de
+só receber trabalho e passou a responder a quem usa. O relato de bug e ideia
+não para mais no banco, virou um ciclo com agente diário.
 
 - A tela **Sugestões** (atalho 5) mostra cada relato com a situação dele: no
   alto o que espera autorização, depois abertas, feitas (com a versão e o
