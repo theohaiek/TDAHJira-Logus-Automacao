@@ -2182,10 +2182,16 @@ Riscos residuais aceitos, com o porquê:
 
 ### 21.7 Em aberto
 
-- **Ativar em produção.** Três passos, na ordem: `npm run relatos:configurar`
-  (gera o token e copia), colar como `RELATOS_AGENTE_TOKEN` na Vercel e
-  publicar de novo, `npm run relatos:agendar`. Até lá as rotas do agente
-  respondem 404 e nada acontece.
+- **Ligado em produção em 11 de setembro de 2026.** Token na Vercel,
+  `ADMIN_USERNAME` no painel e tarefa diária registrada para as 05:17. Para
+  ligar em outra instalação, na ordem: `npm run relatos:configurar` (gera o
+  token e copia), colar como `RELATOS_AGENTE_TOKEN` na hospedagem e publicar
+  de novo, `npm run relatos:agendar`. Sem o token as rotas do agente respondem
+  404 e nada acontece.
+- **A primeira passada automática é a de 12 de setembro de 2026.** Até aqui
+  todas foram disparadas à mão. Como conferir se ela veio: a linha do alto da
+  tela Sugestões, que passa a dizer "Esperando conexão com servidor de
+  desenvolvimento" quando a máquina falta à hora marcada.
 - **Autorizar exige papel de administrador.** Quem decide precisa do papel
   `admin`. O caminho sem console de banco é `ADMIN_USERNAME=<usuario>` no
   painel da Vercel: na subida seguinte a conta com esse nome vira
@@ -2199,14 +2205,23 @@ Riscos residuais aceitos, com o porquê:
   devolveu o relato como TODO, que é o comportamento de segurança certo.
   Corrigido, com teste que lê o settings que o Claude recebe. Na segunda
   passada, pelo caminho da autorização, ela trocou as duas linhas, a suíte
-  passou, a guarda aprovou e o commit chegou ao main local (US$ 0,16). Falta a
-  primeira passada em produção, de preferência com `--ensaio`.
+  passou, a guarda aprovou e o commit chegou ao main local (US$ 0,16).
+- **A primeira volta em produção fechou no mesmo dia.** Um relato do time,
+  triagem, TODO, autorização pela tela, implementação, guarda, push. O cartão
+  mostrou Corrigido com a versão e o commit.
 - **Autores confiáveis começam vazios.** Só quem é administrador implementa
   sem autorização. Para incluir alguém:
   `npm run relatos:configurar -- --confiar usuario1,usuario2`.
-- **Custo.** O agente roda em Opus com esforço máximo, por decisão de quem
-  administra: decidir sozinho o que entra no main pede o melhor modelo. Em
+- **Custo, e a divisão de modelos.** Decidir sozinho o que entra no main pede o
+  melhor modelo, então a triagem e a implementação são Opus no esforço máximo.
+  O que se repete a cada relato (procurar no código onde o problema mora) saiu
+  de lá: virou um agente de leitura em Sonnet, esforço baixo, que devolve um
+  dossiê curto. O Opus recebe o dossiê pronto e lê menos repositório. Em
   Sonnet, a triagem custava cerca de US$ 0,30 e a implementação US$ 0,20; em
   Opus é várias vezes isso. Uma passada por dia, e fila vazia não gasta nada.
+- **A previsão de entrega depende do relógio da hospedagem bater com o do
+  agendador.** `RELATOS_HORARIO` e `RELATOS_FUSO` (padrão `05:17` em
+  `America/Sao_Paulo`) não mudam nada no agente: só a tela usa. Mudar a hora em
+  `agendar.ps1` sem mudar as duas faz a tela prometer a hora errada.
 - **Só Windows.** `agendar.ps1` é do Agendador de Tarefas. Em outro sistema,
   um cron chamando `node scripts/relatos/rodar.mjs` faz o mesmo.

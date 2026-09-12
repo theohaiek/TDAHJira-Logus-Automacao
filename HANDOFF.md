@@ -422,7 +422,35 @@ campo no formulário.
 
 ---
 
-## 9. Estado em 11 de setembro de 2026
+## 9. Estado em 12 de setembro de 2026
+
+Série **v1.4**. O ciclo dos relatos saiu do papel: está ligado em produção,
+agendado, e já fechou uma volta inteira sozinho (relato do time, triagem,
+autorização pela tela, commit e push).
+
+- **Ligado em produção.** Token do agente na Vercel, `ADMIN_USERNAME` para
+  promover a conta de quem administra, e a tarefa diária registrada no
+  Windows para as 05:17. Até aqui todas as passadas foram disparadas à mão; a
+  primeira automática é a de 12/09.
+- **Dois modelos, por custo.** A leitura do código (a parte que se repete a
+  cada relato) roda em Sonnet, esforço baixo, e devolve um dossiê. O Opus, no
+  esforço máximo, recebe o dossiê pronto e gasta o esforço onde importa:
+  decidir e escrever o plano e o fix.
+- **O commit é do executor.** O agente não tem mais git de escrita: deixa a
+  mudança na árvore e devolve assunto e corpo. `mensagemDeCommit`
+  (`scripts/relatos/plano.mjs`) monta a mensagem, corta o assunto em 72 sem
+  acento e põe a linha `Relato: N` no fim, uma só.
+- **O cartão conta o processo.** As atualizações empilham, a mais nova em
+  cima; o passo de cima aparece inteiro e os de baixo cortam em 260
+  caracteres com "ver tudo".
+- **Previsão de entrega.** Quem relata vê a hora prevista da resposta, e quem
+  autoriza vê a da publicação. Se a máquina que roda o agente falta à hora
+  marcada, tudo isso vira "Esperando conexão com servidor de
+  desenvolvimento": nada promete entrega para uma máquina desligada.
+- No quadro, ← e → andam pelas cenas; o cartão em foco continua ficando com
+  as setas para mover a tarefa de coluna.
+- 230 testes passando.
+## 9.1 Estado em 11 de setembro de 2026
 
 Série **v1.4**, que começa no commit do botão de relatar: o produto deixou de
 só receber trabalho e passou a responder a quem usa. O relato de bug e ideia
@@ -444,7 +472,7 @@ não para mais no banco, virou um ciclo com agente diário.
   (`OPEN_POINTS.md` 21.7).
 - 218 testes passando, 76 deles novos.
 
-## 9.1 Estado em 10 de setembro de 2026
+## 9.2 Estado em 10 de setembro de 2026
 
 Série **v1.3**, marcada pelos cartões flutuantes. Produção em `v1.3.21`.
 
@@ -460,7 +488,7 @@ Série **v1.3**, marcada pelos cartões flutuantes. Produção em `v1.3.21`.
   `Handoffs/2026-09-10 - V1.3 os cartoes flutuantes/00 - Handoff.md`, com as
   cinco coisas não óbvias do trilho e o que fazer quando cada uma quebra.
 
-## 9.2 Estado em 8 de setembro de 2026
+## 9.3 Estado em 8 de setembro de 2026
 
 Marcado como `v1.0`. É a árvore que se sabe boa: se uma mudança futura derrubar
 a produção, `git revert` até aqui devolve o aplicativo ao ar.
@@ -480,7 +508,7 @@ a produção, `git revert` até aqui devolve o aplicativo ao ar.
 - Os testes deixaram de poder apagar o banco real quando escritos com `import`
   estático — armadilha reproduzida e agora barrada nos sete arquivos.
 
-## 9.3 Estado em 5 de setembro de 2026
+## 9.4 Estado em 5 de setembro de 2026
 
 - V1 completa, publicada e validada em produção de ponta a ponta: criar tarefa,
   comentar, anexar print, recuperá-lo byte a byte, e recusar acesso sem sessão.
