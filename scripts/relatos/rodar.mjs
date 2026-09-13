@@ -70,6 +70,9 @@ const TEMPO_POR_ITEM = 30 * MINUTO;
 // que passar disso fica como está e entra na passada seguinte.
 const ITENS_POR_PASSADA = 5;
 const TEMPO_DOS_TESTES = 10 * MINUTO;
+// Conferir a sintaxe de um arquivo é instantâneo; o teto aqui é só para o caso
+// de o processo travar.
+const TEMPO_DA_SINTAXE = 1 * MINUTO;
 const TRAVA_VELHA = 3 * 60 * MINUTO;
 const EXECUCOES_GUARDADAS = 30;
 const TETO_DA_SAIDA = 64 * 1024 * 1024;
@@ -94,9 +97,9 @@ const PADRAO = {
   comandoDeTeste: null,
 };
 
-// As únicas variáveis de Claude que passam. Uma lista explícita, e não o
-// prefixo inteiro: "CLAUDE_ALGUMA_API_KEY" de outra integração da máquina não
-// tem por que viajar para dentro desta.
+// As únicas variáveis de Claude que passam, e passam só para o processo do
+// CLI. Uma lista explícita, e não o prefixo inteiro: "CLAUDE_ALGUMA_API_KEY" de
+// outra integração da máquina não tem por que viajar para dentro desta.
 const DO_CLAUDE = new Set([
   "ANTHROPIC_API_KEY",
   "ANTHROPIC_AUTH_TOKEN",
@@ -127,10 +130,6 @@ const PERMISSOES_DA_IMPLEMENTACAO = {
   allow: [
     "Edit",
     "Write",
-    "Bash(npm test)",
-    "Bash(npm test:*)",
-    "Bash(node --test:*)",
-    "Bash(node --check:*)",
     "Bash(git status:*)",
     "Bash(git diff:*)",
     "Bash(git log:*)",
@@ -138,6 +137,19 @@ const PERMISSOES_DA_IMPLEMENTACAO = {
     "Bash(git restore:*)",
   ],
   deny: [
+    // Nada que execute JavaScript. O agente tem Write, então qualquer comando
+    // que rode um arquivo é código dele rodando nesta máquina, fora de qualquer
+    // lista de permissão e antes de qualquer guarda. "npm test" nem é comando
+    // fixo: é o que estiver no package.json do clone. E "node --check" parece
+    // inofensivo mas não é: ele carrega os módulos de --require antes de
+    // conferir a sintaxe, e a permissão casa por prefixo, então
+    // "node --check -r ./qualquer.cjs alvo.js" executa o qualquer.cjs.
+    // Conferido nesta máquina, Node 24: sai com código 0 e o preload rodou.
+    // Quem confere a sintaxe é o executor, com o nome do arquivo e mais nada;
+    // quem roda a suíte é o executor, uma vez, no ramo a publicar.
+    "Bash(npm test)",
+    "Bash(npm test:*)",
+    "Bash(node:*)",
     // Quem commita é o executor, com o assunto e o corpo que o agente devolve:
     // dois turnos a menos por relato, e uma mensagem que não tem como sair fora
     // do formato que a guarda cobra.
@@ -464,6 +476,16 @@ async function implementar({ config, clone, base, configDoGit, fila, pendentes, 
       continue;
     }
 
+    // O agente não roda nada, nem o node --check: quem confere a sintaxe do que
+    // ele escreveu é o executor, aqui, antes de virar commit.
+    const erroDeSintaxe = await conferirSintaxe(clone, log);
+    if (erroDeSintaxe) {
+      await git(clone, ["reset", "--quiet", "--hard", "HEAD"]);
+      await git(clone, ["clean", "-fdq"]);
+      resultados.set(item.id, { ...resultado, feito: false, motivo: `o código não compila: ${erroDeSintaxe}` });
+      continue;
+    }
+
     // O commit é do executor, e não do agente: assunto e corpo vêm da resposta
     // dele, a linha "Relato: N" e o formato vêm daqui. O agente não tem git de
     // escrita, então não há como o commit sair torto nem parar na conta de
@@ -635,6 +657,32 @@ async function publicar({ config, clone, aprovados, pasta, log, ensaio }) {
 
   log("O main andou duas vezes. Nada publicado; os relatos voltam na próxima passada.");
   return { publicados: new Map(), testes: true, pushAdiado: true, conflitos: [] };
+}
+
+// A conferência de sintaxe que o agente perdeu, agora do lado de cá. Só o nome
+// do arquivo vai na linha de comando, e NODE_OPTIONS sai do ambiente: é o
+// --require que faz "node --check" executar código, e nenhum dos dois caminhos
+// para chegar nele passa por aqui.
+async function conferirSintaxe(clone, log) {
+  // Os nomes vêm do próprio git, e não do recorte da saída de status: o
+  // --porcelain chega aqui com trim, e o trim come o espaço da primeira linha.
+  // O filtro "d" tira o que foi apagado, que não tem o que conferir.
+  const mexidos = await git(clone, ["diff", "--name-only", "--diff-filter=d", "HEAD"]);
+  const novos = await git(clone, ["ls-files", "--others", "--exclude-standard"]);
+  const arquivos = [...new Set(`${mexidos.saida}\n${novos.saida}`.split(String.fromCharCode(10)))]
+    .map((l) => l.trim())
+    .filter((l) => /[.](js|mjs|cjs)$/i.test(l));
+
+  for (const arquivo of arquivos) {
+    const env = ambienteDoFilho();
+    delete env.NODE_OPTIONS;
+    const r = await executar(process.execPath, ["--check", arquivo], { cwd: clone, env, tempo: TEMPO_DA_SINTAXE });
+    if (r.codigo !== 0 || r.estourou) {
+      log(`${arquivo} não passou no node --check.`);
+      return resumir(r.erro || r.saida) || `${arquivo} tem erro de sintaxe`;
+    }
+  }
+  return null;
 }
 
 async function rodarTestes({ config, clone, pasta, log }) {
@@ -862,7 +910,7 @@ async function chamarClaude({ config, clone, pasta, log, etapa, prompt, ferramen
   ];
 
   log(`Chamando o Claude para a ${etapa} (${modeloDaVez}, esforço ${esforcoDaVez}).`);
-  const r = await executar(comando[0], args, { cwd: clone, env: ambienteDoFilho(), entrada: prompt, tempo });
+  const r = await executar(comando[0], args, { cwd: clone, env: ambienteDoClaude(), entrada: prompt, tempo });
   writeFileSync(join(pasta, `${etapa}.saida.json`), r.saida);
   if (r.erro) writeFileSync(join(pasta, `${etapa}.erro.txt`), r.erro);
 
@@ -977,16 +1025,14 @@ function resolverClaude(config) {
   return null;
 }
 
-// O ambiente do Claude e da suíte: o do processo, menos o que tem cara de
-// segredo. O token do agente nem está no ambiente (fica no config), mas
-// qualquer outro que a máquina tenha exportado também não vai junto.
+// O ambiente da suíte, e a base do ambiente do Claude: o do processo, menos o
+// que tem cara de segredo. O token do agente nem está no ambiente (fica no
+// config), mas qualquer outro que a máquina tenha exportado também não vai
+// junto. Aqui não sobra credencial nenhuma; a do Claude volta em
+// ambienteDoClaude, e só para o processo do CLI.
 function ambienteDoFilho() {
   const env = {};
   for (const [chave, v] of Object.entries(process.env)) {
-    if (DO_CLAUDE.has(chave.toUpperCase())) {
-      env[chave] = v;
-      continue;
-    }
     if (/TOKEN|SECRET|PASSWORD|SENHA|KEY|TURSO|VERCEL|GITHUB|GH_|RELATOS_AGENTE|ANTHROPIC|CLAUDE/i.test(chave)) continue;
     env[chave] = v;
   }
@@ -1000,6 +1046,17 @@ function ambienteDoFilho() {
   env.GIT_CONFIG_VALUE_0 = SEM_GANCHOS;
   env.GIT_CONFIG_KEY_1 = "core.fsmonitor";
   env.GIT_CONFIG_VALUE_1 = "false";
+  return env;
+}
+
+// Só o processo do CLI recebe a credencial. A suíte não: ela roda o JavaScript
+// que o agente acabou de escrever, e código do agente não tem por que ter a
+// chave da conta ao alcance.
+function ambienteDoClaude() {
+  const env = ambienteDoFilho();
+  for (const [chave, v] of Object.entries(process.env)) {
+    if (DO_CLAUDE.has(chave.toUpperCase())) env[chave] = v;
+  }
   return env;
 }
 

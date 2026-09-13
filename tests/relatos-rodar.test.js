@@ -63,7 +63,13 @@ async function claudeFalso() {
     : prompt.includes("<dados-do-relato>")
       ? "leitura"
       : "triagem";
-  const registro = { etapa, args, prompt, segredoNoAmbiente: !!process.env.SEGREDO_DE_TESTE_TOKEN };
+  const registro = {
+    etapa,
+    args,
+    prompt,
+    segredoNoAmbiente: !!process.env.SEGREDO_DE_TESTE_TOKEN,
+    credencialNoAmbiente: !!process.env.ANTHROPIC_API_KEY,
+  };
   fs.appendFileSync(cenario.registro, JSON.stringify(registro) + String.fromCharCode(10));
 
   let saida;
@@ -110,7 +116,12 @@ function montarRepositorio(pasta) {
   mkdirSync(semente, { recursive: true });
   git(pasta, ["init", "-q", "--bare", "--initial-branch=main", bare]);
   git(semente, ["init", "-q", "--initial-branch=main"]);
-  writeFileSync(join(semente, "package.json"), JSON.stringify({ name: "semente", private: true }, null, 2));
+  // "type": "module" como no repositório de verdade: sem ele o `node --check`
+  // lê os .js no modo ambíguo e deixa passar erro de sintaxe de ESM.
+  writeFileSync(
+    join(semente, "package.json"),
+    JSON.stringify({ name: "semente", private: true, type: "module" }, null, 2)
+  );
   mkdirSync(join(semente, "web"), { recursive: true });
   writeFileSync(join(semente, "web", "app.js"), "export const versao = 1;\n");
   git(semente, ["add", "-A"]);
@@ -225,7 +236,16 @@ function rodar(home, flags) {
       [RODAR, ...flags],
       {
         cwd: RAIZ,
-        env: { ...process.env, ...IDENTIDADE, RELATOS_HOME: home, SEGREDO_DE_TESTE_TOKEN: "nao-pode-chegar-ao-claude" },
+        env: {
+          ...process.env,
+          ...IDENTIDADE,
+          RELATOS_HOME: home,
+          SEGREDO_DE_TESTE_TOKEN: "nao-pode-chegar-ao-claude",
+          // O CLI precisa da credencial; a suíte não pode recebê-la. Sem
+          // plantar as duas aqui, os asserts dos dois lados ficariam vazios.
+          ANTHROPIC_API_KEY: "chave-falsa-de-teste",
+          CLAUDE_CODE_OAUTH_TOKEN: "oauth-falso-de-teste",
+        },
         timeout: 60000,
         windowsHide: true,
       },
@@ -383,6 +403,19 @@ test("pronto de autor confiável vira commit no main e corrigido com o sha publi
     assert.ok(settings.permissions.deny.includes("Bash(git push:*)"));
     assert.equal(settings.includeCoAuthoredBy, false);
 
+    // Executar seria rodar o JavaScript que este mesmo agente acabou de
+    // escrever, e ele tem Write: código dele rodando nesta máquina, fora da
+    // lista de permissão e antes da guarda. Nem "node --check" escapa: ele
+    // carrega os módulos de --require antes de conferir a sintaxe, e a
+    // permissão casa por prefixo. Quem confere a sintaxe e quem roda a suíte é
+    // o executor.
+    for (const proibido of ["Bash(npm test)", "Bash(npm test:*)", "Bash(node:*)"]) {
+      assert.ok(settings.permissions.deny.includes(proibido), `${proibido} não está negado`);
+    }
+    for (const entrada of settings.permissions.allow) {
+      assert.ok(!/^Bash[(](node|npm|npx|yarn|pnpm)\b/.test(entrada), `a implementação pode executar: ${entrada}`);
+    }
+
     const triagem = c.chamadas().find((x) => x.etapa === "triagem");
     const daTriagem = JSON.parse(readFileSync(triagem.args[triagem.args.indexOf("--settings") + 1], "utf8"));
     for (const negado of ["Bash", "Edit", "Write", "WebFetch"]) {
@@ -456,6 +489,68 @@ test("com a suíte falhando nada é publicado", async () => {
     assert.equal(c.pontaDoMain(), c.semente);
     assert.equal(c.api.estado.decisoes[0].status, "todo");
     assert.match(c.api.estado.decisoes[0].resolution, /não passou nos testes/);
+  } finally {
+    await c.api.fechar();
+  }
+});
+
+test("código que não compila não vira commit, e o relato volta com o motivo", async () => {
+  // O agente perdeu o node --check junto com o resto do Bash que executa. Quem
+  // confere agora é o executor, antes do commit.
+  const c = await cenario({
+    pendentes: [{ id: 81, kind: "bug", status: "novo", body: "Versão errada", page: null, version: null, resolution: null, autor: confiavel }],
+    triagem: { decisoes: [{ id: 81, situacao: "pronto", texto: "Ok.", plano: "Trocar a constante." }] },
+    implementacao: {
+      mudancas: [{ id: 81, arquivo: "web/app.js", conteudo: "export const versao = ;\n" }],
+      resultados: [feito(81)],
+    },
+  });
+  try {
+    const r = await c.rodar();
+    assert.equal(r.codigo, 0, r.saida + r.falha);
+    assert.equal(c.pontaDoMain(), c.semente, "o arquivo quebrado chegou ao main");
+    assert.match(c.api.estado.decisoes[0].resolution, /não compila/);
+  } finally {
+    await c.api.fechar();
+  }
+});
+
+test("a suíte roda sem a credencial do Claude no ambiente, e o CLI roda com ela", async () => {
+  // A suíte executa o JavaScript que o agente acabou de escrever. Se a chave da
+  // conta viajar junto, código do agente alcança a chave. O CLI continua
+  // recebendo tudo o que recebia: se este teste inverter, nenhuma etapa roda em
+  // produção.
+  const espia = mkdtempSync(join(TEMP, "espia-"));
+  const script = join(espia, "espia.mjs");
+  const alvo = join(espia, "ambiente.json");
+  writeFileSync(
+    script,
+    'import { writeFileSync } from "node:fs";\nwriteFileSync(process.argv[2], JSON.stringify(process.env));\n'
+  );
+
+  const c = await cenario({
+    pendentes: [{ id: 71, kind: "bug", status: "novo", body: "Versão errada", page: null, version: null, resolution: null, autor: confiavel }],
+    triagem: { decisoes: [{ id: 71, situacao: "pronto", texto: "Ok.", plano: "Trocar a constante." }] },
+    implementacao: { mudancas: [mudancaBoa(71)], resultados: [feito(71)] },
+    comandoDeTeste: [process.execPath, script, alvo],
+  });
+  try {
+    const r = await c.rodar();
+    assert.equal(r.codigo, 0, r.saida + r.falha);
+
+    const im = c.chamadas().find((x) => x.etapa === "implementacao");
+    assert.ok(im, "a implementação não foi chamada");
+    assert.equal(im.credencialNoAmbiente, true, "o CLI ficou sem credencial: nenhuma etapa rodaria em produção");
+
+    assert.ok(existsSync(alvo), "a suíte não chegou a rodar");
+    const daSuite = JSON.parse(readFileSync(alvo, "utf8"));
+    for (const chave of ["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"]) {
+      assert.ok(!(chave in daSuite), `${chave} chegou à suíte`);
+    }
+
+    // O bloco do git precisa sobreviver à separação dos dois ambientes.
+    assert.equal(daSuite.GIT_TERMINAL_PROMPT, "0");
+    assert.equal(daSuite.GIT_CONFIG_KEY_0, "core.hooksPath");
   } finally {
     await c.api.fechar();
   }

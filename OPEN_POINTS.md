@@ -1980,7 +1980,12 @@ cada versão feita pelo ciclo, de que relato ela veio e de quem.
    lista local `autoresConfiaveis`). Dos outros, vira **Registrado no TODO**,
    com o plano, esperando alguém autorizar.
 6. **Implementação.** Um relato por vez, cada um numa conversa própria, com
-   edição e um Bash que só roda teste e git de leitura. O agente **não
+   edição e um Bash que só roda git de leitura. O agente **não executa nada**:
+   `npm test`, `node --test` e `node --check` estão negados, porque ele tem
+   escrita e qualquer um dos três vira código dele rodando na máquina, antes da
+   guarda. Quem confere a sintaxe de cada arquivo mexido é o executor, com o
+   nome do arquivo e mais nada, e quem roda a suíte é o executor, uma vez, no
+   ramo a publicar. O agente também **não
    commita**: ele deixa a mudança na árvore e devolve assunto e corpo. Quem
    commita é o executor, com `mensagemDeCommit` (`plano.mjs`), que monta o
    assunto em ASCII de até 72, o corpo, e a linha `Relato: N` no fim. Assim o
