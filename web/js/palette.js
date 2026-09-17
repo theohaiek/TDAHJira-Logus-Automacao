@@ -17,6 +17,9 @@ export function abrirPaleta(inicial = "") {
   const caixa = $("#palette");
   caixa.hidden = false;
   const campo = $("#palette-input");
+  // O menu da conta e o painel de agentes escondem o campo de busca, e fechar
+  // clicando fora não o devolve: sem esta linha a paleta abria sem campo.
+  campo.hidden = false;
   campo.value = inicial;
   campo.focus();
   campo.select();

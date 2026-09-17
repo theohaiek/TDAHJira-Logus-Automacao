@@ -99,6 +99,13 @@ export const api = {
 
   timeline: (id) => request("GET", `tasks/${id}/timeline`),
 
+  deleteLink: (taskId, linkId) => request("DELETE", `tasks/${taskId}/links/${linkId}`),
+
+  // Tokens de agente (MCP). O segredo só vem na resposta de criar.
+  tokens: () => request("GET", "me/tokens", { cache: "no-store" }),
+  createToken: (nome) => request("POST", "me/tokens", { body: { nome } }),
+  revokeToken: (id) => request("DELETE", `me/tokens/${id}`),
+
   projects: () => request("GET", "projects"),
   createProject: (dados) => request("POST", "projects", { body: dados }),
   patchProject: (id, dados) => request("PATCH", `projects/${id}`, { body: dados }),

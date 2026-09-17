@@ -487,7 +487,7 @@ export async function deleteTask(id, actorId = null, vistas = new Set()) {
   for (const a of arquivos) await remover(a.stored_name);
 
   if (getDb().tipo !== "local") {
-    for (const tabela of ["steps", "comments", "attachments", "events", "task_labels", "focus_sessions"]) {
+    for (const tabela of ["steps", "comments", "attachments", "events", "task_labels", "task_links", "focus_sessions"]) {
       await run(`DELETE FROM ${tabela} WHERE task_id = ?`, [id]);
     }
   }

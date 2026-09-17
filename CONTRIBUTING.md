@@ -59,7 +59,11 @@ server/db.js        driver de banco, transações e a lista MIGRACOES
 server/auth.js      senha, sessão, freio de tentativas
 server/events.js    a trilha
 server/storage.js   driver de arquivo
+server/links.js     links da tarefa: PR, commit, branch, documento
+server/mcp/         o servidor MCP dos agentes (docs/MCP.md)
 core/schema.sql     o esquema, dialeto SQLite
+
+scripts/mcp/ponte.mjs  a ponte local do MCP, e linha de comando para automação
 
 web/js/store.js     estado e sincronização — o coração
 web/js/app.js       montagem, navegação, atalhos, ciclo de desenho
@@ -141,6 +145,9 @@ Ele é público. Isso não é detalhe:
 - **Não adicione campo ao formulário de tarefa.** Cada campo é uma decisão a
   mais por tarefa, e o produto inteiro foi construído para reduzir esse
   número. Se algo precisa ser registrado, prefira um evento na trilha.
+- **Funcionalidade nova entra no MCP no mesmo commit.** O agente dos tickets
+  precisa enxergar o que a tela enxerga. Onde e como: [AGENTS.md](AGENTS.md),
+  "O MCP acompanha tudo". A suíte recusa rota e campo novos sem isso.
 
 ## Deploy
 

@@ -44,7 +44,7 @@ import { pedir, confirmar as confirmarDialogo } from "./dialog.js";
 const NOVA_EMPRESA = "__nova__";
 
 let abertoId = null;
-let dados = { comments: [], attachments: [], timeline: [] };
+let dados = { comments: [], attachments: [], links: [], timeline: [] };
 
 // Arquivos escolhidos no compositor e ainda não enviados.
 //
@@ -71,7 +71,7 @@ export async function abrirTicket(id) {
   // A conversa da tarefa anterior não pode ficar na tela enquanto a nova
   // carrega: seriam comentários de outra tarefa, com os botões de editar e
   // apagar ativos e apontando para lá.
-  dados = { comments: [], attachments: [], timeline: [] };
+  dados = { comments: [], attachments: [], links: [], timeline: [] };
   limparPendentes();
   const drawer = $("#drawer");
   drawer.hidden = false;
@@ -85,7 +85,7 @@ export async function abrirTicket(id) {
     // atrasada não pode escrever por cima da tarefa que está aberta agora.
     if (abertoId !== alvo) return;
     mesclarTarefa(r.task);
-    dados = { comments: r.comments, attachments: r.attachments, timeline: r.timeline };
+    dados = { comments: r.comments, attachments: r.attachments, links: r.links || [], timeline: r.timeline };
     render();
   } catch (err) {
     if (abertoId !== alvo) return;
@@ -96,7 +96,7 @@ export async function abrirTicket(id) {
 
 export function fecharTicket() {
   abertoId = null;
-  dados = { comments: [], attachments: [], timeline: [] };
+  dados = { comments: [], attachments: [], links: [], timeline: [] };
   limparPendentes();
   const drawer = $("#drawer");
   if (drawer) drawer.hidden = true;
@@ -241,6 +241,7 @@ function render() {
       propriedades(t),
       secaoDescricao(t),
       secaoPassos(t),
+      secaoLinks(t),
       secaoConversa(t),
       secaoTrilha(t),
       rodape(t)
@@ -603,6 +604,79 @@ function secaoPassos(t) {
   );
 }
 
+// --- Links -----------------------------------------------------------------
+//
+// PR, commit, branch e documento que andam com a tarefa. Quase sempre ligados
+// pelo agente, pelo MCP; a seção só aparece quando há algum, para não somar
+// uma área vazia a todo ticket.
+
+const ROTULO_LINK = { pr: "PR", commit: "commit", branch: "branch", doc: "doc", link: "link" };
+
+function secaoLinks(t) {
+  if (!dados.links.length) return null;
+
+  return h(
+    "section",
+    { class: "ticket__section" },
+    h("div", { class: "ticket__label" }, "Links"),
+    h(
+      "div",
+      { class: "links" },
+      dados.links.map((l) =>
+        h(
+          "div",
+          { class: "link" },
+          h("span", { class: "link__tipo", text: ROTULO_LINK[l.kind] || l.kind }),
+          // O servidor só aceita http e https; a conferência aqui é a segunda
+          // trava, porque isto vira href na sessão de quem abre o ticket.
+          /^https?:\/\//i.test(l.url)
+            ? h("a", {
+                class: "link__url",
+                href: l.url,
+                target: "_blank",
+                rel: "noopener noreferrer",
+                text: l.title || encurtarUrl(l.url),
+                title: l.url,
+              })
+            : h("span", { class: "link__url", text: l.url }),
+          l.authorId === state.me?.id || state.me?.role === "admin"
+            ? h("button", {
+                class: "link__del",
+                text: "✕",
+                title: "Desligar",
+                "aria-label": "Desligar link",
+                onClick: async () => {
+                  const ok = await confirmarDialogo({
+                    titulo: "Desligar este link?",
+                    descricao: l.url,
+                    acao: "Desligar",
+                    destrutivo: true,
+                  });
+                  if (!ok) return;
+                  try {
+                    const r = await api.deleteLink(t.id, l.id);
+                    const linha = await api.timeline(t.id);
+                    if (abertoId !== t.id) return;
+                    dados.links = r.links;
+                    dados.timeline = linha.timeline;
+                    render();
+                  } catch (err) {
+                    erro(err.message);
+                  }
+                },
+              })
+            : null
+        )
+      )
+    )
+  );
+}
+
+// github.com/dono/repo/pull/12 cabe na linha; a URL inteira fica no title.
+function encurtarUrl(url) {
+  return url.replace(/^https?:\/\/(www\.)?/i, "").replace(/\/$/, "");
+}
+
 // --- Conversa --------------------------------------------------------------
 
 function secaoConversa(t) {
@@ -654,6 +728,11 @@ function comentario(c, t) {
         "div",
         { class: "comment__head" },
         h("span", { class: "comment__author", text: c.authorName || "Alguém" }),
+        // Sessão e handoff são o registro do agente: o selo separa do que é
+        // conversa entre pessoas sem mudar o resto do desenho.
+        c.kind && c.kind !== "comentario"
+          ? h("span", { class: "comment__tipo", text: c.kind === "sessao" ? "sessão" : "handoff" })
+          : null,
         h("span", {
           class: "comment__when",
           text: desde(c.createdAt),
@@ -923,6 +1002,7 @@ function compositor(t) {
         dados = {
           comments: novo.comments,
           attachments: novo.attachments,
+          links: novo.links || [],
           timeline: novo.timeline,
         };
       }
@@ -980,6 +1060,7 @@ function anexo(a, t) {
               dados = {
                 comments: novo.comments,
                 attachments: novo.attachments,
+                links: novo.links || [],
                 timeline: novo.timeline,
               };
               mesclarTarefa(novo.task);
@@ -1047,7 +1128,8 @@ const NARRA = {
   project: () => "mudou de projeto",
   company: (e) => (e.to ? `empresa: ${empresa(e.to)?.name || e.to}` : "tirou a empresa"),
   parent: (e) => (e.to ? "definiu a tarefa-pai" : "tirou a tarefa-pai"),
-  comment: () => "comentou",
+  comment: (e) =>
+    e.field === "handoff" ? "deixou um handoff" : e.field === "sessao" ? "registrou uma sessão" : "comentou",
   comment_edit: () => "editou um comentário",
   comment_remove: () => "apagou um comentário",
   attachment: (e) => `anexou ${e.to}`,
@@ -1058,6 +1140,8 @@ const NARRA = {
   step_remove: (e) => `removeu o passo: ${e.from}`,
   label_add: () => "marcou uma etiqueta",
   label_remove: () => "tirou uma etiqueta",
+  link_add: (e) => `ligou ${e.field === "pr" ? "um PR" : e.field === "commit" ? "um commit" : "um link"}`,
+  link_remove: (e) => (e.from ? `desligou ${e.from}` : "desligou um link"),
   archived: (e) => (e.to === "1" ? "arquivou" : "restaurou"),
 };
 
@@ -1080,6 +1164,10 @@ function secaoTrilha(t) {
             { class: `tl${e.kind === "status" ? " tl--status" : ""}`, title: dataHoraLonga(e.at) },
             h("b", { text: (e.actorName || "Alguém").split(" ")[0] }),
             ` ${NARRA[e.kind] ? NARRA[e.kind](e) : "mexeu na tarefa"} · `,
+            // Escrita de agente, pelo MCP: o evento guarda o nome do token.
+            String(e.note || "").startsWith("agente:")
+              ? h("span", { class: "muted", text: `via ${e.note.slice(7)} · ` })
+              : null,
             h("span", { class: "muted", text: desde(e.at) })
           )
         )

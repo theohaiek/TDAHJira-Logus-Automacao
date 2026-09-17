@@ -65,6 +65,15 @@ const SO_AUTORIZADO = [
   // relatosDoCommit mora aqui, e é o que liga commit a relato: a guarda lê
   // esse formato, e mudá-lo muda a própria conferência das próximas passadas.
   "server/versao.js",
+  // A porta do MCP: confere o token de agente antes de qualquer ferramenta. As
+  // ferramentas (server/mcp/ferramentas, catalogo.js) ficam livres de propósito:
+  // funcionalidade nova entra no MCP no mesmo commit, e o agente de relatos
+  // precisa poder fazer isso.
+  "server/mcp/index.js",
+  // Quem pode apagar comentário, anexo e link (dono ou administrador), e a
+  // lista fechada de tipos de anexo, que é o que mantém SVG com script fora.
+  "server/comments.js",
+  "server/links.js",
   "agents.md",
   "dockerfile",
   "compose.yaml",
@@ -84,6 +93,8 @@ const SEGREDOS = [
   /-----BEGIN [A-Z ]*PRIVATE KEY-----/,
   /eyJhbGciOi[A-Za-z0-9_-]{10,}/,
   /authToken=[^&"' ]+/i,
+  // O token de agente do MCP (server/auth.js).
+  /tdah_[A-Za-z0-9_-]{43}/,
 ];
 
 // Crédito a agente, em qualquer forma. O histórico é público e a regra é da

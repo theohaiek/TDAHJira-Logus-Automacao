@@ -33,6 +33,32 @@ const ALLOWED = new Map([
 
 const INLINE = new Set(["image/png", "image/jpeg", "image/gif", "image/webp", "image/avif"]);
 
+// Os tipos de registro na conversa. "sessao" (o que foi feito numa sessão de
+// trabalho) e "handoff" (onde parou, e o próximo passo) nasceram para o agente
+// que escreve pelo MCP, mas são da conversa de qualquer pessoa. O MCP lê esta
+// lista para montar o enum da ferramenta registrar: tipo novo entra aqui e
+// aparece lá sozinho.
+export const COMMENT_KINDS = ["comentario", "sessao", "handoff"];
+
+// Extensões que o MCP e a ponte local traduzem para um tipo aceito. .log e .md
+// viram texto puro de propósito: são o que uma automação de teste mais produz,
+// e texto puro é tipo que o anexo já aceita e o navegador nunca interpreta.
+export const MIME_DA_EXTENSAO = {
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".avif": "image/avif",
+  ".pdf": "application/pdf",
+  ".txt": "text/plain",
+  ".log": "text/plain",
+  ".md": "text/plain",
+  ".csv": "text/csv",
+  ".zip": "application/zip",
+  ".json": "application/json",
+};
+
 // --- Comentários -----------------------------------------------------------
 
 export async function listComments(taskId) {
@@ -54,6 +80,7 @@ export async function listComments(taskId) {
     authorColor: c.author_color,
     authorUsername: c.username,
     body: c.body,
+    kind: c.kind || "comentario",
     createdAt: c.created_at,
     updatedAt: c.updated_at,
     edited: !!c.edited,
@@ -61,19 +88,28 @@ export async function listComments(taskId) {
   }));
 }
 
-export async function addComment(taskId, body, actorId) {
+export async function addComment(taskId, body, actorId, kind = "comentario") {
   const text = String(body || "").trim();
   if (!text) throw badRequest("O comentário está vazio.");
   if (text.length > 20000) throw badRequest("Comentário longo demais.");
+  if (!COMMENT_KINDS.includes(kind)) throw badRequest("Tipo de registro inválido.");
 
   const existe = await one("SELECT id FROM tasks WHERE id = ?", [taskId]);
   if (!existe) throw notFound("Tarefa não encontrada.");
 
   const id = await insert(
-    "INSERT INTO comments (task_id, author_id, body, created_at) VALUES (?, ?, ?, ?)",
-    [taskId, actorId, text, nowIso()]
+    "INSERT INTO comments (task_id, author_id, body, kind, created_at) VALUES (?, ?, ?, ?, ?)",
+    [taskId, actorId, text, kind, nowIso()]
   );
-  await logEvent({ taskId, actorId, kind: "comment", to: text.slice(0, 160) });
+  // O evento continua sendo "comment": é conversa. O tipo vai em field, que é
+  // o que deixa a trilha dizer "deixou um handoff" em vez de "comentou".
+  await logEvent({
+    taskId,
+    actorId,
+    kind: "comment",
+    field: kind === "comentario" ? null : kind,
+    to: text.slice(0, 160),
+  });
   await touch(taskId);
   return one("SELECT * FROM comments WHERE id = ?", [id]);
 }

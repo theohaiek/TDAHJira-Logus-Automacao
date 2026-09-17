@@ -242,11 +242,45 @@ CREATE TABLE IF NOT EXISTS comments (
   task_id    INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
   author_id  INTEGER REFERENCES users(id) ON DELETE SET NULL,
   body       TEXT    NOT NULL,
+  -- comentario | sessao | handoff. Sessão e handoff são o registro que o
+  -- agente deixa pelo MCP: o que foi feito e onde parou. Moram na conversa, e
+  -- não numa tabela própria, porque são conversa sobre a tarefa. Também em
+  -- MIGRACOES; comentário em linha própria pelo teste de migração.
+  kind       TEXT    NOT NULL DEFAULT 'comentario',
   created_at TEXT    NOT NULL,
   updated_at TEXT,
   edited     INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_comments_task ON comments(task_id, created_at);
+
+-- --- Links da tarefa ---------------------------------------------------------
+-- PR, commit, branch ou documento ligado ao ticket. É o "link remoto" do Jira:
+-- a URL fica fora, aqui só a referência. Uma URL aparece uma vez por tarefa.
+-- Tabela nova, então o índice pode morar aqui.
+CREATE TABLE IF NOT EXISTS task_links (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  task_id    INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  kind       TEXT    NOT NULL DEFAULT 'link',   -- pr | commit | branch | doc | link
+  url        TEXT    NOT NULL,
+  title      TEXT,
+  author_id  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TEXT    NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_task_links_url ON task_links(task_id, url);
+
+-- --- Tokens de agente --------------------------------------------------------
+-- A credencial com que um agente (Claude Code, uma automação de teste) fala com
+-- o MCP em nome de uma pessoa. Só o hash fica aqui: o segredo aparece uma vez,
+-- na resposta que o cria. Vale só em /api/mcp (server/api.js).
+CREATE TABLE IF NOT EXISTS api_tokens (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name         TEXT    NOT NULL,
+  token_hash   TEXT    NOT NULL UNIQUE,
+  created_at   TEXT    NOT NULL,
+  last_used_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_api_tokens_user ON api_tokens(user_id);
 
 -- --- Anexos ----------------------------------------------------------------
 -- Pensado para o caso real: colar um print direto no ticket (Ctrl+V).

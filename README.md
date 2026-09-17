@@ -43,6 +43,11 @@ registrar o problema. O rascunho fica salvo enquanto se digita.
 Quem mudou, o que mudou, quando. Ninguém precisa preencher nada para isso
 acontecer.
 
+**MCP para agentes.** O Claude Code (ou uma automação de teste) lê os tickets e
+registra neles a sessão de trabalho, o handoff, o PR, o print e a mudança de
+estado, em nome de quem gerou o token e com a marca "via" na trilha. Menu da
+conta, **Conectar um agente**. Detalhes em [docs/MCP.md](docs/MCP.md).
+
 **Captura em uma linha.** Uma frase vira uma tarefa completa:
 
 ```
@@ -107,6 +112,7 @@ está em [docs/INSTALL.md](docs/INSTALL.md).
 | [docs/PRODUCT.md](docs/PRODUCT.md) | As decisões de produto e por que cada uma foi tomada |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Como o mesmo código atende aos dois modos de execução |
 | [docs/API.md](docs/API.md) | O contrato que os dois backends implementam |
+| [docs/MCP.md](docs/MCP.md) | O servidor MCP: conectar um agente, as ferramentas, a ponte local e como acrescentar ferramenta |
 | [docs/INSTALL.md](docs/INSTALL.md) | Instalação nos dois modos |
 | [docs/BRAND.md](docs/BRAND.md) | A identidade visual e de onde vem cada cor |
 | [OPEN_POINTS.md](OPEN_POINTS.md) | O que ficou em aberto depois da V1 |

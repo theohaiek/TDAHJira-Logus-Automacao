@@ -1,6 +1,6 @@
 {
   "name": "tdah-logus",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Gerenciador de tarefas visual: a simplicidade de uma planilha com a rastreabilidade de um issue tracker.",
   "private": true,
   "type": "module",
@@ -20,7 +20,8 @@
     "relatos": "node scripts/relatos/rodar.mjs",
     "relatos:verificar": "node scripts/relatos/rodar.mjs --verificar",
     "relatos:configurar": "node scripts/relatos/rodar.mjs --configurar",
-    "relatos:agendar": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/relatos/agendar.ps1"
+    "relatos:agendar": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/relatos/agendar.ps1",
+    "mcp": "node scripts/mcp/ponte.mjs"
   },
   "dependencies": {
     "@vercel/blob": "^2.3.0"

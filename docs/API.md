@@ -19,6 +19,10 @@ em `<img src>`.
 
 Sem sessão válida, qualquer rota responde `401` com `{ "error": "..." }`.
 
+Há uma segunda credencial, o **token de agente** (`Authorization: Bearer tdah_…`),
+e ela vale só em `/mcp`: em qualquer outra rota responde `403`. Ver "MCP", abaixo,
+e [MCP.md](MCP.md).
+
 ## Formato
 
 Entrada e saída em JSON UTF-8. Datas com hora em ISO 8601 UTC
@@ -77,7 +81,7 @@ barato.
 |---|---|---|
 | `GET` | `/tasks` | `?archived=1` inclui as arquivadas |
 | `POST` | `/tasks` | Só `title` é obrigatório → `201` |
-| `GET` | `/tasks/{id}` | Devolve `{task, comments, attachments, timeline}` |
+| `GET` | `/tasks/{id}` | Devolve `{task, comments, attachments, links, timeline}` |
 | `PATCH` | `/tasks/{id}` | Campos parciais; devolve `{task}` |
 | `DELETE` | `/tasks/{id}` | Apenas administrador |
 | `POST` | `/tasks/{id}/move` | `{status, beforeId, afterId}` → reposiciona |
@@ -164,7 +168,10 @@ todas, ou a história fica diferente conforme o backend:
 | `PATCH` | `/tasks/{id}/steps/{stepId}` | `{done}` |
 | `DELETE` | `/tasks/{id}/steps/{stepId}` | |
 | `GET` | `/tasks/{id}/comments` | |
-| `POST` | `/tasks/{id}/comments` | `{body}` → `201` |
+| `POST` | `/tasks/{id}/comments` | `{body, kind?}` → `201`. `kind`: `comentario` (padrão), `sessao` ou `handoff` |
+| `GET` | `/tasks/{id}/links` | `{links}` |
+| `POST` | `/tasks/{id}/links` | `{url, kind?, title?}` → `201`. Repetir a URL atualiza tipo e título |
+| `DELETE` | `/tasks/{id}/links/{linkId}` | Quem ligou ou administrador |
 | `PATCH` | `/comments/{id}` | Só quem escreveu |
 | `DELETE` | `/comments/{id}` | Quem escreveu ou administrador |
 | `POST` | `/tasks/{id}/attachments` | Corpo binário puro |
@@ -234,6 +241,9 @@ codifica mais gordo, e não para virar porta de entrada de arquivo grande.
 | `POST` | `/users` — só administrador; devolve `senhaInicial` uma vez |
 | `PATCH` | `/users/{id}` — só administrador: `senha` redefine (devolve `senhaInicial` uma vez e obriga a troca) e `active` ativa ou desativa, derrubando as sessões |
 | `PATCH` | `/me/prefs` |
+| `GET` | `/me/tokens` — tokens de agente da própria pessoa: `{tokens: [{id, name, createdAt, lastUsedAt}]}` |
+| `POST` | `/me/tokens` — `{nome}` → `201 {token, segredo}`. O segredo só existe nesta resposta. Teto de 20 por pessoa (`409`) |
+| `DELETE` | `/me/tokens/{id}` — revoga na hora; token de outra pessoa é `404` |
 | `POST` | `/me/password` |
 
 ### Foco
@@ -345,6 +355,34 @@ relato que exista. O relato precisa estar em `novo` ou `autorizado` (`409`
 fora disso), exceto a repetição idêntica da decisão que já está gravada, que
 responde `200` sem registrar nada de novo: é o executor reenviando o que ficou
 sem resposta na passada anterior.
+
+---
+
+### MCP
+
+O servidor MCP dos agentes, descrito por inteiro em [MCP.md](MCP.md). Só aceita
+o token de agente: sem ele, `401` com `WWW-Authenticate: Bearer`, inclusive
+para quem tem cookie de sessão.
+
+| Método | Rota | Retorno |
+|---|---|---|
+| `POST` | `/mcp` | JSON-RPC 2.0: `initialize`, `ping`, `tools/list`, `tools/call`. Notificação → `202` |
+| `GET` `DELETE` | `/mcp` | `405`: sem fluxo de eventos e sem sessão |
+| `POST` | `/mcp/anexos?ticket=&nome=&comentario=` | Corpo binário cru → `201 {texto}`. É o caminho da ponte local |
+| `GET` | `/mcp/anexos/{id}` | O arquivo, sempre como `attachment` |
+
+O link de uma tarefa:
+
+```json
+{ "id": 3, "taskId": 12, "kind": "pr", "url": "https://github.com/dono/repo/pull/12", "title": null,
+  "authorId": 1, "authorName": "Ana Exemplo", "authorUsername": "ana", "createdAt": "…" }
+```
+
+`kind` é `pr`, `commit`, `branch`, `doc` ou `link`; omitido, sai da URL. Só
+`http` e `https`. O comentário ganhou `kind` (`comentario`, `sessao`,
+`handoff`), e os eventos `link_add` e `link_remove` entraram na trilha. Toda
+escrita feita com token de agente grava `note: "agente:<nome do token>"` no
+evento.
 
 ---
 

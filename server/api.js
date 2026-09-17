@@ -22,6 +22,10 @@ import {
   publicUser,
   createUser,
   generatePassword,
+  criarTokenDeAgente,
+  tokensDe,
+  revogarToken,
+  notaDoAgente,
 } from "./auth.js";
 import {
   listTasks,
@@ -60,7 +64,10 @@ import {
   changedSince,
   deletedSince,
   logEvent,
+  origem,
 } from "./events.js";
+import { listLinks, addLink, removeLink } from "./links.js";
+import { rotaMcp } from "./mcp/index.js";
 import { readJson, readBody, sendJson, sendError, cookieHeader, parseCookies } from "./http.js";
 import { versao } from "./versao.js";
 import {
@@ -76,11 +83,28 @@ import {
   comRelatos,
 } from "./feedback.js";
 
-export async function handleApi(req, res, { path, query, user }) {
+export async function handleApi(req, res, contexto) {
+  // Escrita de agente leva o nome do token para a trilha (events.note). O
+  // contexto é aberto aqui, uma vez, e vale para tudo que a rota chamar.
+  if (!contexto.user?.agente) return rotear(req, res, contexto);
+  return origem.run({ nota: notaDoAgente(contexto.user) }, () => rotear(req, res, contexto));
+}
+
+async function rotear(req, res, { path, query, user }) {
   const seg = path.split("/").filter(Boolean); // ["api", ...]
   const parts = seg.slice(1);
   const method = req.method.toUpperCase();
   const head = parts[0];
+
+  // O token de agente vale no MCP e em mais nada. Com ele não se lê /state,
+  // não se cria acesso, não se troca senha e não se gera outro token: quem
+  // vaza o config de uma máquina leva só o que o MCP expõe.
+  if (user?.agente && head !== "mcp") {
+    return sendError(res, 403, "Token de agente só vale em /api/mcp.");
+  }
+
+  // O MCP responde o próprio 401, com o cabeçalho que o protocolo pede.
+  if (head === "mcp") return rotaMcp(req, res, { parts, method, query, user });
 
   // --- Rotas abertas -------------------------------------------------------
   if (head === "session" && method === "POST") return login(req, res);
@@ -195,6 +219,7 @@ export async function handleApi(req, res, { path, query, user }) {
           task,
           comments: await listComments(id),
           attachments: await listAttachments(id),
+          links: await listLinks(id),
           timeline: await taskTimeline(id),
         });
       }
@@ -242,7 +267,7 @@ export async function handleApi(req, res, { path, query, user }) {
       if (method === "GET") return sendJson(res, 200, { comments: await listComments(id) });
       if (method === "POST") {
         const body = await readJson(req);
-        await addComment(id, body.body, user.id);
+        await addComment(id, body.body, user.id, body.kind || undefined);
         return sendJson(res, 201, {
           comments: await listComments(id),
           task: await getTaskFull(id),
@@ -268,6 +293,23 @@ export async function handleApi(req, res, { path, query, user }) {
         actorId: user.id,
       });
       return sendJson(res, 201, { attachment: att, task: await getTaskFull(id) });
+    }
+
+    // --- Links (PR, commit, branch, documento) ---------------------------
+    if (id && parts[2] === "links") {
+      if (!parts[3] && method === "GET") return sendJson(res, 200, { links: await listLinks(id) });
+      if (!parts[3] && method === "POST") {
+        const body = await readJson(req);
+        const { link } = await addLink(id, body, user.id);
+        return sendJson(res, 201, { link, links: await listLinks(id) });
+      }
+      const linkId = Number(parts[3]);
+      if (linkId && !parts[4] && method === "DELETE") {
+        const alvo = await one("SELECT task_id FROM task_links WHERE id = ?", [linkId]);
+        if (!alvo || alvo.task_id !== id) return sendError(res, 404, "Link não encontrado.");
+        await removeLink(linkId, user);
+        return sendJson(res, 200, { links: await listLinks(id) });
+      }
     }
 
     if (id && parts[2] === "timeline" && method === "GET") {
@@ -447,6 +489,20 @@ export async function handleApi(req, res, { path, query, user }) {
 
   // --- Preferências e senha da própria pessoa -------------------------------
   if (head === "me") {
+    // Tokens de agente (MCP). Só com sessão de cookie: o gate do começo de
+    // rotear() já barra token criando token.
+    if (parts[1] === "tokens") {
+      if (!parts[2] && method === "GET") return sendJson(res, 200, { tokens: await tokensDe(user.id) });
+      if (!parts[2] && method === "POST") {
+        const body = await readJson(req);
+        return sendJson(res, 201, await criarTokenDeAgente(user.id, body.nome));
+      }
+      const tid = Number(parts[2]);
+      if (tid && !parts[3] && method === "DELETE") {
+        await revogarToken(user.id, tid);
+        return sendJson(res, 200, { ok: true });
+      }
+    }
     if (parts[1] === "prefs" && method === "PATCH") {
       const body = await readJson(req);
       const atual = safeJson((await one("SELECT prefs FROM users WHERE id = ?", [user.id]))?.prefs);

@@ -22,16 +22,15 @@ import { existsSync, mkdirSync } from "node:fs";
 import { openDb, getSetting, setSetting, one, nowIso, modo } from "./db.js";
 import { DB_FILE, DATA_DIR, UPLOAD_DIR, WEB_DIR, ROOT } from "./paths.js";
 import {
-  COOKIE,
   createUser,
   generatePassword,
-  userFromToken,
+  usuarioDaRequisicao,
   purgeExpiredSessions,
   newInstallId,
   garantirAdministrador,
 } from "./auth.js";
 import { handleApi } from "./api.js";
-import { parseCookies, sendError, serveStatic, sameOrigin } from "./http.js";
+import { sendError, serveStatic, sameOrigin } from "./http.js";
 import { seedDemo } from "./demo.js";
 
 const args = process.argv.slice(2);
@@ -120,8 +119,8 @@ function subirServidor() {
       if (!sameOrigin(req)) return sendError(res, 403, "Origem não permitida.");
 
       if (path === "api" || path.startsWith("api/")) {
-        const cookies = parseCookies(req.headers.cookie);
-        const user = await userFromToken(cookies[COOKIE]);
+        // Cookie de sessão ou token de agente: a mesma função nas duas entradas.
+        const user = await usuarioDaRequisicao(req);
         return await handleApi(req, res, { path, query: url.searchParams, user });
       }
 

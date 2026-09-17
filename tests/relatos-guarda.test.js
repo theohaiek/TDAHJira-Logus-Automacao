@@ -168,7 +168,7 @@ test("arquivo proibido é barrado, em qualquer caixa e com qualquer barra", () =
 });
 
 test("esquema, migração e roteador só passam com autorização", () => {
-  for (const caminho of ["core/schema.sql", "server/db.js", "server/api.js", "server/paths.js", "AGENTS.md"]) {
+  for (const caminho of ["core/schema.sql", "server/db.js", "server/api.js", "server/paths.js", "server/mcp/index.js", "server/comments.js", "server/links.js", "AGENTS.md"]) {
     const arquivos = [{ caminho, adicionadas: 5, removidas: 0, status: "M", binario: false, modo: "100644" }];
     const semAutorizacao = avaliar(commit({ arquivos }));
     assert.deepEqual(semAutorizacao.aprovados, [], `deixou passar ${caminho} sem autorização`);
@@ -255,6 +255,7 @@ test("segredo nas linhas novas ou na mensagem é barrado", () => {
     "-----BEGIN RSA PRIVATE KEY-----",
     "eyJhbGciOiJIUzI1NiJ9.eyJ4IjoxfQ.abc",
     "libsql://banco.turso.io?authToken=xyz123",
+    "TDAH_TOKEN=tdah_" + "d".repeat(43),
   ]) {
     assert.ok(barrou(avaliar(commit({ adicionadas: [linha] })), "credencial") || barrou(avaliar(commit({ adicionadas: [linha] })), "token"), `deixou passar ${linha.slice(0, 20)}`);
   }

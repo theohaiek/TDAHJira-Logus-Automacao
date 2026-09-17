@@ -167,7 +167,8 @@ const FRASE = {
     e.to ? `marcou ${empresa(e.to)?.name || "uma empresa"} em` : "tirou a empresa de",
   parent: (e) => (e.to ? "definiu a tarefa-pai de" : "tirou a tarefa-pai de"),
   priority: (e) => `marcou como ${e.to === "quando_der" ? "quando der" : e.to}`,
-  comment: () => "comentou em",
+  comment: (e) =>
+    e.field === "handoff" ? "deixou um handoff em" : e.field === "sessao" ? "registrou uma sessão em" : "comentou em",
   attachment: (e) => `anexou ${e.to || "um arquivo"} em`,
   step_add: () => "adicionou um passo em",
   step_done: (e) => `concluiu "${corta(e.to)}" em`,
@@ -175,6 +176,8 @@ const FRASE = {
   step_remove: () => "removeu um passo de",
   label_add: () => "marcou uma etiqueta em",
   label_remove: () => "tirou uma etiqueta de",
+  link_add: (e) => `ligou ${e.field === "pr" ? "um PR" : e.field === "commit" ? "um commit" : "um link"} a`,
+  link_remove: () => "desligou um link de",
   comment_edit: () => "editou um comentário em",
   comment_remove: () => "apagou um comentário de",
   attachment_remove: (e) => (e.from ? `removeu ${corta(e.from)} de` : "removeu um anexo de"),

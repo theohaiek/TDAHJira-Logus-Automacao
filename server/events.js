@@ -2,7 +2,17 @@
 // É o que permite responder "onde está isso e desde quando" sem pedir que
 // alguém preencha um campo a mais.
 
+import { AsyncLocalStorage } from "node:async_hooks";
 import { all, insert, nowIso } from "./db.js";
+
+// De onde veio a escrita que está acontecendo agora.
+//
+// Quando quem escreve é um agente pelo MCP, cada evento leva em `note` o nome
+// do token ("agente:Claude do notebook"), e a trilha mostra "via" ao lado de
+// quem. Guardar no contexto da requisição, e não num parâmetro, é o que evita
+// passar a origem por updateTask, addStep, setLabels e toda função que grava
+// evento: quem abre o contexto é handleApi (server/api.js), uma vez só.
+export const origem = new AsyncLocalStorage();
 
 // O universo fechado de eventos que a trilha grava.
 //
@@ -42,6 +52,8 @@ export const EVENT_KINDS = [
   "step_remove",
   "label_add",
   "label_remove",
+  "link_add",
+  "link_remove",
 ];
 
 // Os eventos que existem só para mover o relógio da sincronização.
@@ -81,7 +93,7 @@ export async function logEvent({
       field,
       from === null || from === undefined ? null : String(from),
       to === null || to === undefined ? null : String(to),
-      note,
+      note ?? origem.getStore()?.nota ?? null,
       nowIso(),
     ]
   );

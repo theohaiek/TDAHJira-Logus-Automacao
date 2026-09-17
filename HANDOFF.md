@@ -281,6 +281,9 @@ docs/RESEARCH.md      as 51 ferramentas analisadas e o que foi aproveitado
 docs/PRODUCT.md       os dez princípios e por que cada um existe
 docs/ARCHITECTURE.md  como os dois modos coexistem
 docs/API.md           o contrato, normativo
+docs/MCP.md           o servidor MCP dos agentes, e como acrescentar ferramenta
+server/mcp/           o servidor MCP (protocolo, catálogo, ferramentas)
+scripts/mcp/ponte.mjs a ponte local do MCP, e linha de comando para automação
 CONTRIBUTING.md       como mexer, para quem vai desenvolver
 AGENTS.md             o mesmo, para agentes de código
 OPEN_POINTS.md        o que ficou em aberto
@@ -326,6 +329,14 @@ mensagens 5xx são genéricas para quem chama, mas o detalhe completo fica no lo
 Dentro do aplicativo: avatar no canto inferior esquerdo → **Criar acesso para
 alguém**. Só quem é `admin` enxerga. A senha pode ser escolhida ou sorteada, e
 aparece uma única vez.
+
+### Conectar um agente (MCP)
+
+Dentro do aplicativo: menu da conta → **Conectar um agente (MCP)** → nome da
+máquina → **Gerar token**, e colar no terminal um dos dois comandos que
+aparecem. O token aparece uma vez; revogar é na mesma caixa, e vale na hora.
+Detalhes, a ponte local e a linha de comando para automação de teste:
+`docs/MCP.md`. Não há variável de ambiente nova no servidor.
 
 ### Cópia de segurança
 
@@ -422,7 +433,35 @@ campo no formulário.
 
 ---
 
-## 9. Estado em 12 de setembro de 2026
+## 9. Estado em 17 de setembro de 2026
+
+Série **v1.5**, que começa no commit do servidor MCP: o agente que trabalha nos
+tickets passou a ler e registrar direto no produto.
+
+- **`/api/mcp`, dentro da mesma função.** Streamable HTTP sem sessão e sem SSE,
+  JSON-RPC escrito à mão, sem dependência. Onze ferramentas: contexto, buscar,
+  ler, criar, editar, registrar, vincular, passos, anexar, baixar, apagar.
+- **Duas formas de conectar.** Direto por HTTP, ou pela ponte local
+  (`scripts/mcp/ponte.mjs`), que anexa e baixa arquivo por caminho sem passar
+  o conteúdo pelo modelo. A ponte também é linha de comando para automação de
+  teste.
+- **Token de agente por pessoa**, gerado na tela, só com hash no banco, e que
+  vale em `/api/mcp` e em mais nada. Toda escrita com ele marca "via <nome>"
+  na trilha.
+- **Sessão e handoff** são tipos de comentário (`comments.kind`, com migração),
+  com selo na conversa. **Links** (PR, commit, branch, doc) têm tabela própria
+  e seção no ticket.
+- **O MCP acompanha tudo, por teste.** Rota nova sem `COBERTURA`, campo novo
+  sem `CAMPOS` e ferramenta fora do catálogo derrubam a suíte, e o catálogo
+  tem teto de tamanho (hoje cerca de 1.900 tokens). O agente de relatos foi
+  avisado pelo prompt, e a guarda dele trata `server/mcp/index.js` como porta.
+- **Validado com o Claude Code real** nos dois modos, contra um servidor local.
+- **Não publicado ainda quando este texto foi escrito**: ver o commit e o
+  estado do deploy. O que ficou para as próximas versões: `OPEN_POINTS.md`
+  seção 22.
+- 259 testes passando.
+
+## 9.0 Estado em 12 de setembro de 2026
 
 Série **v1.4**. O ciclo dos relatos saiu do papel: está ligado em produção,
 agendado, e já fechou uma volta inteira sozinho (relato do time, triagem,

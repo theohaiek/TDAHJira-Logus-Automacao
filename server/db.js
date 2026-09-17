@@ -231,6 +231,9 @@ const MIGRACOES = [
   { tabela: "feedback", coluna: "commit_sha", ddl: "ALTER TABLE feedback ADD COLUMN commit_sha TEXT" },
   { tabela: "feedback", coluna: "duplicate_of", ddl: "ALTER TABLE feedback ADD COLUMN duplicate_of INTEGER" },
   { tabela: "feedback", coluna: "updated_at", ddl: "ALTER TABLE feedback ADD COLUMN updated_at TEXT" },
+  // O tipo do registro na conversa: comentario, sessao ou handoff (o MCP,
+  // server/mcp). Todo comentário que já existia é comentário.
+  { tabela: "comments", coluna: "kind", ddl: "ALTER TABLE comments ADD COLUMN kind TEXT NOT NULL DEFAULT 'comentario'" },
 ];
 
 async function aplicarMigracoes() {

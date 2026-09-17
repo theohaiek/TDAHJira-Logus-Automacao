@@ -38,6 +38,7 @@ import { toast, erro } from "./toast.js";
 import { iniciarVersao } from "./versao.js";
 import { ligarRelato } from "./feedback.js";
 import { pedir } from "./dialog.js";
+import { abrirAgentes } from "./agentes.js";
 
 // O Hoje não está aqui, e é de propósito. Ele não é uma tela: é a pergunta
 // "o que eu faço agora" chegando por cima do quadro e saindo do caminho
@@ -742,6 +743,7 @@ async function menuUsuario() {
   const opcoes = [
     { rotulo: "Trocar a senha", acao: trocarSenha },
     { rotulo: "Quantas tarefas em andamento eu aguento", acao: ajustarWip },
+    { rotulo: "Conectar um agente (MCP)", acao: abrirAgentes },
     state.me?.role === "admin" && { rotulo: "Criar acesso para alguém", acao: criarPessoa },
     {
       rotulo: "Sair",

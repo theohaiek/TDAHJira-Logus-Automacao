@@ -10,8 +10,7 @@
 import { openDb, getSetting, setSetting, one, nowIso } from "../server/db.js";
 import { DB_FILE } from "../server/paths.js";
 import {
-  COOKIE,
-  userFromToken,
+  usuarioDaRequisicao,
   createUser,
   generatePassword,
   newInstallId,
@@ -19,7 +18,7 @@ import {
   garantirAdministrador,
 } from "../server/auth.js";
 import { handleApi } from "../server/api.js";
-import { parseCookies, sendError, sameOrigin } from "../server/http.js";
+import { sendError, sameOrigin } from "../server/http.js";
 
 // Uma instância que atendeu uma requisição costuma atender as seguintes.
 // Guardar a promessa (e não o resultado) evita que duas chamadas simultâneas
@@ -99,8 +98,8 @@ export default async function handler(req, res) {
     const url = new URL(req.url, `https://${req.headers.host || "localhost"}`);
     const path = url.pathname.replace(/^\/+/, "") || "api";
 
-    const cookies = parseCookies(req.headers.cookie);
-    const user = await userFromToken(cookies[COOKIE]);
+    // Cookie de sessão ou token de agente: a mesma função nas duas entradas.
+    const user = await usuarioDaRequisicao(req);
 
     return await handleApi(req, res, { path, query: url.searchParams, user });
   } catch (err) {

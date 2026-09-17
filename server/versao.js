@@ -61,6 +61,10 @@ export async function versao() {
 // Em ordem decrescente: a busca pega a primeira série que começa em ou antes do
 // commit, e a primeira da lista é a mais recente.
 const SERIES = [
+  // O servidor MCP: o agente que trabalha nos tickets passou a ler e registrar
+  // direto no produto, com sessão, handoff, PR e anexo. O produto deixou de ser
+  // só de quem abre a tela. ("Abre a serie 1.5 com o servidor MCP dos tickets")
+  { minor: "1.5", doCommit: 86 },
   // O relato de dentro do aplicativo: o ⚑ na barra de cima, e daí para o ciclo
   // inteiro (tela Sugestões, agente diário). O produto deixou de só receber
   // trabalho e passou a responder a quem usa. ("Deixa relatar bug ou ideia de
@@ -76,6 +80,12 @@ const SERIES = [
   { minor: "1.2", doCommit: 24 },
   { minor: "1.0", doCommit: 1 },
 ];
+
+// A série de hoje, para quem precisa dizer a versão sem ler o histórico: o MCP
+// a anuncia no initialize.
+export function serieAtual() {
+  return SERIES[0].minor;
+}
 
 function serieDe(n) {
   return SERIES.find((s) => n >= s.doCommit) || SERIES[SERIES.length - 1];

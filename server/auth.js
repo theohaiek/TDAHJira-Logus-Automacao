@@ -2,8 +2,9 @@
 // sem token no repositório, sem cadastro aberto — quem entra é quem o
 // administrador criou.
 
-import { randomBytes, scryptSync, timingSafeEqual, randomUUID } from "node:crypto";
+import { randomBytes, scryptSync, timingSafeEqual, randomUUID, createHash } from "node:crypto";
 import { all, one, run, insert, nowIso } from "./db.js";
+import { parseCookies } from "./http.js";
 
 const SCRYPT = { N: 16384, r: 8, p: 1, keylen: 64 };
 const SESSION_DAYS = 30;
@@ -236,4 +237,102 @@ export function publicUser(u) {
 
 export function newInstallId() {
   return randomUUID();
+}
+
+// --- Tokens de agente --------------------------------------------------------
+//
+// A credencial do MCP (server/mcp). Um agente fala em nome de uma pessoa: o que
+// ele grava sai com o nome dela, e a trilha marca "via" com o nome do token.
+//
+// Três escolhas que parecem soltas e não são:
+//
+// - Só o hash fica no banco, e SHA-256 basta. scrypt existe para senha, que é
+//   curta e adivinhável; o segredo aqui tem 256 bits sorteados, e procurar pelo
+//   hash é uma consulta indexada em vez de um scrypt por token a cada chamada.
+// - O prefixo tdah_ é o que separa este token do RELATOS_AGENTE_TOKEN, que
+//   também chega como Bearer (em /api/agente). Sem prefixo, a requisição do
+//   agente de relatos viraria uma consulta a esta tabela.
+// - Trocar a senha NÃO revoga os tokens, diferente das sessões. O token é
+//   configuração de máquina, criado de propósito e revogável pela tela; derrubar
+//   todos a cada troca de senha quebraria o agente sem ninguém saber por quê. O
+//   que corta o acesso de quem saiu é desativar a conta, e isso vale aqui.
+const PREFIXO_TOKEN = "tdah_";
+const FORMATO_TOKEN = /^tdah_[A-Za-z0-9_-]{43}$/;
+const TOKENS_POR_PESSOA = 20;
+
+const hashDoToken = (segredo) => createHash("sha256").update(segredo).digest("hex");
+
+export async function criarTokenDeAgente(userId, nome) {
+  let limpo = "";
+  for (const ch of String(nome || "")) {
+    const code = ch.codePointAt(0);
+    if (code >= 32 && code !== 127) limpo += ch;
+  }
+  limpo = limpo.trim().slice(0, 40) || "Agente";
+
+  const { n } = await one("SELECT COUNT(*) AS n FROM api_tokens WHERE user_id = ?", [userId]);
+  if (n >= TOKENS_POR_PESSOA) {
+    throw Object.assign(new Error(`Limite de ${TOKENS_POR_PESSOA} tokens. Revogue um antes.`), { status: 409 });
+  }
+
+  const segredo = PREFIXO_TOKEN + randomBytes(32).toString("base64url");
+  const id = await insert(
+    "INSERT INTO api_tokens (user_id, name, token_hash, created_at) VALUES (?, ?, ?, ?)",
+    [userId, limpo, hashDoToken(segredo), nowIso()]
+  );
+  const linha = await one("SELECT * FROM api_tokens WHERE id = ?", [id]);
+  // O segredo existe em texto só nesta resposta.
+  return { token: tokenPublico(linha), segredo };
+}
+
+export async function tokensDe(userId) {
+  const linhas = await all("SELECT * FROM api_tokens WHERE user_id = ? ORDER BY id DESC", [userId]);
+  return linhas.map(tokenPublico);
+}
+
+export async function revogarToken(userId, id) {
+  const r = await run("DELETE FROM api_tokens WHERE id = ? AND user_id = ?", [id, userId]);
+  if (!r?.changes) throw Object.assign(new Error("Token não encontrado."), { status: 404 });
+}
+
+export async function userFromAgentToken(segredo) {
+  if (!FORMATO_TOKEN.test(String(segredo || ""))) return null;
+  const row = await one(
+    `SELECT u.*, k.id AS token_id, k.name AS token_name, k.last_used_at AS token_uso
+       FROM api_tokens k
+       JOIN users u ON u.id = k.user_id
+      WHERE k.token_hash = ? AND u.is_active = 1`,
+    [hashDoToken(segredo)]
+  );
+  if (!row) return null;
+
+  // O mesmo freio de last_seen_at: um agente chama dezenas de vezes por sessão,
+  // e ninguém precisa do minuto exato do último uso.
+  const ultimo = Date.parse(row.token_uso || "") || 0;
+  if (Date.now() - ultimo > FRESCOR_VISTO_MS) {
+    await run("UPDATE api_tokens SET last_used_at = ? WHERE id = ?", [nowIso(), row.token_id]);
+  }
+
+  const { token_id, token_name, token_uso, ...user } = row;
+  return { ...user, agente: { id: token_id, nome: token_name } };
+}
+
+// Quem fez a requisição: o token de agente, se veio um, senão o cookie.
+//
+// As duas entradas (server/index.js e api/index.js) chamam esta função, e é de
+// propósito que ela more aqui: a sequência de autenticação escrita duas vezes é
+// a junção que o AGENTS.md avisa que quebra em silêncio.
+export async function usuarioDaRequisicao(req) {
+  const m = /^Bearer\s+(tdah_\S+)\s*$/i.exec(String(req.headers.authorization || ""));
+  if (m) return userFromAgentToken(m[1]);
+  return userFromToken(parseCookies(req.headers.cookie)[COOKIE]);
+}
+
+// O que a trilha grava em events.note quando a escrita vem de um agente.
+export function notaDoAgente(user) {
+  return user?.agente ? `agente:${user.agente.nome}` : null;
+}
+
+function tokenPublico(k) {
+  return { id: k.id, name: k.name, createdAt: k.created_at, lastUsedAt: k.last_used_at || null };
 }

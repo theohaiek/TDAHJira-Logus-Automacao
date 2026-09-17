@@ -2230,3 +2230,118 @@ Riscos residuais aceitos, com o porquê:
   `agendar.ps1` sem mudar as duas faz a tela prometer a hora errada.
 - **Só Windows.** `agendar.ps1` é do Agendador de Tarefas. Em outro sistema,
   um cron chamando `node scripts/relatos/rodar.mjs` faz o mesmo.
+
+## 22. O MCP dos tickets: a série 1.5, em 17 de setembro de 2026
+
+O pedido: um MCP que faça parte de toda atualização futura, que deixe o agente
+que ajuda nos tickets registrar sessão, handoff, PR e mudança de estado, que
+oriente o agente a registrar tudo de forma sucinta, que custe poucos tokens,
+que leia todo ticket e todo campo, que baixe e poste anexo, e que seja fácil de
+atualizar, modular e sem dependência. O uso está em `docs/MCP.md`; aqui ficam
+as decisões e o que ficou para depois.
+
+### 22.1 As decisões, e o que pesou em cada uma
+
+- **O servidor mora no aplicativo, e não na máquina do agente.** `/api/mcp`,
+  dentro da mesma função. Ferramenta nova chega a todo agente no deploy, sem
+  atualizar cliente nenhum, e o código dela chama as mesmas funções da tela.
+  Um servidor só local teria que ser atualizado em cada máquina e falaria com
+  a API por HTTP, o que obrigaria uma rota REST para cada ferramenta.
+- **E uma ponte local, para o disco.** Pelo MCP remoto, anexar um print exige
+  o modelo escrever o arquivo em base64 na chamada: um print de 300 KB custaria
+  perto de 100 mil tokens. A ponte (`scripts/mcp/ponte.mjs`) recebe o caminho e
+  manda os bytes. Ela conhece só `anexar` com caminho e `baixar`; o resto é
+  repasse, e é o servidor que diz, pelo cabeçalho `X-TDAH-Ponte`, que esquema
+  cada modo vê.
+- **Sem biblioteca de MCP.** Quatro métodos de JSON-RPC, sem sessão e sem SSE.
+  O SDK oficial traria dependência, que a casa recusa, e não resolveria nada
+  que `server/mcp/index.js` não resolve em 200 linhas.
+- **Token por pessoa, e não conta de agente.** O agente escreve em nome de
+  quem o conectou: as permissões são as da pessoa, e a trilha diz quem, mais
+  "via <nome do token>". Uma conta "Claude" separada apagaria de quem foi a
+  decisão de mexer.
+- **O token vale em `/api/mcp` e em mais nada.** Quem copia o config de uma
+  máquina leva só o que as ferramentas expõem: não lê `/state` inteiro, não
+  cria acesso, não troca senha, não gera outro token, não apaga tarefa.
+- **Trocar a senha não revoga token.** Ver `docs/MCP.md`, Segurança.
+- **Sessão e handoff são comentário com tipo, e não tabela.** São conversa
+  sobre a tarefa, a tela já sabe mostrar, e o agente lê junto do resto. Uma
+  coluna (`comments.kind`, com migração) em vez de uma tabela e uma tela.
+- **Links têm tabela própria.** Um PR não é conversa: precisa de tipo, de não
+  duplicar quando o agente registra de novo, e de ser achado pela busca.
+- **"Via agente" pelo contexto da requisição.** `AsyncLocalStorage` aberto uma
+  vez em `handleApi`, lido por `logEvent`. A alternativa era passar a origem por
+  todas as funções que gravam evento.
+- **Resposta em texto, não JSON.** Numa lista de tickets, as chaves e aspas do
+  JSON dobram o custo sem acrescentar informação. `ler` com `json=true` dá o
+  objeto cru para quem precisa.
+- **Brevidade em código, não só em instrução.** `registrar` recusa acima de
+  1500 caracteres, com o motivo. Instrução pedindo texto curto o agente lê como
+  sugestão; recusa ele corrige na hora.
+- **O futuro travado por teste.** Rota nova fora de `COBERTURA`, campo novo
+  fora de `CAMPOS`, arquivo de ferramenta fora do catálogo, e catálogo acima de
+  7.500 caracteres derrubam a suíte. A regra também está no `AGENTS.md` e no
+  prompt de implementação do agente de relatos, que pode mexer nas ferramentas
+  e não na porta: `server/mcp/index.js` entrou em `SO_AUTORIZADO` da guarda, e
+  token `tdah_` entrou nos segredos que ela recusa.
+
+### 22.2 Como foi verificado
+
+- 27 testes novos (`tests/mcp.test.js`, `tests/mcp-ponte.test.js`), com banco
+  real e a ponte como processo de verdade falando com um servidor HTTP.
+- Revisão adversarial em quatro frentes (segurança, protocolo, junções entre
+  os dois modos, correção das ferramentas), cada achado verificado por um
+  refutador que tentou reproduzir. Protocolo e junções voltaram sem achado.
+  Quatro confirmados e corrigidos, com teste: o MCP atribuía ticket a pessoa
+  desativada, o que a tela não deixa; buscar dizia "não existe" para projeto
+  ou empresa arquivados com ticket vivo; criar cortava `esperando` em 200
+  caracteres em silêncio, e editar não; e a guarda dos relatos não protegia
+  `server/comments.js` nem `server/links.js`, onde mora a regra de quem
+  apaga, que agora só mudam com autorização.
+- Claude Code real, em 17/9/2026, contra servidor local: `claude mcp get`
+  mostrou os dois modos conectados, e uma sessão `claude -p` em Sonnet, só
+  com as ferramentas do MCP, leu o ticket, moveu para doing, anexou um PNG por
+  caminho, vinculou um PR e registrou um handoff no formato das instruções. A
+  trilha gravou `agente:e2e` em cada evento.
+- Tela conferida no navegador: seção de links, selo de handoff, "via" na
+  trilha e a caixa de tokens gerando os dois comandos.
+
+### 22.3 Próximas versões
+
+Em ordem de valor por esforço:
+
+1. **Relatos e Sugestões pelo MCP** (`feedback` está fora em `COBERTURA`). O
+   agente que implementa uma ideia poderia ler o relato e responder nele.
+2. **"O que mudou desde"**: atividade do time e cursor de sincronização para o
+   agente (`activity` e `sync` fora). Hoje ele relê o ticket.
+3. **Prompts do MCP** viram comando de barra no Claude Code
+   (`/mcp__tdah__handoff`): o handoff no formato da casa sem o agente decidir
+   escrever.
+4. **Token só de leitura**, e **quem administra ver e revogar** tokens de
+   qualquer pessoa. Hoje cada um vê só os seus.
+5. **Conector do claude.ai** (web e desktop) exige OAuth, que este servidor
+   não fala. Por enquanto, só Claude Code e o que aceita cabeçalho.
+6. **Estado do PR** (aberto, aprovado, mesclado) lido do GitHub e mostrado no
+   link.
+7. **Criar etiqueta, projeto e empresa**, e **editar comentário**, pelo MCP.
+   Hoje o agente corrige apagando e registrando de novo.
+8. **Adicionar link pela tela.** Hoje a tela mostra e desliga; quem liga é o
+   agente, ou a URL colada num comentário.
+9. **Ordem dentro da coluna** (`position`, em `FORA_DO_MCP`).
+10. **O caminho real do clone** no comando da ponte. A tela não sabe onde o
+    repositório está em cada máquina, e mostra um marcador para trocar.
+11. **Freio por token.** Um agente em laço grava o quanto quiser.
+
+### 22.4 Riscos aceitos
+
+- **O token fica em texto no config do Claude Code** (`~/.claude.json`) da
+  máquina. É o mesmo lugar e o mesmo risco de qualquer MCP com cabeçalho. Um
+  token por máquina deixa revogar só a que vazou.
+- **Anexo pelo modo direto** tem o teto da função hospedada: base64 de um
+  arquivo acima de uns 3 MB não passa no corpo de 4,5 MB da plataforma. A ponte
+  usa o corpo binário e chega aos 4 MB do anexo comum.
+- **`baixar` pelo modo direto devolve imagem até 3 MB** para o modelo ver. É
+  caro, e é o único jeito de ver sem disco; a descrição da ferramenta aponta a
+  ponte.
+- **`buscar` carrega todas as tarefas e filtra em código.** Para centenas é
+  instantâneo; para dezenas de milhares, vai pedir SQL e paginação.

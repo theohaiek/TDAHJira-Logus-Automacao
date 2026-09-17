@@ -73,6 +73,27 @@ Arquivo novo lido em tempo de execução fora daí some sem aviso em produção.
    `*.local.md` da raiz têm nome real e senha: eles não entram no repositório, e
    o conteúdo deles também não — nem citado em commit, comentário ou documento.
 9. **Nunca credite um agente como autor** de commit, PR ou documento.
+10. **Nunca entregue funcionalidade sem o MCP.** Ver a seção abaixo.
+
+## O MCP acompanha tudo
+
+O servidor MCP (`server/mcp/`, [docs/MCP.md](docs/MCP.md)) é por onde os agentes
+leem e registram nos tickets, e ele faz parte de toda atualização. Campo novo
+de tarefa, rota nova, recurso novo que um agente deveria enxergar: no mesmo
+commit, ganha parâmetro ou ferramenta no MCP, ou um motivo escrito para não
+ganhar.
+
+- Campo de tarefa: `CAMPOS` e `PROPRIEDADES_DO_TICKET` em `server/mcp/comum.js`,
+  ou `FORA_DO_MCP` com o motivo.
+- Rota nova em `server/api.js`: `COBERTURA` em `server/mcp/catalogo.js`, com as
+  ferramentas que a cobrem ou `{ fora: "motivo" }`.
+- Ferramenta nova: um arquivo em `server/mcp/ferramentas/` e uma linha em
+  `FERRAMENTAS`. O formato está no topo de `catalogo.js`.
+
+`tests/mcp.test.js` recusa as três coisas quando faltam, e recusa também o
+catálogo que passar do teto de tamanho: cada caractere de descrição é token
+pago em toda sessão de todo agente. Descrição de ferramenta é uma ou duas
+frases.
 
 ## Ao escrever teste
 
@@ -111,6 +132,7 @@ suíte: vale leitura atenta e coerência com o arquivo ao redor.
 | Foto de empresa | É *data URI* na coluna `companies.avatar`, e **não** passa por `server/storage.js`: sem `BLOB_READ_WRITE_TOKEN` aquele driver grava em disco, e o disco do modo hospedado é somente leitura — a foto passaria em todo teste local e nasceria quebrada em produção. O teto de 32 KB está em `validarAvatar()` (`server/api.js`), o de 24 KB no cliente (`reduzirFoto()`, em `app.js`) e o contrato em `docs/API.md` |
 | Login, sessão, senha | `server/auth.js` e `httpsAtivo()` em `server/api.js` — o `Secure` do cookie nunca é escrito à mão |
 | Transação, escrita em lote | os comentários de `tx()` em `server/db.js` |
+| MCP, token de agente, ponte local | `docs/MCP.md` e o topo de `server/mcp/catalogo.js`. O token vale só em `/api/mcp` (o portão está no começo de `rotear()`, em `server/api.js`), e as rotas binárias da ponte moram em `server/mcp/index.js`. Ferramenta que precisa de disco precisa de tratamento em `scripts/mcp/ponte.mjs` |
 | Qualquer coisa do produto | `docs/PRODUCT.md`: decisões que parecem arbitrárias e não são |
 
 ## Antes de dizer que terminou

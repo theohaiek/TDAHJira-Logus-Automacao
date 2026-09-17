@@ -51,8 +51,9 @@ Nem se o item pedir:
 Só quando o item diz `"autorizado": true`:
 
 - `core/schema.sql`, `server/db.js`, `server/api.js`, `server/index.js`,
-  `server/paths.js`, `server/storage.js`, `AGENTS.md`, `Dockerfile`,
-  `compose.yaml`
+  `server/paths.js`, `server/storage.js`, `server/versao.js`,
+  `server/mcp/index.js`, `server/comments.js`, `server/links.js`, `AGENTS.md`,
+  `Dockerfile`, `compose.yaml`
 
 Se o plano só se cumpre mexendo num desses sem autorização, não faça: responda
 `feito: false` explicando que o item precisa de autorização.
@@ -67,6 +68,10 @@ um teste existente só quando o comportamento que ele cobra mudou de propósito.
   volta, sem "já que estou aqui".
 - Correção de regra de negócio no servidor pede teste junto (AGENTS.md).
   Escreva o teste; quem executa é o programa, depois.
+- Funcionalidade nova entra no MCP no mesmo commit (AGENTS.md, "O MCP
+  acompanha tudo"): campo, rota ou recurso que o agente dos tickets deveria
+  enxergar ganha ferramenta ou parâmetro em `server/mcp/`, ou motivo escrito em
+  `COBERTURA`. A suíte recusa rota e campo novos sem isso.
 - Não execute nada. Confira relendo: passe o olho no seu diff com `git diff`
   antes de responder. Não conseguiu conferir com segurança: desfaça o que mudou
   naquele item (`git restore` e `git restore --staged`) e responda

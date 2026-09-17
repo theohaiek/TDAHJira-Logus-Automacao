@@ -161,6 +161,13 @@ server/
   auth.js               senha, sessão e freio de tentativas
   tasks.js              regras de tarefa
   comments.js           conversa e anexos
+  links.js              links da tarefa (PR, commit, branch, documento)
+  mcp/                  o servidor MCP dos agentes (MCP.md)
+    index.js            protocolo, portão do token e rotas binárias da ponte
+    catalogo.js         a lista de ferramentas e a cobertura das rotas
+    comum.js            nomes para ids, e o formato curto das respostas
+    instrucoes.js       o que o agente lê ao conectar
+    ferramentas/        uma ferramenta por arquivo
   events.js             a trilha
   http.js               utilidades de HTTP
   demo.js               dados de exemplo
@@ -183,8 +190,13 @@ web/                    interface
     palette.js          paleta de comandos
     popup.js            o Hoje como <dialog>, que é a única forma dele
     versao.js           o rótulo de versão, a linha do tempo e o limpa-cache
+    agentes.js          gerar e revogar token de agente (MCP)
     views/              hoje, quadro, planilha, fluxo
 
-tests/                  125 testes, sem dependência externa
+scripts/
+  mcp/ponte.mjs         a ponte local do MCP, e linha de comando
+  relatos/              o agente diário dos relatos
+
+tests/                  sem dependência externa
 data/                   banco e anexos no modo autônomo (fora do versionamento)
 ```
