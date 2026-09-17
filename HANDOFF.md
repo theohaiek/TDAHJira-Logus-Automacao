@@ -456,8 +456,9 @@ tickets passou a ler e registrar direto no produto.
   tem teto de tamanho (hoje cerca de 1.900 tokens). O agente de relatos foi
   avisado pelo prompt, e a guarda dele trata `server/mcp/index.js` como porta.
 - **Validado com o Claude Code real** nos dois modos, contra um servidor local.
-- **Não publicado ainda quando este texto foi escrito**: ver o commit e o
-  estado do deploy. O que ficou para as próximas versões: `OPEN_POINTS.md`
+- **Publicado em 17 de setembro de 2026** (v1.5.01). Em produção, `/api/mcp`
+  responde 401 pedindo token, e a migração passou. Para usar: menu da conta,
+  Conectar um agente. O que ficou para as próximas versões: `OPEN_POINTS.md`
   seção 22.
 - 259 testes passando.
 
